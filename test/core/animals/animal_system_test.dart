@@ -24,21 +24,43 @@ void main() {
     date: sampleDate,
   );
 
+  /// A rock built for `power` and `flybyTag`, which — unlike the ladder — read
+  /// four fields rather than one.
+  ///
+  /// [diaMax] and [missLunar] are required on purpose: they are the arithmetic
+  /// under test, and a default would hide half of a score's inputs from anyone
+  /// reading the expectation. [velKps] and [hazardous] default only because
+  /// several tests genuinely do not care which they get.
+  Asteroid probe({
+    required double diaMax,
+    required double missLunar,
+    double velKps = 10,
+    bool hazardous = false,
+  }) => Asteroid(
+    name: 'test rock',
+    diaMax: diaMax,
+    diaMin: diaMax / 2,
+    hazardous: hazardous,
+    missLunar: missLunar,
+    missKm: missLunar * 384400,
+    velKps: velKps,
+    mag: 22,
+    jpl: 'https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html',
+    date: sampleDate,
+  );
+
   group('the ladder', () {
     test('has the prototype\'s eight rungs, in ascending order', () {
-      expect(
-        kAnimals.map((Animal a) => a.species),
-        <String>[
-          'Mouse',
-          'Rabbit',
-          'Fox',
-          'Tiger',
-          'Bear',
-          'Elephant',
-          'Dino',
-          'Whale',
-        ],
-      );
+      expect(kAnimals.map((Animal a) => a.species), <String>[
+        'Mouse',
+        'Rabbit',
+        'Fox',
+        'Tiger',
+        'Bear',
+        'Elephant',
+        'Dino',
+        'Whale',
+      ]);
       expect(kAnimals.map((Animal a) => a.emoji), <String>[
         '🐭',
         '🐰',
@@ -335,6 +357,217 @@ void main() {
       // holding a name twice would just be a typo, and would skew which name
       // a hash lands on.
       expect(kNamePool.toSet().length, kNamePool.length);
+    });
+  });
+
+  group('power', () {
+    /// Captured by slicing `index.html`'s own `danger()`/`threatIndex()`
+    /// (lines 353-360) out and evaluating them over its own `FALLBACK` — the
+    /// same technique the ladder and hash tests use, for the same reason: a
+    /// four-term blend is precisely the arithmetic a careful hand-check gets
+    /// wrong without anything throwing.
+    ///
+    /// Every one of the 14, not a sample of three, because they cost nothing
+    /// and between them they span both saturating terms: `433 Eros` is 16.8 km
+    /// (the top of the size scale) at 52 Moons (the floor of `prox`), while
+    /// `2020 SW` is a 9 m pebble at 0.07 Moons (`prox` pinned to its cap).
+    const Map<String, (double, int)> protoPower = <String, (double, int)>{
+      '2011 EW': (27.339928100965185, 82),
+      '2006 QV89': (18.170904611815384, 55),
+      '2020 SW': (21.9, 66),
+      '433 Eros': (39.03191779790207, 117),
+      '2004 BL86': (34.90934131328841, 105),
+      '2012 DA14': (27.381721377144288, 82),
+      '99942 Apophis': (38.14658740875764, 114),
+      '2015 TB145': (40.91531703691118, 123),
+      '2010 WC9': (32.4776638831241, 97),
+      '2001 FO32': (36.89808203923059, 111),
+      '2005 YU55': (39.083854909137195, 117),
+      '2019 OK': (33.777663883124106, 101),
+      '2018 LF16': (23.02432902064877, 69),
+      '2013 TX68': (17.675615580824726, 53),
+    };
+
+    test('matches the prototype for all 14 sample asteroids', () {
+      for (final Asteroid a in kFallbackAsteroids) {
+        final (double score, int stars) = protoPower[a.name]!;
+        // The stars are exact — they are what a child reads. The raw score is
+        // held to a tolerance because `log10` is the one term this port cannot
+        // promise bit-for-bit: V8 implements it directly, Dart divides by
+        // ln10, and they can land an ulp apart. 1e-9 is ~7 orders of magnitude
+        // tighter than the smallest gap between any two of these scores, so it
+        // still catches a wrong weight, a wrong term, or a dropped `+ 1`.
+        expect(powerStars(a), stars, reason: a.name);
+        expect(power(a), closeTo(score, 1e-9), reason: a.name);
+      }
+    });
+
+    test('weighs the three terms exactly as the prototype does', () {
+      // `2020 SW` lands on a whole number, which makes the blend legible:
+      // size = log10(9 + 1) * 3 * 3 = 9, prox = min(6, 10 / 0.47) = 6, so
+      // 6 * 2 = 12, speed = 8.1 / 9 = 0.9, and it is unflagged. 9 + 12 + 0.9.
+      expect(
+        power(probe(diaMax: 9, missLunar: 0.07, velKps: 8.1)),
+        closeTo(21.9, 1e-9),
+      );
+    });
+
+    test('adds 2.2 for a flagged rock and nothing else', () {
+      // The only place the raw `hazardous` flag reaches a number.
+      final double calm = power(probe(diaMax: 100, missLunar: 5, velKps: 12));
+      final double flagged = power(
+        probe(diaMax: 100, missLunar: 5, velKps: 12, hazardous: true),
+      );
+      expect(flagged - calm, closeTo(2.2, 1e-9));
+    });
+
+    test(
+      'caps closeness at 6, so nothing inside ~1.27 Moons scores higher',
+      () {
+        // `10 / (missLunar + 0.4) >= 6` from 1.2666… Moons inward, so a rock
+        // grazing the atmosphere and one at 1.2 Moons are equally close as far
+        // as the score is concerned. Without the cap the term runs to 25 at
+        // missLunar = 0 and a single grazing pebble outscores Eros.
+        final double grazing = power(
+          probe(diaMax: 100, missLunar: 0, velKps: 12),
+        );
+        final double atCap = power(
+          probe(diaMax: 100, missLunar: 1.2, velKps: 12),
+        );
+        expect(grazing, closeTo(atCap, 1e-9));
+        // And just outside the cap the term is live again, so this is a cap and
+        // not a flat rate.
+        expect(
+          power(probe(diaMax: 100, missLunar: 3, velKps: 12)),
+          lessThan(atCap),
+        );
+      },
+    );
+
+    test('stays finite and positive for a sub-metre rock', () {
+      // The `+ 1` inside log10 and the `+ 0.4` inside prox are what keep this
+      // from going negative and from dividing by ~0 respectively. A 0 m rock
+      // is not real data, but it is what a garbled diameter rounds to.
+      final double p = power(probe(diaMax: 0, missLunar: 0));
+      expect(p, greaterThan(0));
+      expect(p.isFinite, isTrue);
+    });
+
+    test('rises with size, closeness, and speed', () {
+      // The direction of each term, independent of its weight — the property
+      // a child is actually being taught by the Power Duel.
+      final Asteroid base = probe(diaMax: 100, missLunar: 5, velKps: 12);
+      expect(
+        power(probe(diaMax: 1000, missLunar: 5, velKps: 12)),
+        greaterThan(power(base)),
+      );
+      expect(
+        power(probe(diaMax: 100, missLunar: 2, velKps: 12)),
+        greaterThan(power(base)),
+      );
+      expect(
+        power(probe(diaMax: 100, missLunar: 5, velKps: 30)),
+        greaterThan(power(base)),
+      );
+    });
+
+    test('is the unrounded score the games rank on', () {
+      // The Duel and the Challenge compare `danger()` directly
+      // (index.html:917,1037,1048) while the cards show the stars, so power
+      // must separate two rocks that round to the same star count. These two
+      // differ by 0.04 of a star — a tie if anything ranked on powerStars.
+      final Asteroid a = probe(diaMax: 100, missLunar: 5, velKps: 12);
+      final Asteroid b = probe(diaMax: 100, missLunar: 5, velKps: 12.12);
+      expect(powerStars(a), powerStars(b));
+      expect(power(a), lessThan(power(b)));
+    });
+  });
+
+  group('flybyTag', () {
+    test('waves at anything closer than the Moon', () {
+      // The boundary is strict: exactly 1.0 Moons is just passing. The
+      // prototype's `missLunar < 1`.
+      expect(
+        flybyTag(probe(diaMax: 100, missLunar: 0.99)),
+        FlybyTag.closeFlyby,
+      );
+      expect(flybyTag(probe(diaMax: 100, missLunar: 1)), FlybyTag.justPassing);
+      expect(
+        flybyTag(probe(diaMax: 100, missLunar: 1.01)),
+        FlybyTag.justPassing,
+      );
+    });
+
+    test('waves at a flagged rock however far away it is', () {
+      // `hazardous || missLunar < 1` — either alone is enough, which is why a
+      // rock flagged at 40 Moons still gets the wave.
+      expect(
+        flybyTag(probe(diaMax: 100, missLunar: 0.99, hazardous: true)),
+        FlybyTag.closeFlyby,
+      );
+      expect(
+        flybyTag(probe(diaMax: 100, missLunar: 1, hazardous: true)),
+        FlybyTag.closeFlyby,
+      );
+      expect(
+        flybyTag(probe(diaMax: 100, missLunar: 40, hazardous: true)),
+        FlybyTag.closeFlyby,
+      );
+    });
+
+    test('matches the prototype for all 14 sample asteroids', () {
+      // Captured from `index.html:445-447` over its own FALLBACK. Four are
+      // just passing, which is the check that this is not the constant the
+      // two boundary tests above would also pass.
+      const Map<String, FlybyTag> protoTags = <String, FlybyTag>{
+        '2011 EW': FlybyTag.closeFlyby,
+        '2006 QV89': FlybyTag.justPassing,
+        '2020 SW': FlybyTag.closeFlyby,
+        '433 Eros': FlybyTag.justPassing,
+        '2004 BL86': FlybyTag.closeFlyby,
+        '2012 DA14': FlybyTag.closeFlyby,
+        '99942 Apophis': FlybyTag.closeFlyby,
+        '2015 TB145': FlybyTag.justPassing,
+        '2010 WC9': FlybyTag.closeFlyby,
+        '2001 FO32': FlybyTag.closeFlyby,
+        '2005 YU55': FlybyTag.closeFlyby,
+        '2019 OK': FlybyTag.closeFlyby,
+        '2018 LF16': FlybyTag.justPassing,
+        '2013 TX68': FlybyTag.justPassing,
+      };
+      for (final Asteroid a in kFallbackAsteroids) {
+        expect(flybyTag(a), protoTags[a.name], reason: a.name);
+      }
+    });
+
+    test('is independent of power', () {
+      // `2015 TB145` is the strongest animal in the sample sky and is still
+      // just passing; `2020 SW` is the second weakest and gets the wave. The
+      // tag is about where a rock goes, not how impressive it is — conflating
+      // them would make "close flyby" read as a danger ranking, which is the
+      // exact thing CLAUDE.md:64 forbids.
+      final Asteroid strongest = kFallbackAsteroids.reduce(
+        (Asteroid a, Asteroid b) => power(a) > power(b) ? a : b,
+      );
+      expect(strongest.name, '2015 TB145');
+      expect(flybyTag(strongest), FlybyTag.justPassing);
+    });
+
+    test('never says anything scary', () {
+      // The guardrail (CLAUDE.md:64-66), pinned as a test because it is the
+      // reason this returns a tag at all rather than exposing `hazardous`.
+      for (final FlybyTag tag in FlybyTag.values) {
+        expect(
+          tag.label,
+          isNot(
+            matches(
+              RegExp('hazard|danger|threat|risk|warn', caseSensitive: false),
+            ),
+          ),
+        );
+      }
+      expect(FlybyTag.closeFlyby.label, '👋 close flyby');
+      expect(FlybyTag.justPassing.label, 'just passing');
     });
   });
 }

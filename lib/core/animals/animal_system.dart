@@ -1,10 +1,13 @@
 /// The AnimalSystem: the single home for the size→species ladder, naming,
 /// `power()`, `flybyTag()`, and the Moon-distance formatters (`CLAUDE.md:78`).
 ///
-/// This file currently holds the size ladder. The remaining pieces land here
-/// too — one module, so that "the same asteroid always yields the same animal"
-/// is a property of one table rather than an agreement between several.
+/// This file currently holds the size ladder, naming, power, and the flyby tag.
+/// The Moon-distance formatters land here too — one module, so that "the same
+/// asteroid always yields the same animal" is a property of one table rather
+/// than an agreement between several.
 library;
+
+import 'dart:math' as math;
 
 import 'package:rockimals/data/models/asteroid.dart';
 
@@ -61,8 +64,18 @@ const List<Animal> kAnimals = <Animal>[
     species: 'Bear',
     sizeLabel: 'football-pitch-sized',
   ),
-  Animal(max: 800, emoji: '🐘', species: 'Elephant', sizeLabel: 'stadium-sized'),
-  Animal(max: 2000, emoji: '🦕', species: 'Dino', sizeLabel: 'skyscraper-sized'),
+  Animal(
+    max: 800,
+    emoji: '🐘',
+    species: 'Elephant',
+    sizeLabel: 'stadium-sized',
+  ),
+  Animal(
+    max: 2000,
+    emoji: '🦕',
+    species: 'Dino',
+    sizeLabel: 'skyscraper-sized',
+  ),
   Animal(
     max: double.infinity,
     emoji: '🐋',
@@ -185,3 +198,88 @@ Animal _rungFor(double m) {
   }
   return kAnimals.last;
 }
+
+/// How impressive a space animal is: a blend of how big, how close, and how
+/// fast it is, with a bump for a close flyby. A port of the prototype's
+/// `danger()` (`index.html:353-359`).
+///
+/// The rename is a guardrail, not a preference. `CLAUDE.md:65` turns "threat"
+/// into "power ⭐" — nothing in this app is allowed to tell a child an asteroid
+/// is dangerous — so the word does not survive into the port, only the formula.
+/// Its three terms, kept in the prototype's order and weights:
+///
+///  * **size** — `log10(diaMax + 1) * 3`, then weighted `× 3`. The log is what
+///    lets a 16.8 km Eros and a 9 m pebble share one scale; the `+ 1` keeps a
+///    sub-metre rock from going negative.
+///  * **prox** — `min(6, 10 / (missLunar + 0.4))`, weighted `× 2`. The `+ 0.4`
+///    stops a grazing pass dividing by ~0, and the cap of 6 means everything
+///    inside ~1.27 Moons scores the same on closeness: past that point a child
+///    is being asked to compare "very close" with "very close".
+///  * **speed** — `velKps / 9`, unweighted.
+///
+/// Plus `2.2` when NASA flags the rock, which is the one place the raw
+/// `hazardous` flag reaches a number a child sees.
+///
+/// Returns the **unrounded** score, and both forms are load-bearing: the games
+/// rank animals against each other on this double (`index.html:917,1037,1048`)
+/// while the cards show [powerStars]. Ranking on the rounded stars instead
+/// would tie rocks the prototype separates, so this is not merely
+/// `powerStars / 3`.
+double power(Asteroid a) {
+  final double size = _log10(a.diaMax + 1) * 3;
+  final double prox = math.min(6, 10 / (a.missLunar + 0.4));
+  final double speed = a.velKps / 9;
+  final double pha = a.hazardous ? 2.2 : 0;
+  return size * 3 + prox * 2 + speed + pha;
+}
+
+/// The "Power ⭐" a child is shown — [power] scaled up and rounded, exactly as
+/// `index.html:360` does it.
+///
+/// The `* 3` is cosmetic: it spreads a real sky's scores across roughly 50–125
+/// instead of 17–42, so two animals a child is comparing rarely tie.
+///
+/// Dart's [num.round] rounds half *away from zero* where JS's `Math.round`
+/// rounds half *up*. They disagree only at negative halves, which [power]
+/// cannot reach: every term is non-negative and `prox` is strictly positive.
+int powerStars(Asteroid a) => (power(a) * 3).round();
+
+/// `dart:math` has no `log10`, so this is JS's `Math.log10` written out.
+///
+/// This is the one place the port cannot promise bit-exactness: V8 implements
+/// `Math.log10` directly, and dividing by [math.ln10] can land an ulp away. It
+/// does not reach a child — [powerStars] rounds to an integer, so a difference
+/// in the 16th digit would have to fall within an ulp of a `.5` boundary to
+/// change a star, and none of the 14 sample rocks comes close. The tests assert
+/// the stars exactly and the raw score to a tolerance, for this reason.
+double _log10(double x) => math.log(x) / math.ln10;
+
+/// How a flyby is described to a child (`index.html:445-447`).
+///
+/// Two values, never a raw boolean: `hazardous` is NASA's word and
+/// `CLAUDE.md:64` forbids it reaching a child, so the flag is only ever read
+/// *through* this tag. Nothing here is scary — the closest a rock gets to being
+/// singled out is a friendly wave.
+enum FlybyTag {
+  /// A rock NASA flags, or one passing inside the Moon's distance.
+  closeFlyby('👋 close flyby'),
+
+  /// Everything else — the overwhelming majority of the sky.
+  justPassing('just passing');
+
+  const FlybyTag(this.label);
+
+  /// The copy shown on the badge. The prototype returns this wrapped in HTML;
+  /// the string is the part worth porting, and the styling belongs to whatever
+  /// renders it.
+  final String label;
+}
+
+/// Which of the two things a rock is doing (`index.html:445`).
+///
+/// `hazardous || missLunar < 1` — so a rock earns the wave either because NASA
+/// flagged it *or* because it passes closer than the Moon, and the two are
+/// independent of [power]: `2015 TB145` is the strongest animal in the sample
+/// sky (⭐123) and is still just passing, at 1.3 Moons and unflagged.
+FlybyTag flybyTag(Asteroid a) =>
+    a.hazardous || a.missLunar < 1 ? FlybyTag.closeFlyby : FlybyTag.justPassing;
