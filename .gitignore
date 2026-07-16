@@ -5,6 +5,7 @@
 *.pyc
 *.swp
 .buildlog/
+.DS_Store
 .history
 
 
@@ -117,3 +118,15 @@ app.*.symbols
 !**/ios/**/default.perspectivev3
 !/packages/flutter_tools/test/data/dart_dependencies_test/**/.packages
 !/dev/ci/**/Gemfile.lock
+
+# Local-only build-loop artifacts. These track an individual agent run, not the
+# project, so they stay out of the repo.
+IMPLEMENTATION_PLAN.md
+PROGRESS.md
+PROMPT_plan.md
+PROMPT_build.md
+.ralph/
+
+# Claude Code: project skills under .claude/ are shared conventions and belong in
+# the repo; only personal machine overrides stay local.
+.claude/settings.local.json
