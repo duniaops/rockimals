@@ -71,6 +71,98 @@ const List<Animal> kAnimals = <Animal>[
   ),
 ];
 
+/// The 24 first names a critter can be given — a verbatim port of
+/// `index.html:430`.
+///
+/// Order is load-bearing: [critter] indexes this list by `hash % length`, so
+/// reordering it, or adding a 25th name, renames every animal in the sky.
+const List<String> kNamePool = <String>[
+  'Milo',
+  'Bella',
+  'Coco',
+  'Rocky',
+  'Daisy',
+  'Simba',
+  'Luna',
+  'Buddy',
+  'Ruby',
+  'Zola',
+  'Pip',
+  'Nova',
+  'Ziggy',
+  'Mango',
+  'Pepper',
+  'Biscuit',
+  'Waffle',
+  'Olive',
+  'Peanut',
+  'Bruno',
+  'Poppy',
+  'Teddy',
+  'Suki',
+  'Gizmo',
+];
+
+/// An asteroid presented as a friendly space animal: a species from the size
+/// ladder plus a first name from [kNamePool].
+class Critter {
+  const Critter({required this.animal, required this.first});
+
+  /// The rung the asteroid's diameter put it on — its emoji, species, and
+  /// size label all read through here rather than being copied, so the ladder
+  /// stays the one table.
+  final Animal animal;
+
+  /// The first name, chosen by hashing the real designation.
+  final String first;
+
+  /// How a child is introduced to this rock: "Milo the Fox"
+  /// (`index.html:444`).
+  String get name => '$first the ${animal.species}';
+
+  @override
+  String toString() => '${animal.emoji} $name';
+}
+
+/// The djb2 variant the prototype seeds its names with (`index.html:442`):
+/// `h = 5381; h = ((h * 33) ^ codeUnit) >>> 0`.
+///
+/// The `& 0xFFFFFFFF` is JavaScript's `>>> 0` written out. Dart's ints are
+/// 64-bit and do not wrap to unsigned 32-bit on their own, so without the mask
+/// `h` grows past 2^32 and every name after the first character diverges from
+/// the prototype. Masking is enough to be bit-exact rather than merely close:
+/// `h < 2^32` means `h * 33 < 2^37`, well inside both Dart's 64-bit int and the
+/// 2^53 JS doubles compute it exactly in, and the XOR only touches the low 16
+/// bits — so truncating to the low 32 at the end lands on the same value JS
+/// reaches by truncating at each step.
+///
+/// Always non-negative, which is what makes `%` in [critter] safe: Dart's `%`
+/// returns a non-negative remainder anyway, but a negative hash would still
+/// pick a different name than JS does.
+int hashStr(String s) {
+  int h = 5381;
+  for (final int codeUnit in s.codeUnits) {
+    h = ((h * 33) ^ codeUnit) & 0xFFFFFFFF;
+  }
+  return h;
+}
+
+/// The animal an asteroid *is*, name and all — a port of `index.html:443-444`.
+///
+/// Deterministic and storage-free (`CLAUDE.md:70`): the species comes from
+/// [Asteroid.diaMax] and the first name from hashing [Asteroid.name], so the
+/// same rock is the same animal on every device, every launch, with nothing
+/// written down. Both inputs are facts about the asteroid, which is the whole
+/// trick — there is no counter, no seed, and nothing to keep in sync.
+///
+/// Seeded on the **real designation** deliberately: it is this app's identity
+/// for a rock everywhere else too (dedupe, radar seeds, follows), so an animal
+/// cannot drift away from the asteroid it belongs to.
+Critter critter(Asteroid a) => Critter(
+  animal: animalFor(a),
+  first: kNamePool[hashStr(a.name) % kNamePool.length],
+);
+
 /// The species an asteroid is, decided by its real maximum diameter.
 ///
 /// Deterministic and storage-free: the same rock is always the same animal

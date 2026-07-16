@@ -188,4 +188,153 @@ void main() {
       }
     });
   });
+
+  group('hashStr', () {
+    /// Bit-exact expectations, captured by running `index.html`'s own
+    /// `hashStr` (lines 430-444, sliced out and evaluated) over its own
+    /// `FALLBACK` — not by hand-computing djb2, which is exactly the sort of
+    /// arithmetic that looks right and is not.
+    ///
+    /// These pin the `& 0xFFFFFFFF`. JS wraps to unsigned 32-bit at every step
+    /// via `>>> 0`; Dart's 64-bit ints do not, so an unmasked port agrees on
+    /// short strings and then silently diverges once `h` passes 2^32 — around
+    /// the sixth character, i.e. on every real designation.
+    const Map<String, int> protoHashes = <String, int>{
+      '2011 EW': 1559158165,
+      '2006 QV89': 4143909479,
+      '2020 SW': 1555571681,
+      '433 Eros': 1415771290,
+      '2004 BL86': 4221453315,
+      '2012 DA14': 1218009828,
+      '99942 Apophis': 1781046886,
+      '2015 TB145': 2776603749,
+      '2010 WC9': 4204114315,
+      '2001 FO32': 119792334,
+      '2005 YU55': 4259301678,
+      '2019 OK': 1559445451,
+      '2018 LF16': 1608940131,
+      '2013 TX68': 1333611687,
+    };
+
+    test('is bit-exact with the prototype for all 14 designations', () {
+      protoHashes.forEach((String designation, int expected) {
+        expect(hashStr(designation), expected, reason: designation);
+      });
+    });
+
+    test('matches the prototype on the seeds that bracket the mask', () {
+      // Empty: the loop never runs, so the answer is the bare seed.
+      expect(hashStr(''), 5381);
+      // One character: 5381 * 33 ^ 65, still far below 2^32 — an unmasked
+      // implementation agrees here, which is why this case alone proves
+      // nothing and the 14 above are the real check.
+      expect(hashStr('A'), 177636);
+      // The two live numbered-asteroid designations, whose real NeoWs form
+      // keeps the parenthesised group (see the plan's open item on the
+      // grown-up facts panel). Pinned so that if that item ever changes what
+      // `name` holds, the renaming it causes fails loudly here.
+      expect(hashStr('433 Eros A898 PA'), 1864719859);
+      expect(hashStr('99942 Apophis 2004 MN4'), 1520843479);
+    });
+
+    test('never leaves 32 bits, however long the seed', () {
+      // The mask is the only thing bounding this; without it `h` runs away
+      // to 64 bits and `% kNamePool.length` starts picking different names.
+      for (final String s in <String>[
+        '2011 EW',
+        '99942 Apophis',
+        'A' * 200,
+        kFallbackAsteroids.map((Asteroid a) => a.name).join(),
+      ]) {
+        expect(hashStr(s), inInclusiveRange(0, 0xFFFFFFFF), reason: s);
+      }
+    });
+
+    test('is stable across calls', () {
+      // Determinism with no storage is the promise (CLAUDE.md:70); a hash that
+      // drifted would rename a child's followed animal between launches.
+      for (final Asteroid a in kFallbackAsteroids) {
+        expect(hashStr(a.name), hashStr(a.name), reason: a.name);
+      }
+    });
+  });
+
+  group('critter', () {
+    /// The prototype's own `critter()` output for its own `FALLBACK`, captured
+    /// the same way. This is the user-visible end of the hash: these are the
+    /// exact 14 names a child sees offline today.
+    const Map<String, String> protoNames = <String, String>{
+      '2011 EW': 'Mango the Elephant',
+      '2006 QV89': 'Gizmo the Tiger',
+      '2020 SW': 'Olive the Rabbit',
+      '433 Eros': 'Pip the Whale',
+      '2004 BL86': 'Rocky the Elephant',
+      '2012 DA14': 'Ziggy the Fox',
+      '99942 Apophis': 'Suki the Elephant',
+      '2015 TB145': 'Teddy the Elephant',
+      '2010 WC9': 'Bruno the Bear',
+      '2001 FO32': 'Luna the Dino',
+      '2005 YU55': 'Luna the Elephant',
+      '2019 OK': 'Bruno the Bear',
+      '2018 LF16': 'Rocky the Bear',
+      '2013 TX68': 'Biscuit the Fox',
+    };
+
+    test('names every fallback asteroid exactly as the prototype does', () {
+      for (final Asteroid a in kFallbackAsteroids) {
+        expect(critter(a).name, protoNames[a.name], reason: a.name);
+      }
+    });
+
+    test('carries the rung the diameter picked', () {
+      for (final Asteroid a in kFallbackAsteroids) {
+        expect(critter(a).animal, same(animalFor(a)), reason: a.name);
+      }
+    });
+
+    test('is deterministic: the same rock is always the same animal', () {
+      // No storage, no counter — both inputs are facts about the asteroid.
+      for (final Asteroid a in kFallbackAsteroids) {
+        expect(critter(a).name, critter(a).name, reason: a.name);
+      }
+    });
+
+    test('gives two rocks of one species different names', () {
+      // Not a property of the algorithm — a fact about this data, and the
+      // thing that makes the zoo feel like a zoo. Six of the 14 are Elephants;
+      // if they were all "Luna the Elephant" the app would look broken.
+      final Iterable<Asteroid> elephants = kFallbackAsteroids.where(
+        (Asteroid a) => animalFor(a).species == 'Elephant',
+      );
+      expect(elephants.length, greaterThan(1));
+      expect(
+        elephants.map((Asteroid a) => critter(a).name).toSet().length,
+        elephants.length,
+      );
+    });
+
+    test('draws only from the name pool', () {
+      for (final Asteroid a in kFallbackAsteroids) {
+        expect(kNamePool, contains(critter(a).first), reason: a.name);
+      }
+    });
+  });
+
+  group('the name pool', () {
+    test('is the prototype\'s 24 names, in order', () {
+      // Order is load-bearing: `hash % length` indexes it, so a reorder or a
+      // 25th name renames the entire sky.
+      expect(kNamePool.length, 24);
+      expect(kNamePool.first, 'Milo');
+      expect(kNamePool.last, 'Gizmo');
+      expect(kNamePool[13], 'Mango');
+    });
+
+    test('has no duplicates', () {
+      // Two rocks sharing a name is fine (the pool is small); the *pool*
+      // holding a name twice would just be a typo, and would skew which name
+      // a hash lands on.
+      expect(kNamePool.toSet().length, kNamePool.length);
+    });
+  });
 }
