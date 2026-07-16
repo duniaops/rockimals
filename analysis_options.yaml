@@ -1,28 +1,72 @@
-# This file configures the analyzer, which statically analyzes Dart code to
-# check for errors, warnings, and lints.
+# Static analysis config for Rockimals.
 #
-# The issues identified by the analyzer are surfaced in the UI of Dart-enabled
-# IDEs (https://dart.dev/tools#ides-and-editors). The analyzer can also be
-# invoked from the command line by running `flutter analyze`.
+# This is a deliberate ruleset, not the `flutter create` default. Every addition
+# below is here to protect something this specific project cares about — the
+# groups say which. Rules were also deliberately *not* added; see "Considered and
+# rejected" at the bottom, so a future pass doesn't re-litigate them.
+#
+# Run with `flutter analyze`. It must stay at "No issues found!".
 
-# The following line activates a set of recommended lints for Flutter apps,
-# packages, and plugins designed to encourage good coding practices.
 include: package:flutter_lints/flutter.yaml
 
-linter:
-  # The lint rules applied to this project can be customized in the
-  # section below to disable rules from the `package:flutter_lints/flutter.yaml`
-  # included above or to enable additional rules. A list of all available lints
-  # and their documentation is published at https://dart.dev/lints.
-  #
-  # Instead of disabling a lint rule for the entire project in the
-  # section below, it can also be suppressed for a single line of code
-  # or a specific dart file by using the `// ignore: name_of_lint` and
-  # `// ignore_for_file: name_of_lint` syntax on the line or in the file
-  # producing the lint.
-  rules:
-    # avoid_print: false  # Uncomment to disable the `avoid_print` rule
-    # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
+analyzer:
+  language:
+    # We parse untyped NeoWs JSON (`normalize()`, spec 01 §2): deeply nested
+    # maps of `dynamic` where a wrong assumption about NASA's shape is a
+    # runtime crash on real data, in the field, on a kid's phone. These three
+    # turn that whole class of bug into a compile-time error instead:
+    # no implicit downcast from `dynamic`, no silent `dynamic` inference, no
+    # bare `Map`/`List` without type arguments.
+    strict-casts: true
+    strict-inference: true
+    strict-raw-types: true
 
-# Additional information about this file can be found at
-# https://dart.dev/guides/language/analysis-options
+linter:
+  rules:
+    # --- Untyped-JSON safety (pairs with the three `language:` flags above) ---
+    # Method calls on `dynamic` are unchecked at compile time; with strict-casts
+    # on, these are the remaining hole in the NeoWs parsing path.
+    avoid_dynamic_calls: true
+    # `json['x'] as String` on a null field throws. Forces the null to be
+    # handled where it is read, which is where the fallback decision belongs.
+    cast_nullable_to_non_nullable: true
+
+    # --- Render-loop allocation pressure (CLAUDE.md: ~60fps, low per-frame
+    # allocation; one radar loop redraws every animal chip every frame) ---
+    # These are allocation-reduction rules first and style rules second: every
+    # const widget/list is an object the loop does not rebuild.
+    prefer_const_constructors: true
+    prefer_const_constructors_in_immutables: true
+    prefer_const_declarations: true
+    prefer_const_literals_to_create_immutables: true
+
+    # --- Determinism and state discipline ---
+    # The AnimalSystem must give the same answer for the same designation
+    # forever (CLAUDE.md). Locals that cannot be reassigned are one less way
+    # for a "deterministic" function to quietly stop being one.
+    prefer_final_locals: true
+    prefer_final_in_for_each: true
+    # Persistence (points, badges, follows) is async and fire-and-forget is how
+    # a kid's progress silently fails to save. An unawaited future must say so.
+    unawaited_futures: true
+
+    # --- Readability of a codebase that is a port ---
+    # Reviewing this code means diffing it against `index.html`. Inferred return
+    # types and inconsistent quoting make that diff noisier than it needs to be.
+    always_declare_return_types: true
+    prefer_single_quotes: true
+    directives_ordering: true
+    avoid_redundant_argument_values: true
+    unnecessary_parenthesis: true
+
+    # --- Considered and rejected (do not enable without re-reading this) ---
+    # avoid_catches_without_on_clauses: the offline fallback is *specified* as
+    #   "the request fails for any reason -> use FALLBACK" (spec 01 §3). A bare
+    #   `catch (_)` there is the requirement, not a smell.
+    # avoid_print: already active via flutter_lints; left at its default rather
+    #   than promoted to an error, so debug logging stays cheap to add.
+    # public_member_api_docs: this is an app, not a package. Doc-comment noise
+    #   on every widget would bury the comments that carry the prototype's math.
+    # sort_pub_dependencies: pure churn against a hand-grouped pubspec.
+    # discarded_futures: overlaps unawaited_futures and fires on ordinary
+    #   riverpod/Flutter callback patterns; the narrower rule earns its keep.
