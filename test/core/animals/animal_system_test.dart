@@ -570,4 +570,86 @@ void main() {
       expect(FlybyTag.justPassing.label, 'just passing');
     });
   });
+
+  group('distLabel and moonCompare', () {
+    // Every expectation below was captured by slicing `index.html:420-426` out
+    // of the prototype and evaluating it in Node, per the technique the
+    // FALLBACK, naming, and power items all used. Guessed strings would pass a
+    // careful read and still be wrong: `0.995` → "100% to Moon" and `9.99` →
+    // "10.0× Moon" are both surprising, and both are what the prototype says.
+
+    /// `(lunar distance, distLabel, moonCompare)` — the seven probes the plan
+    /// item names, plus the rounding edges either side of both branches, plus
+    /// every distinct shape the 14 sample rocks produce.
+    ///
+    /// One table rather than two maps: the two formatters are one number said
+    /// two ways, so their expectations belong on one row where a reader can see
+    /// they agree. (`const` also cannot key a map by `double`.)
+    const List<(double, String, String)> cases = <(double, String, String)>[
+      (0.07, '7% to Moon', '7% of the way to the Moon'),
+      (0.995, '100% to Moon', '100% of the way to the Moon'),
+      (1.0, '1.0× Moon', "1.0× the Moon's distance"),
+      (9.99, '10.0× Moon', "10.0× the Moon's distance"),
+      (10.0, '10× Moon', "10× the Moon's distance"),
+      (12.4, '12× Moon', "12× the Moon's distance"),
+      (60, '60× Moon', "60× the Moon's distance"),
+      (0, '0% to Moon', '0% of the way to the Moon'),
+      (0.005, '1% to Moon', '1% of the way to the Moon'),
+      (0.999, '100% to Moon', '100% of the way to the Moon'),
+      (1.05, '1.1× Moon', "1.1× the Moon's distance"),
+      (9.949, '9.9× Moon', "9.9× the Moon's distance"),
+      (99.5, '100× Moon', "100× the Moon's distance"),
+    ];
+
+    test('distLabel matches the prototype', () {
+      for (final (double l, String expected, _) in cases) {
+        expect(distLabel(l), expected, reason: 'distLabel($l)');
+      }
+    });
+
+    test('moonCompare matches the prototype', () {
+      for (final (double l, _, String expected) in cases) {
+        expect(moonCompare(l), expected, reason: 'moonCompare($l)');
+      }
+    });
+
+    test('both formatters agree on the number, and differ only in words', () {
+      // The two share `_moonPercent`/`_moonMultiple` precisely so the compact
+      // and long forms of one distance can never disagree about it. This is the
+      // tripwire for anyone who re-inlines the `< 1` / `< 10` thresholds into
+      // each function and lets them drift.
+      for (final (double l, _, _) in cases) {
+        final String number = RegExp(
+          r'^[\d.]+',
+        ).firstMatch(distLabel(l))!.group(0)!;
+        expect(moonCompare(l), startsWith(number), reason: 'moonCompare($l)');
+      }
+    });
+
+    test('the whole sample sky reads as Moon-relative, with no jargon', () {
+      // The guardrail (CLAUDE.md:67-69), pinned across every rock the offline
+      // app can show rather than on a probe: no raw km, no LD/AU, no
+      // six-digit numbers. This is what these formatters exist for.
+      for (final Asteroid a in kFallbackAsteroids) {
+        for (final String label in <String>[
+          distLabel(a.missLunar),
+          moonCompare(a.missLunar),
+        ]) {
+          expect(label, contains('Moon'), reason: a.name);
+          expect(
+            label,
+            isNot(
+              matches(
+                RegExp(
+                  r'\bkm\b|\bLD\b|\bAU\b|lunar|astronomical',
+                  caseSensitive: false,
+                ),
+              ),
+            ),
+            reason: a.name,
+          );
+        }
+      }
+    });
+  });
 }

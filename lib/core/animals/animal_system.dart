@@ -283,3 +283,65 @@ enum FlybyTag {
 /// sky (⭐123) and is still just passing, at 1.3 Moons and unflagged.
 FlybyTag flybyTag(Asteroid a) =>
     a.hazardous || a.missLunar < 1 ? FlybyTag.closeFlyby : FlybyTag.justPassing;
+
+/// How far away a rock passes, in the only unit this app speaks: the Moon.
+/// A port of `index.html:420-423`.
+///
+/// The Moon is not a stylistic choice, it is the guardrail (`CLAUDE.md:67-69`):
+/// every distance is shown relative to it, and no raw kilometre, lunar-distance
+/// or AU figure reaches a child. "384,400 km" means nothing to a six-year-old
+/// and "0.07 LD" means nothing to anyone; "7% to Moon" is a thing you can
+/// picture. [Asteroid.missKm] exists on the model and stays there.
+///
+/// Two forms, because [l] below 1 is the interesting case — most rocks that a
+/// child will care about pass *inside* the Moon's orbit, where a multiplier
+/// would read "0.1× Moon" and bury the drama:
+///
+///  * `l < 1` → `"7% to Moon"` — how far along the trip it got.
+///  * `1 ≤ l < 10` → `"1.3× Moon"` — one decimal, so nearby rocks stay distinct.
+///  * `l ≥ 10` → `"12× Moon"` — a decimal on a far rock is noise.
+///
+/// Takes the lunar distance rather than an [Asteroid] because the radar HUD
+/// passes the closest approach in the sky rather than any one rock
+/// (`index.html:455`), matching the prototype's signature.
+String distLabel(double l) =>
+    l < 1 ? '${_moonPercent(l)}% to Moon' : '${_moonMultiple(l)}× Moon';
+
+/// The same distance as [distLabel], said in full — for the one place with room
+/// for a sentence: the "How close does it pass?" heading on the animal detail
+/// panel (`index.html:591`). A port of `index.html:424-426`.
+///
+/// Identical thresholds and identical numbers to [distLabel]; only the copy is
+/// longer. The two share [_moonPercent] and [_moonMultiple] rather than
+/// restating `< 1` and `< 10`, so the compact and long forms of one distance
+/// cannot drift into disagreeing about it — the same argument that folded
+/// `sizeLabel` onto its [Animal] rung.
+String moonCompare(double l) => l < 1
+    ? '${_moonPercent(l)}% of the way to the Moon'
+    : "${_moonMultiple(l)}× the Moon's distance";
+
+/// How far along the trip to the Moon, as a whole percent.
+///
+/// Rounds, so anything from 99.5% out to the Moon itself reads "100% to Moon" —
+/// a rock at `l = 0.999` claims to have arrived. Ported as-is: it is the
+/// prototype's answer, it is off by at most half a percent, and "100% to Moon"
+/// for a rock that is essentially at the Moon is a fair thing to tell a child.
+///
+/// Dart's [num.round] breaks ties away from zero where JS's `Math.round` breaks
+/// them upward. They differ only on negative halves, which a miss distance
+/// cannot reach.
+int _moonPercent(double l) => (l * 100).round();
+
+/// The multiplier, with the prototype's decimal rule: one digit under 10, none
+/// at or above it (`index.html:422`).
+///
+/// The two branches meet awkwardly and it is faithful — `9.99` renders
+/// "10.0× Moon" while `10.0` renders "10× Moon", because `9.99` takes the
+/// one-decimal branch and rounds up inside it. Both are true, neither is
+/// misleading, and the alternative is diverging from the prototype over a
+/// hundredth of a Moon.
+///
+/// [num.toStringAsFixed] is specified to agree with JS's `toFixed`, so the
+/// decimal branch is exact rather than approximate.
+String _moonMultiple(double l) =>
+    l < 10 ? l.toStringAsFixed(1) : l.round().toString();
