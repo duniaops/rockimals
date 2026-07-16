@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/data/models/asteroid_feed.dart';
 import 'package:rockimals/data/neows_client.dart';
@@ -11,8 +13,9 @@ import 'package:rockimals/data/neows_client.dart';
 /// dead network, a rate-limited key, a feed NASA served empty, and a record
 /// with a corrupt number all resolve to the same friendly sky.
 class AsteroidRepository {
-  AsteroidRepository(this._source, {DateTime Function()? now})
-    : _now = now ?? DateTime.now;
+  AsteroidRepository(this._source, {DateTime Function()? now, Duration? loadCeiling})
+    : _now = now ?? DateTime.now,
+      _loadCeiling = loadCeiling ?? _defaultLoadCeiling;
 
   final AsteroidFeedSource _source;
 
@@ -21,6 +24,23 @@ class AsteroidRepository {
   /// key, so a load that straddles midnight cannot ask for one window and then
   /// filter against the next day.
   final DateTime Function() _now;
+
+  /// How long a child may be asked to watch "Contacting NASA…" before the app
+  /// stops waiting and shows them a sky. Injectable so tests can prove the
+  /// mechanism in milliseconds instead of sitting out the real budget.
+  final Duration _loadCeiling;
+
+  /// Ten seconds, and the number is a judgment call: long enough that a slow
+  /// connection still gets to deliver today's real sky, short enough that a
+  /// broken one does not hold the app hostage.
+  ///
+  /// This lives here rather than in the client because it is the one promise
+  /// the app actually makes — *a sky within ten seconds, whatever is going on
+  /// underneath* — and it is the repository that owns what the app promises.
+  /// The client's per-attempt timeouts and the retry schedule are tuning knobs
+  /// beneath it, and this ceiling is what stops any future combination of them
+  /// from silently multiplying into a minute-long spinner.
+  static const Duration _defaultLoadCeiling = Duration(seconds: 10);
 
   /// The prototype's `start.setDate(start.getDate()-2)` (`index.html:365`): a
   /// three-day window, today included. Today alone is often only a handful of
@@ -48,10 +68,14 @@ class AsteroidRepository {
     final String endKey = _formatFeedDate(end);
 
     try {
-      final List<Asteroid> pool = await _source.fetchFeed(
-        startDate: startKey,
-        endDate: endKey,
-      );
+      // The ceiling wraps the whole source, not just the socket: a hung disk
+      // read from the feed cache that lands later must be as survivable as a
+      // hung request. It abandons the attempt rather than cancelling it — the
+      // request runs on until the client's own timeouts end it, which is
+      // harmless, because nothing below here mutates anything.
+      final List<Asteroid> pool = await _source
+          .fetchFeed(startDate: startKey, endDate: endKey)
+          .timeout(_loadCeiling);
 
       // Checked on the raw pool, *before* dedupe, exactly as the prototype does
       // (`index.html:376-377`). Six records that collapse to two therefore
@@ -72,7 +96,8 @@ class AsteroidRepository {
       // Bare on purpose, and specified that way (spec 01 §3): "if the network
       // fails or returns too few objects, use [the sample set] so the app is
       // always playable". Narrowing this to DioException would let a
-      // FormatException from one corrupt record crash the app instead.
+      // FormatException from one corrupt record — or the TimeoutException the
+      // ceiling above throws — crash the app instead.
       return AsteroidFeed.fallback();
     }
   }

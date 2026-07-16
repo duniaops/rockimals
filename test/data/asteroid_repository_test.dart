@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -89,6 +90,27 @@ void main() {
       final AsteroidFeed feed = await _load(null, error: const FormatException('bad number'));
 
       expect(feed.usingFallback, isTrue);
+    });
+
+    test('uses the sample set when the answer never comes', () async {
+      // The captive-portal case — a hotel or café splash page that accepts the
+      // connection and then answers nothing. It is the one failure the bare
+      // catch below cannot save the app from, because nothing is ever thrown:
+      // without a ceiling this future simply never completes, and the loading
+      // screen is the app forever. Airplane mode, by contrast, fails fast.
+      //
+      // The ceiling is injected here so the assertion costs 50ms rather than
+      // the real ten seconds; what it proves is that there is one at all.
+      final AsteroidRepository repository = AsteroidRepository(
+        _FakeSource.hanging(),
+        now: () => DateTime.utc(2026, 7, 16),
+        loadCeiling: const Duration(milliseconds: 50),
+      );
+
+      final AsteroidFeed feed = await repository.loadData();
+
+      expect(feed.usingFallback, isTrue);
+      expect(feed.asteroids.length, 14);
     });
 
     test('uses the sample set when the feed is too thin to be a sky', () async {
@@ -325,11 +347,19 @@ class SocketExceptionStandIn implements Exception {
 }
 
 class _FakeSource implements AsteroidFeedSource {
-  _FakeSource.returning(List<Asteroid> pool) : _pool = pool, _error = null;
-  _FakeSource.failing(Object error) : _pool = null, _error = error;
+  _FakeSource.returning(List<Asteroid> pool)
+    : _pool = pool,
+      _error = null,
+      _hangs = false;
+  _FakeSource.failing(Object error) : _pool = null, _error = error, _hangs = false;
+
+  /// Answers nothing, ever — the captive portal. Note it does not throw: this
+  /// is the failure the repository's catch cannot see.
+  _FakeSource.hanging() : _pool = null, _error = null, _hangs = true;
 
   final List<Asteroid>? _pool;
   final Object? _error;
+  final bool _hangs;
 
   int calls = 0;
   String? lastStart;
@@ -343,6 +373,7 @@ class _FakeSource implements AsteroidFeedSource {
     calls++;
     lastStart = startDate;
     lastEnd = endDate;
+    if (_hangs) return Completer<List<Asteroid>>().future;
     final Object? error = _error;
     if (error != null) throw error;
     return _pool!;
