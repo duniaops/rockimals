@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:rockimals/core/config/app_config.dart';
 import 'package:rockimals/data/models/asteroid.dart';
+import 'package:rockimals/data/retry_interceptor.dart';
 
 /// Where the app's live asteroids come from.
 ///
@@ -30,13 +31,40 @@ abstract interface class AsteroidFeedSource {
 /// about which animals are visiting today, are the repository's, because they
 /// are policy rather than protocol.
 class NeoWsClient implements AsteroidFeedSource {
-  NeoWsClient({Dio? dio}) : _dio = dio ?? Dio();
+  /// Configures whatever [Dio] it is handed, rather than only the one it makes
+  /// itself: the injected instance exists so tests can stub the socket, and a
+  /// test whose client had no timeouts and no retry would be testing a client
+  /// this app never runs.
+  NeoWsClient({Dio? dio, Future<void> Function(Duration)? sleep})
+    : _dio = dio ?? Dio() {
+    _dio.options = _dio.options.copyWith(
+      connectTimeout: _connectTimeout,
+      receiveTimeout: _receiveTimeout,
+    );
+    _dio.interceptors.add(RetryInterceptor(_dio, sleep: sleep));
+  }
+
+  /// Dio ships with **no** timeouts — both default to null, meaning wait
+  /// forever — and forever is a real duration on a phone. Airplane mode fails
+  /// fast and is fine; the case these bound is the hotel or café captive
+  /// portal, which accepts the connection and then answers nothing. Without a
+  /// timeout `loadData()` never returns, its catch never fires, the sample set
+  /// never loads, and "Contacting NASA…" *is* the app, permanently — the exact
+  /// opposite of spec 01 §3's promise that it is always playable.
+  ///
+  /// Per-attempt, not total: `AsteroidRepository` owns the overall budget. The
+  /// job here is only to stop one dead socket from eating all of it, so that a
+  /// retry still fits inside.
+  static const Duration _connectTimeout = Duration(seconds: 4);
+  static const Duration _receiveTimeout = Duration(seconds: 6);
 
   final Dio _dio;
 
   /// Dio's default `validateStatus` rejects any non-2xx, which is the port of
   /// the prototype's `if(!r.ok) throw 0` — a rate-limited 429 on `DEMO_KEY` and
-  /// a 500 from NASA both land in the caller's fallback path.
+  /// a 500 from NASA both land in the caller's fallback path. What differs is
+  /// the route: the 500 gets retried on the way there ([RetryInterceptor]), the
+  /// 429 does not, because an hourly limit outlasts any backoff worth waiting.
   @override
   Future<List<Asteroid>> fetchFeed({
     required String startDate,

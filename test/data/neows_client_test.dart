@@ -128,6 +128,69 @@ void main() {
       );
     });
 
+    test('bounds every attempt, so a socket that never answers cannot hang the app', () async {
+      // Dio's timeouts both default to null — wait forever — and forever is a
+      // duration a phone really reaches: a captive portal accepts the
+      // connection and then says nothing. Without these, loadData() never
+      // returns, its catch never fires, the sample set never loads, and
+      // "Contacting NASA…" is the app until it is force-quit.
+      //
+      // The exact durations are a judgment call and not worth pinning; that
+      // they exist, and sit inside the repository's ten-second ceiling so a
+      // retry still fits, is the part that must not regress.
+      final Dio dio = Dio()..httpClientAdapter = StubHttpAdapter.json('{}');
+
+      NeoWsClient(dio: dio);
+
+      expect(dio.options.connectTimeout, isNotNull);
+      expect(dio.options.receiveTimeout, isNotNull);
+      expect(dio.options.connectTimeout, lessThan(const Duration(seconds: 10)));
+      expect(dio.options.receiveTimeout, lessThan(const Duration(seconds: 10)));
+    });
+
+    test('retries past a 500 and still returns the feed', () async {
+      // End to end through the real client: the retry is installed on the Dio
+      // the app actually uses, not just unit-tested in isolation.
+      int calls = 0;
+      final NeoWsClient client = NeoWsClient(
+        dio: Dio()
+          ..httpClientAdapter = StubHttpAdapter((RequestOptions options) {
+            return calls++ == 0
+                ? StubHttpAdapter.jsonResponse('{"error":"boom"}', 500)
+                : StubHttpAdapter.jsonResponse(feedJson);
+          }),
+        sleep: (Duration _) async {},
+      );
+
+      final List<Asteroid> pool = await client.fetchFeed(
+        startDate: '2026-07-14',
+        endDate: '2026-07-16',
+      );
+
+      expect(pool.length, 13);
+      expect(calls, 2);
+    });
+
+    test('asks once and once only when the demo key is rate-limited', () async {
+      // A 429 must reach the fallback on the first answer. Retrying it cannot
+      // work (the limit is hourly) and would spend more of the very budget
+      // that ran out — see retry_interceptor_test.dart.
+      int calls = 0;
+      final NeoWsClient client = NeoWsClient(
+        dio: Dio()
+          ..httpClientAdapter = StubHttpAdapter((RequestOptions options) {
+            calls++;
+            return StubHttpAdapter.jsonResponse('{"error":"rate"}', 429);
+          }),
+      );
+
+      await expectLater(
+        client.fetchFeed(startDate: '2026-07-14', endDate: '2026-07-16'),
+        throwsA(isA<DioException>()),
+      );
+      expect(calls, 1);
+    });
+
     test('throws on a record whose numbers do not parse', () async {
       // Deliberate: the model throws where the prototype's parseFloat yields
       // NaN. A NaN would flow into power() and the radar geometry and reach a
