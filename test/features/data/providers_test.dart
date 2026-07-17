@@ -18,30 +18,45 @@ void main() {
       final _FakeRepository repository = _FakeRepository(_liveFeed());
       final ProviderContainer container = _container(repository);
 
-      expect(container.read(asteroidFeedProvider), isA<AsyncLoading<AsteroidFeed>>());
+      expect(
+        container.read(asteroidFeedProvider),
+        isA<AsyncLoading<AsteroidFeed>>(),
+      );
 
-      final AsteroidFeed feed = await container.read(asteroidFeedProvider.future);
+      final AsteroidFeed feed = await container.read(
+        asteroidFeedProvider.future,
+      );
 
       expect(feed.usingFallback, isFalse);
       expect(container.read(asteroidFeedProvider).requireValue, same(feed));
     });
 
-    test('surfaces loading and then the sample sky when the network is dead', () async {
-      // The repository answers a dead network with the sample set rather than
-      // an error (spec 01 §3), so from up here a fallback load is an ordinary
-      // successful one. `usingFallback` is the only thing that gives it away —
-      // which is exactly the contract the loading screen depends on.
-      final _FakeRepository repository = _FakeRepository(AsteroidFeed.fallback());
-      final ProviderContainer container = _container(repository);
+    test(
+      'surfaces loading and then the sample sky when the network is dead',
+      () async {
+        // The repository answers a dead network with the sample set rather than
+        // an error (spec 01 §3), so from up here a fallback load is an ordinary
+        // successful one. `usingFallback` is the only thing that gives it away —
+        // which is exactly the contract the loading screen depends on.
+        final _FakeRepository repository = _FakeRepository(
+          AsteroidFeed.fallback(),
+        );
+        final ProviderContainer container = _container(repository);
 
-      expect(container.read(asteroidFeedProvider), isA<AsyncLoading<AsteroidFeed>>());
+        expect(
+          container.read(asteroidFeedProvider),
+          isA<AsyncLoading<AsteroidFeed>>(),
+        );
 
-      final AsteroidFeed feed = await container.read(asteroidFeedProvider.future);
+        final AsteroidFeed feed = await container.read(
+          asteroidFeedProvider.future,
+        );
 
-      expect(feed.usingFallback, isTrue);
-      expect(feed.asteroids, kFallbackAsteroids);
-      expect(container.read(asteroidFeedProvider).hasError, isFalse);
-    });
+        expect(feed.usingFallback, isTrue);
+        expect(feed.asteroids, kFallbackAsteroids);
+        expect(container.read(asteroidFeedProvider).hasError, isFalse);
+      },
+    );
 
     test('loads once however many providers read it', () async {
       // The prototype calls `loadData()` exactly once per process
@@ -61,16 +76,19 @@ void main() {
       expect(repository.loadCount, 1);
     });
 
-    test('reloads on invalidate, because that is the one gesture that should', () async {
-      final _FakeRepository repository = _FakeRepository(_liveFeed());
-      final ProviderContainer container = _container(repository);
+    test(
+      'reloads on invalidate, because that is the one gesture that should',
+      () async {
+        final _FakeRepository repository = _FakeRepository(_liveFeed());
+        final ProviderContainer container = _container(repository);
 
-      await container.read(asteroidFeedProvider.future);
-      container.invalidate(asteroidFeedProvider);
-      await container.read(asteroidFeedProvider.future);
+        await container.read(asteroidFeedProvider.future);
+        container.invalidate(asteroidFeedProvider);
+        await container.read(asteroidFeedProvider.future);
 
-      expect(repository.loadCount, 2);
-    });
+        expect(repository.loadCount, 2);
+      },
+    );
   });
 
   group('the derived field providers', () {
@@ -80,28 +98,80 @@ void main() {
 
       await container.read(asteroidFeedProvider.future);
 
-      expect(container.read(asteroidsProvider).requireValue, same(feed.asteroids));
-      expect(container.read(todayListProvider).requireValue, same(feed.todayList));
-      expect(container.read(feedRangeProvider).requireValue, '2026-07-14 → 2026-07-16');
+      expect(
+        container.read(asteroidsProvider).requireValue,
+        same(feed.asteroids),
+      );
+      expect(
+        container.read(todayListProvider).requireValue,
+        same(feed.todayList),
+      );
+      expect(
+        container.read(feedRangeProvider).requireValue,
+        '2026-07-14 → 2026-07-16',
+      );
       expect(container.read(usingFallbackProvider).requireValue, isFalse);
     });
 
-    test('report loading rather than an empty sky before the feed lands', () async {
-      // The load-bearing assertion of the file. A bare `List<Asteroid>` would
-      // have to answer this moment with `[]`, and a radar cannot tell "space is
-      // empty" from "we have not asked yet" — it would paint an empty sky and
-      // then jump. Every field says "loading" instead.
-      final ProviderContainer container = _container(_FakeRepository(_liveFeed()));
-
-      expect(container.read(asteroidsProvider), isA<AsyncLoading<List<Asteroid>>>());
-      expect(container.read(todayListProvider), isA<AsyncLoading<List<Asteroid>>>());
-      expect(container.read(feedRangeProvider), isA<AsyncLoading<String>>());
-      expect(container.read(usingFallbackProvider), isA<AsyncLoading<bool>>());
+    test('hand out a sky no consumer can reorder', () async {
+      // `same()` above is the whole reason this matters: every consumer gets
+      // the one list instance, not a copy each, so a screen sorting it in place
+      // would reorder the radar's own source list — and the radar seeds each
+      // animal's orbit phase from that list's index (plan decision 9).
+      // `asteroid_feed_test.dart` owns the guarantee; this pins that it
+      // survives the trip through the providers.
+      final ProviderContainer container = _container(
+        _FakeRepository(_liveFeed()),
+      );
 
       await container.read(asteroidFeedProvider.future);
 
-      expect(container.read(asteroidsProvider).hasValue, isTrue);
+      final List<Asteroid> asteroids = container
+          .read(asteroidsProvider)
+          .requireValue;
+      expect(
+        () => asteroids.sort(
+          (Asteroid a, Asteroid b) => a.diaMax.compareTo(b.diaMax),
+        ),
+        throwsUnsupportedError,
+      );
+      expect(
+        () =>
+            container.read(todayListProvider).requireValue.add(asteroids.first),
+        throwsUnsupportedError,
+      );
     });
+
+    test(
+      'report loading rather than an empty sky before the feed lands',
+      () async {
+        // The load-bearing assertion of the file. A bare `List<Asteroid>` would
+        // have to answer this moment with `[]`, and a radar cannot tell "space is
+        // empty" from "we have not asked yet" — it would paint an empty sky and
+        // then jump. Every field says "loading" instead.
+        final ProviderContainer container = _container(
+          _FakeRepository(_liveFeed()),
+        );
+
+        expect(
+          container.read(asteroidsProvider),
+          isA<AsyncLoading<List<Asteroid>>>(),
+        );
+        expect(
+          container.read(todayListProvider),
+          isA<AsyncLoading<List<Asteroid>>>(),
+        );
+        expect(container.read(feedRangeProvider), isA<AsyncLoading<String>>());
+        expect(
+          container.read(usingFallbackProvider),
+          isA<AsyncLoading<bool>>(),
+        );
+
+        await container.read(asteroidFeedProvider.future);
+
+        expect(container.read(asteroidsProvider).hasValue, isTrue);
+      },
+    );
 
     test('all describe the same load, never a mix of two', () async {
       // These are four views of one value, so they cannot disagree — a footer
@@ -175,20 +245,24 @@ void main() {
       expect(container.read(asteroidFeedProvider).hasError, isTrue);
     });
 
-    test('the framework default really would retry — this is not a no-op guard', () async {
-      // Proves the previous test bites, by watching the behaviour it suppresses
-      // happen to an identical provider that only differs by opting in.
-      final _FakeRepository repository = _FakeRepository.throwing();
-      final FutureProvider<AsteroidFeed> retrying = FutureProvider<AsteroidFeed>(
-        (Ref ref) => ref.watch(asteroidRepositoryProvider).loadData(),
-      );
-      final ProviderContainer container = _container(repository);
+    test(
+      'the framework default really would retry — this is not a no-op guard',
+      () async {
+        // Proves the previous test bites, by watching the behaviour it suppresses
+        // happen to an identical provider that only differs by opting in.
+        final _FakeRepository repository = _FakeRepository.throwing();
+        final FutureProvider<AsteroidFeed> retrying =
+            FutureProvider<AsteroidFeed>(
+              (Ref ref) => ref.watch(asteroidRepositoryProvider).loadData(),
+            );
+        final ProviderContainer container = _container(repository);
 
-      container.listen(retrying, (_, _) {}, onError: (_, _) {});
-      await Future<void>.delayed(const Duration(milliseconds: 600));
+        container.listen(retrying, (_, _) {}, onError: (_, _) {});
+        await Future<void>.delayed(const Duration(milliseconds: 600));
 
-      expect(repository.loadCount, greaterThan(1));
-    });
+        expect(repository.loadCount, greaterThan(1));
+      },
+    );
   });
 
   group('asteroidRepositoryProvider', () {
@@ -198,7 +272,10 @@ void main() {
       // request only happens when something asks for the feed.
       final ProviderContainer container = ProviderContainer.test();
 
-      expect(container.read(asteroidRepositoryProvider), isA<AsteroidRepository>());
+      expect(
+        container.read(asteroidRepositoryProvider),
+        isA<AsteroidRepository>(),
+      );
     });
   });
 }
@@ -211,7 +288,9 @@ ProviderContainer _container(AsteroidRepository repository) {
   );
 }
 
-AsteroidFeed _liveFeed({List<String> names = const <String>['2011 EW', '2020 SW']}) {
+AsteroidFeed _liveFeed({
+  List<String> names = const <String>['2011 EW', '2020 SW'],
+}) {
   final List<Asteroid> asteroids = names
       .map(
         (String name) => Asteroid(

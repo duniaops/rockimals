@@ -9,12 +9,33 @@ import 'package:rockimals/data/models/asteroid.dart';
 /// "the sample set" are two instances of the same thing rather than two states
 /// the rest of the app has to reconcile.
 class AsteroidFeed {
-  const AsteroidFeed({
-    required this.asteroids,
-    required this.todayList,
+  /// [asteroids] and [todayList] are copied into unmodifiable lists, so there
+  /// is no way to build a feed whose sky a consumer can reorder.
+  ///
+  /// **The guarantee lives here rather than at each call site because the
+  /// blast radius is the whole app.** One load is handed to every consumer
+  /// through the providers, so an in-place `sort()` — a Sky tab ordering by
+  /// size, say — would not sort a copy, it would reorder the radar's own
+  /// source list, and the radar seeds each animal's orbit phase from that
+  /// list's index (plan decision 9). Nothing would throw; the animals would
+  /// just quietly jump. A fixed-length list (`toList(growable: false)`, what
+  /// the repository used to rely on) does not stop that — it blocks `add`,
+  /// while `sort` and `[]=` still write.
+  ///
+  /// **Copied rather than wrapped in an `UnmodifiableListView`**, which would
+  /// also block the writes but only for as long as nobody retains the backing
+  /// list — a condition every future caller would have to keep. The disk feed
+  /// cache is about to be exactly such a caller: it retains its entry and hands
+  /// it out (plan decision 13). Copying makes the guarantee unconditional
+  /// instead of a rule to remember, and it costs one shallow copy of at most a
+  /// few dozen references, once per load.
+  AsteroidFeed({
+    required List<Asteroid> asteroids,
+    required List<Asteroid> todayList,
     required this.feedRange,
     required this.usingFallback,
-  });
+  }) : asteroids = List<Asteroid>.unmodifiable(asteroids),
+       todayList = List<Asteroid>.unmodifiable(todayList);
 
   /// The offline answer: the bundled sample set, whole and in source order.
   ///
@@ -25,9 +46,9 @@ class AsteroidFeed {
   /// exactly the path that has to work: a plane, a tunnel, a dead network.
   factory AsteroidFeed.fallback() => AsteroidFeed(
     asteroids: kFallbackAsteroids,
-    todayList: kFallbackAsteroids.take(_fallbackTodayCount).toList(
-      growable: false,
-    ),
+    todayList: kFallbackAsteroids
+        .take(_fallbackTodayCount)
+        .toList(growable: false),
     feedRange: sampleFeedRange,
     usingFallback: true,
   );
@@ -36,10 +57,16 @@ class AsteroidFeed {
 
   /// Every asteroid in the window, deduplicated by designation. The radar draws
   /// from this full list, and the Sky tab lists all of it.
+  ///
+  /// Unmodifiable: sort a copy, never this. Its **order is load-bearing** —
+  /// the radar seeds every animal's orbit phase from the index (plan decision
+  /// 9), so reordering it in place moves the sky.
   final List<Asteroid> asteroids;
 
   /// The handful visiting today, for the home overlay strip and the Challenge
   /// game's pool. A subset of [asteroids], never a separate fetch.
+  ///
+  /// Unmodifiable, for the same reason as [asteroids].
   final List<Asteroid> todayList;
 
   /// Kid-facing provenance for the Sky tab's footer: `2026-07-14 → 2026-07-16`,
