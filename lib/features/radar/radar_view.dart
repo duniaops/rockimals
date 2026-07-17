@@ -4,10 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/radar/radar_geometry.dart';
+import 'package:rockimals/features/radar/radar_orbits.dart';
 import 'package:rockimals/features/radar/radar_painter.dart';
 
-/// The live approach radar — Earth, the rings around it, and (as the items
-/// after this one land) the animals orbiting on them.
+/// The live approach radar — Earth, the rings around it, the Moon, and the
+/// animals orbiting on them.
 ///
 /// **The source list is every asteroid in the window, not `todayList`** — the
 /// prototype's `Radar.data = asteroids.slice()` (`index.html:637`, plan
@@ -22,9 +23,9 @@ import 'package:rockimals/features/radar/radar_painter.dart';
 /// grant (`lib/features/loading/loading_screen.dart`).
 ///
 /// Not yet mounted in the Radar tab: that tab still holds the task-01 debug
-/// list, which is the only thing proving the data spine reaches a screen, and
-/// swapping it for a radar with no animals on it would be a step backwards. The
-/// plan carries the item that mounts this.
+/// list, which is the only thing proving the data spine reaches a screen. Now
+/// that the animals are on it the radar is worth the tab, and the plan's next
+/// item is the one that swaps them.
 class RadarView extends ConsumerWidget {
   const RadarView({super.key});
 
@@ -32,18 +33,22 @@ class RadarView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final List<Asteroid> asteroids = ref.watch(asteroidsProvider).requireValue;
 
-    // Sized to the sky once per load rather than per frame, matching the
-    // prototype: `MAXLD` is set in `homeInit()` (`index.html:638-639`) and read
-    // by every frame after it.
-    return _RadarField(maxLd: RadarGeometry.maxLdFor(asteroids));
+    // Sized and seeded once per load rather than per frame, matching the
+    // prototype: `MAXLD` and `Radar.seeds` are both set in `homeInit()`
+    // (`index.html:638-645`) and read by every frame after it.
+    return _RadarField(
+      maxLd: RadarGeometry.maxLdFor(asteroids),
+      asteroids: asteroids,
+    );
   }
 }
 
 /// The canvas and the clock that drives it — `radarLoop()` (`index.html:729`).
 class _RadarField extends StatefulWidget {
-  const _RadarField({required this.maxLd});
+  const _RadarField({required this.maxLd, required this.asteroids});
 
   final double maxLd;
+  final List<Asteroid> asteroids;
 
   @override
   State<_RadarField> createState() => _RadarFieldState();
@@ -59,9 +64,18 @@ class _RadarFieldState extends State<_RadarField>
   /// else (`CLAUDE.md:79-80`).
   final ValueNotifier<Duration> _clock = ValueNotifier<Duration>(Duration.zero);
 
-  late final Ticker _ticker = createTicker(
-    (Duration elapsed) => _clock.value = elapsed,
-  );
+  /// Where every animal is. Seeded once, then moved by the ticker below and read
+  /// by the painter — never rebuilt, which is the point of it being mutable.
+  late final RadarOrbits _orbits = RadarOrbits.seed(widget.asteroids);
+
+  /// **The order inside this callback is the whole contract with the painter.**
+  /// The sky is advanced first and the clock published second, so the notify
+  /// that triggers the repaint always follows the state that repaint will read.
+  /// Swapped, every frame would draw the sky one frame stale.
+  late final Ticker _ticker = createTicker((Duration elapsed) {
+    _orbits.advance(elapsed);
+    _clock.value = elapsed;
+  });
 
   @override
   void initState() {
@@ -88,6 +102,7 @@ class _RadarFieldState extends State<_RadarField>
       child: CustomPaint(
         painter: RadarPainter(
           clock: _clock,
+          orbits: _orbits,
           maxLd: widget.maxLd,
           zoom: _restingZoom,
         ),

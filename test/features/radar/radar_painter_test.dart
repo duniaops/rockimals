@@ -6,6 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rockimals/data/models/asteroid.dart';
+import 'package:rockimals/features/radar/radar_geometry.dart';
+import 'package:rockimals/features/radar/radar_orbits.dart';
 import 'package:rockimals/features/radar/radar_painter.dart';
 
 /// What the radar's base layer actually puts on the screen.
@@ -103,10 +106,12 @@ void main() {
   });
 
   group('RadarPainter', () {
-    testWidgets('draws space, then the rings, then Earth on top', (tester) async {
-      // `index.html:870` — Earth is drawn last because it is the smallest and
-      // most important object on the screen, so nothing is allowed to cover it.
-      // The order *is* the assertion: the space rect, a ring, then the planet.
+    testWidgets('draws space, then the rings, then the Moon, then Earth on top',
+        (tester) async {
+      // `index.html:818-877` — the prototype's order, and every step of it is a
+      // decision about what may cover what. Earth is last because it is the
+      // smallest and most important object on the screen, so nothing is allowed
+      // to cover it. The order *is* the assertion.
       await _radar(tester);
 
       expect(
@@ -114,6 +119,9 @@ void main() {
         paints
           ..rect()
           ..path()
+          // The Moon, out on the 1× ring rather than at the centre — it is the
+          // only thing on this layer that is neither scale nor planet.
+          ..circle(radius: 5)
           ..circle(x: _centre.dx, y: _centre.dy, radius: 27.5)
           ..circle(x: _centre.dx, y: _centre.dy, radius: 15),
       );
@@ -272,6 +280,8 @@ void main() {
           greaterThan(px.at(1, _size.height - 2).b));
     });
   });
+
+  _animalTests();
 }
 
 /// A phone-shaped field. The default test view is 800×600, which would clamp
@@ -286,6 +296,8 @@ Future<void> _radar(
   WidgetTester tester, {
   double maxLd = 60,
   double zoom = 1,
+  List<Asteroid> sky = const <Asteroid>[],
+  Asteroid? selected,
 }) async {
   tester.view
     ..physicalSize = _size
@@ -293,17 +305,461 @@ Future<void> _radar(
   addTearDown(tester.view.reset);
 
   await tester.pumpWidget(
-    RepaintBoundary(child: _Ticking(maxLd: maxLd, zoom: zoom)),
+    RepaintBoundary(
+      child: _Ticking(
+        // A fresh key per call, so a test that mounts two radars in a row really
+        // gets two. Without it the second `pumpWidget` reuses the first's
+        // `State` — and the sky is seeded in a `late final` there, exactly as it
+        // is in the app, so the new asteroids would be silently ignored and the
+        // test would be asserting against the previous frame's sky.
+        key: UniqueKey(),
+        maxLd: maxLd,
+        zoom: zoom,
+        asteroids: sky,
+        selected: selected,
+      ),
+    ),
   );
+}
+
+/// Every `drawCircle` the painter recorded, in order, with the [Paint] it used.
+///
+/// **The recorded paints really are per-call**, even though `_paintAnimals`
+/// reuses two [Paint] objects across every animal to keep per-frame allocation
+/// down (`CLAUDE.md:80`): the recording canvas snapshots each one. Worth knowing
+/// before trusting any colour asserted here — if it did not, every ring in a
+/// frame would read back as the last colour set and these tests would quietly
+/// agree with themselves.
+List<({Offset at, double radius, Paint paint})> _circles(WidgetTester tester) {
+  final List<({Offset at, double radius, Paint paint})> circles =
+      <({Offset at, double radius, Paint paint})>[];
+  final Matcher collector = (paints
+    ..something((Symbol method, List<dynamic> arguments) {
+      if (method == #drawCircle) {
+        circles.add((
+          at: arguments[0] as Offset,
+          radius: arguments[1] as double,
+          paint: arguments[2] as Paint,
+        ));
+      }
+      return false;
+    })) as Matcher;
+  collector.matches(_painterOf(tester), <dynamic, dynamic>{});
+  return circles;
+}
+
+/// The circles drawn around [at] — one animal's token, its ring, and its
+/// selection ring if it has one.
+List<({Offset at, double radius, Paint paint})> _chipAt(
+  WidgetTester tester,
+  Offset at,
+) => <({Offset at, double radius, Paint paint})>[
+  for (final ({Offset at, double radius, Paint paint}) c in _circles(tester))
+    if ((c.at - at).distance < 0.01) c,
+];
+
+/// The selection halo — the only 2.5px stroke on the whole field, which is what
+/// lets it be found without knowing where the animal has orbited to.
+({Offset at, double radius, Paint paint}) _halo(WidgetTester tester) => _circles(
+  tester,
+).singleWhere((({Offset at, double radius, Paint paint}) c) => c.paint.strokeWidth == 2.5);
+
+/// A rock with only what the radar reads. [ld] and [diaMax] are the two inputs
+/// that decide everything on screen: where it orbits and how big it is drawn.
+Asteroid _rock({
+  required String name,
+  required double ld,
+  double diaMax = 300,
+  bool hazardous = false,
+}) => Asteroid(
+  name: name,
+  diaMax: diaMax,
+  diaMin: diaMax / 2,
+  hazardous: hazardous,
+  missLunar: ld,
+  missKm: ld * 384400,
+  velKps: 10,
+  mag: 20,
+  jpl: 'https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html',
+  date: 'sample',
+);
+
+/// The animals themselves: the token, the ring that says what they are doing,
+/// and the name only some of them show.
+///
+/// Colours are asserted off the recorded [Paint]s rather than off pixels,
+/// because the emoji sits over the middle of every chip and `flutter_test`
+/// renders text in a box font — so a probe near a token is reading the test
+/// harness's glyph, not the app's. The Moon is the one thing here with clear
+/// space around it, so it is the one thing rasterised.
+void _animalTests() {
+  group('RadarPainter — animals', () {
+    testWidgets('draws a token, then its ring, then the animal in it', (tester) async {
+      // The order is the guardrail (`index.html:852-862`). An emoji straight
+      // onto deep space is dim and, next to a big one, reads as switched off —
+      // and `specs/02-live-radar.md:28` is explicit that no animal may ever look
+      // faded. The token is what gives every animal the same lit background
+      // whatever its size, so the size difference stays a size difference.
+      await _radar(tester, sky: <Asteroid>[_rock(name: '2020 AA', ld: 5)]);
+
+      final List<({Offset at, double radius, Paint paint})> circles = _circles(tester);
+      // The Moon, the token, the ring, then Earth's glow and Earth.
+      final ({Offset at, double radius, Paint paint}) token = circles[1];
+      final ({Offset at, double radius, Paint paint}) ring = circles[2];
+
+      expect(token.at, ring.at, reason: 'the ring is around the token');
+      expect(token.radius, closeTo(ring.radius, 1e-9));
+      expect(token.paint.style, PaintingStyle.fill);
+      expect(
+        token.paint.shader,
+        isNotNull,
+        reason: 'a lit gradient, not a flat disc — it is what makes the animal '
+            'sit in something rather than float on the field',
+      );
+      expect(ring.paint.style, PaintingStyle.stroke);
+      expect(ring.paint.strokeWidth, 2);
+    });
+
+    testWidgets('sizes each animal by the real rock, not by the species', (tester) async {
+      // Two animals, four orders of magnitude apart in real diameter. The one on
+      // screen must be bigger — and both must still be big enough to see.
+      final Asteroid mouse = _rock(name: '2020 SW', ld: 5, diaMax: 4);
+      final Asteroid whale = _rock(name: '433 Eros', ld: 5, diaMax: 16800);
+      await _radar(tester, sky: <Asteroid>[mouse, whale]);
+
+      final RadarOrbits orbits = RadarOrbits.seed(<Asteroid>[mouse, whale]);
+      expect(orbits.orbits[0].chipRadius, lessThan(orbits.orbits[1].chipRadius));
+      // Both are drawn at the size the ladder gave them.
+      final List<double> radii = <double>[
+        for (final ({Offset at, double radius, Paint paint}) c in _circles(tester))
+          if (c.paint.style == PaintingStyle.stroke) c.radius,
+      ];
+      expect(radii, contains(closeTo(orbits.orbits[0].chipRadius, 0.01)));
+      expect(radii, contains(closeTo(orbits.orbits[1].chipRadius, 0.01)));
+    });
+
+    testWidgets('rings a close flyby orange and everyone else quietly', (tester) async {
+      // `index.html:854`. The orange is a *greeting*, not a warning
+      // (`CLAUDE.md:64`) — and it is the only thing on this screen that marks
+      // NASA's flag at all.
+      final Asteroid waving = _rock(name: '2020 AA', ld: 0.4);
+      final Asteroid passing = _rock(name: '2020 BB', ld: 30);
+      await _radar(tester, sky: <Asteroid>[waving, passing], maxLd: 31.5);
+
+      const RadarGeometry geometry = RadarGeometry(size: _size, maxLd: 31.5);
+      final RadarOrbits orbits = RadarOrbits.seed(<Asteroid>[waving, passing]);
+
+      final Paint wavingRing = _chipAt(
+        tester,
+        orbits.positionOf(orbits.orbits[0], geometry: geometry, zoom: 1),
+      ).last.paint;
+      final Paint passingRing = _chipAt(
+        tester,
+        orbits.positionOf(orbits.orbits[1], geometry: geometry, zoom: 1),
+      ).last.paint;
+
+      // `isSameColorAs`, not `equals`: `Paint.color` round-trips through float32,
+      // so a colour comes back a few ulps from the one that went in and `==` is
+      // false between two Colours that print identically.
+      expect(wavingRing.color, isSameColorAs(const Color.fromRGBO(232, 140, 60, 0.95)));
+      expect(passingRing.color, isSameColorAs(const Color.fromRGBO(120, 150, 200, 0.45)));
+    });
+
+    testWidgets('rings a flagged rock even when it passes far away', (tester) async {
+      // `flybyTag`'s rule is `hazardous || missLunar < 1`, and the radar reads
+      // the tag rather than the raw flag — so the ring here and the badge on the
+      // detail screen can never disagree about which animals are waving.
+      final Asteroid flagged = _rock(name: '2020 CC', ld: 30, hazardous: true);
+      await _radar(tester, sky: <Asteroid>[flagged], maxLd: 31.5);
+
+      final RadarOrbits orbits = RadarOrbits.seed(<Asteroid>[flagged]);
+      final Offset at = orbits.positionOf(
+        orbits.orbits[0],
+        geometry: const RadarGeometry(size: _size, maxLd: 31.5),
+        zoom: 1,
+      );
+      expect(
+        _chipAt(tester, at).last.paint.color,
+        isSameColorAs(const Color.fromRGBO(232, 140, 60, 0.95)),
+      );
+    });
+
+    testWidgets('gives the selected animal a white ring that breathes', (tester) async {
+      // `index.html:855-857` — a second ring at `chip + 3 + pulse*3`, on the
+      // same breath as Earth's glow. White because it is the only colour on this
+      // field that means nothing else.
+      final Asteroid rock = _rock(name: '2020 AA', ld: 5);
+      await _radar(tester, sky: <Asteroid>[rock], selected: rock);
+
+      final RadarOrbits orbits = RadarOrbits.seed(<Asteroid>[rock]);
+      final Offset at = orbits.positionOf(
+        orbits.orbits[0],
+        geometry: const RadarGeometry(size: _size, maxLd: 60),
+        zoom: 1,
+      );
+      final double chip = orbits.orbits[0].chipRadius;
+
+      final ({Offset at, double radius, Paint paint}) halo = _chipAt(tester, at).last;
+      expect(halo.paint.color, isSameColorAs(const Color(0xFFFFFFFF)));
+      expect(halo.paint.strokeWidth, 2.5);
+      // At rest the sine is 0, so pulse is 0.5 and the halo starts mid-breath.
+      expect(halo.radius, closeTo(chip + 3 + 1.5, 0.001));
+
+      // A quarter period on (471ms) it is at full stretch — and by then the
+      // animal has orbited, so the halo is found by the 2.5px stroke that
+      // nothing else on the field uses rather than by where it used to be.
+      await tester.pump(const Duration(milliseconds: 471));
+      expect(_halo(tester).radius, closeTo(chip + 6, 0.001));
+    });
+
+    testWidgets('leaves every other animal ringless', (tester) async {
+      // Only the selected one gets a halo. Two circles per animal, not three.
+      final Asteroid a = _rock(name: '2020 AA', ld: 5);
+      final Asteroid b = _rock(name: '2020 BB', ld: 6);
+      await _radar(tester, sky: <Asteroid>[a, b], selected: a);
+
+      const RadarGeometry geometry = RadarGeometry(size: _size, maxLd: 60);
+      final RadarOrbits orbits = RadarOrbits.seed(<Asteroid>[a, b]);
+
+      expect(
+        _chipAt(tester, orbits.positionOf(orbits.orbits[0], geometry: geometry, zoom: 1)),
+        hasLength(3),
+        reason: 'token, ring, halo',
+      );
+      expect(
+        _chipAt(tester, orbits.positionOf(orbits.orbits[1], geometry: geometry, zoom: 1)),
+        hasLength(2),
+        reason: 'token and ring only',
+      );
+    });
+
+    testWidgets('selects by designation, so nothing depends on object identity',
+        (tester) async {
+      // The prototype compares references (`Radar.selected===a`) because it only
+      // ever has the one array. The designation is this app's identity for a rock
+      // (plan decision 12), and it does not care which list the asteroid came out
+      // of — an equal-but-not-identical rock must still be the selected one.
+      final Asteroid rock = _rock(name: '2020 AA', ld: 5);
+      await _radar(
+        tester,
+        sky: <Asteroid>[rock],
+        selected: _rock(name: '2020 AA', ld: 5),
+      );
+
+      final RadarOrbits orbits = RadarOrbits.seed(<Asteroid>[rock]);
+      final Offset at = orbits.positionOf(
+        orbits.orbits[0],
+        geometry: const RadarGeometry(size: _size, maxLd: 60),
+        zoom: 1,
+      );
+      expect(_chipAt(tester, at), hasLength(3), reason: 'it is still selected');
+    });
+
+    testWidgets('carries every animal round its own ring as time passes', (tester) async {
+      // The orbit loop, seen through the painter rather than through the model:
+      // the pure integrator being right says nothing about whether this file
+      // reads it. Both animals must move, and the closer one must move further.
+      final Asteroid near = _rock(name: '2020 AA', ld: 0.5);
+      final Asteroid far = _rock(name: '2020 BB', ld: 30);
+      await _radar(tester, sky: <Asteroid>[near, far], maxLd: 31.5);
+
+      final List<Offset> before = <Offset>[
+        for (final ({Offset at, double radius, Paint paint}) c in _circles(tester)) c.at,
+      ];
+      await tester.pump(const Duration(seconds: 2));
+      final List<Offset> after = <Offset>[
+        for (final ({Offset at, double radius, Paint paint}) c in _circles(tester)) c.at,
+      ];
+
+      expect(after, isNot(before), reason: 'the sky is alive');
+      // Earth never moves, however long anyone watches.
+      expect(after.last, before.last);
+    });
+
+    testWidgets('names the animals that are waving, and no others', (tester) async {
+      // `index.html:864`. Sixty names at once would be a wall of text on the one
+      // screen a five-year-old opens the app to; the rest introduce themselves
+      // when they are tapped.
+      //
+      // Counted against an empty sky at the same `maxLd`, so the rings' own
+      // labels, "Earth" and "Moon" are constant across the three frames and the
+      // only difference is the animals.
+      //
+      // **Every animal contributes one paragraph before any name does: its own
+      // emoji.** So "just passing" is base + 1, not base — the emoji is text on
+      // this canvas too, which is easy to forget and would make a silently
+      // wrong test read as a passing one.
+      await _radar(tester, maxLd: 31.5);
+      final int base = _paragraphOffsets(tester).length;
+
+      await _radar(tester, sky: <Asteroid>[_rock(name: '2020 BB', ld: 30)], maxLd: 31.5);
+      expect(
+        _paragraphOffsets(tester), hasLength(base + 1),
+        reason: 'its emoji and nothing else — a rock just passing keeps its name to itself',
+      );
+
+      await _radar(tester, sky: <Asteroid>[_rock(name: '2020 AA', ld: 0.4)], maxLd: 31.5);
+      expect(
+        _paragraphOffsets(tester), hasLength(base + 2),
+        reason: 'emoji and name — a close flyby says hello',
+      );
+    });
+
+    testWidgets('sits the name above the animal, not across it', (tester) async {
+      // `y - em*0.6 - 4` (`index.html:867`) — clear of the emoji's own box, so
+      // the name never lands on the animal's face.
+      //
+      // Isolated by selecting the same rock rather than by hunting near a
+      // coordinate: selection adds the name and moves nothing, so the one offset
+      // that appears between the two frames *is* the name. Searching by position
+      // instead picks up the animal's own emoji and whatever ring label happens
+      // to be nearby.
+      final Asteroid rock = _rock(name: '2020 BB', ld: 30);
+      final RadarOrbits orbits = RadarOrbits.seed(<Asteroid>[rock]);
+      final RadarOrbit orbit = orbits.orbits[0];
+      final Offset at = orbits.positionOf(
+        orbit,
+        geometry: const RadarGeometry(size: _size, maxLd: 31.5),
+        zoom: 1,
+      );
+
+      await _radar(tester, sky: <Asteroid>[rock], maxLd: 31.5);
+      final Set<({Offset at, double width})> unnamed = _paragraphOffsets(tester).toSet();
+
+      await _radar(tester, sky: <Asteroid>[rock], maxLd: 31.5, selected: rock);
+      final Set<({Offset at, double width})> named = _paragraphOffsets(tester).toSet();
+
+      final ({Offset at, double width}) name = named.difference(unnamed).single;
+      expect(
+        name.at.dy,
+        lessThan(at.dy - orbit.emojiSize * 0.5),
+        reason: 'above the emoji box, not over it',
+      );
+      expect(
+        name.at.dx + name.width / 2,
+        closeTo(at.dx, 0.01),
+        reason: 'centred over the animal it belongs to',
+      );
+    });
+
+    testWidgets('names the selected animal even when it is only passing', (tester) async {
+      // `showLabels && (close || sel)` (`index.html:864`) — being looked at is
+      // reason enough to say your name, however far away you are.
+      final Asteroid passing = _rock(name: '2020 BB', ld: 30);
+      await _radar(tester, sky: <Asteroid>[passing], maxLd: 31.5);
+      final int unnamed = _paragraphOffsets(tester).length;
+
+      await _radar(
+        tester,
+        sky: <Asteroid>[passing],
+        maxLd: 31.5,
+        selected: passing,
+      );
+      expect(_paragraphOffsets(tester), hasLength(unnamed + 1));
+    });
+
+    testWidgets('draws a busy day, and lays each label out only once', (tester) async {
+      // The automatable half of "a busy day (60+) holds ~60fps". The frame rate
+      // itself needs a device this machine does not have (no Xcode, no Android
+      // SDK — the plan's human-gated item), and is NOT claimed here. What can be
+      // checked is the claim the port actually rests on: laying text out is by a
+      // distance the most expensive thing this painter does, and it does it once
+      // per label rather than once per label per frame. A radar that re-measured
+      // all sixty animals every frame would look identical from the outside and
+      // only show itself on a child's phone.
+      final List<Asteroid> busy = <Asteroid>[
+        for (int i = 0; i < 60; i++)
+          _rock(
+            name: '2026 A$i',
+            // Spread across the whole field, and every rung of the size ladder,
+            // so this is a real sky's worth of distinct labels rather than sixty
+            // copies of one.
+            ld: 0.2 + i * 0.5,
+            diaMax: 4.0 + i * 40,
+          ),
+      ];
+
+      await _radar(tester, sky: busy);
+      final int afterFirstFrame = debugLabelLayouts;
+
+      for (int i = 0; i < 30; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+
+      expect(
+        debugLabelLayouts,
+        afterFirstFrame,
+        reason: 'thirty more frames must not lay out a single label again',
+      );
+      // And the sky really was drawn: 60 tokens + 60 rings, plus the Moon and
+      // Earth's two circles.
+      expect(_circles(tester), hasLength(60 * 2 + 3));
+    });
+
+    testWidgets('draws the Moon on its ring, in the flesh', (tester) async {
+      // Rasterised through `flutter_tester` — the same painting pipeline a phone
+      // runs — because every assertion above would pass just as happily for a
+      // Moon painted off the bottom of the screen. The Moon is the one object on
+      // this field with clear space around it, so it is the one that can honestly
+      // be probed for its own colour.
+      await _radar(tester);
+
+      const RadarGeometry geometry = RadarGeometry(size: _size, maxLd: 60);
+      final Offset moon = RadarOrbits.seed(const <Asteroid>[])
+          .moonPosition(geometry: geometry, zoom: 1);
+      final _Pixels pixels = await _paintedPixels(tester);
+
+      expect(pixels.at(moon.dx, moon.dy), const Color(0xFFCFD6DE));
+      // A 5px disc and not a smear: eight pixels out is space again.
+      expect(pixels.at(moon.dx + 8, moon.dy), isNot(const Color(0xFFCFD6DE)));
+      // And it really is out on the 1× ring rather than sitting on Earth.
+      expect((moon - geometry.center).distance, closeTo(geometry.radiusFor(1), 0.01));
+    });
+  });
+}
+
+/// Where every string the painter laid down this frame was drawn, and how wide
+/// it is.
+///
+/// A [ui.Paragraph] does not carry its text, so *which* label this is has to be
+/// read from where it landed — which is worth pinning anyway, since a name drawn
+/// in the right style at the wrong place is still wrong. The offset is the
+/// text's **left edge**, not its centre: `_Label.paint` does the centring itself
+/// (canvas's `textAlign="center"`), so recovering the centre needs the width.
+List<({Offset at, double width})> _paragraphOffsets(WidgetTester tester) {
+  final List<({Offset at, double width})> offsets = <({Offset at, double width})>[];
+  final Matcher collector = (paints
+    ..something((Symbol method, List<dynamic> arguments) {
+      if (method == #drawParagraph) {
+        offsets.add((
+          at: arguments[1] as Offset,
+          width: (arguments[0] as ui.Paragraph).longestLine,
+        ));
+      }
+      return false;
+    })) as Matcher;
+  collector.matches(_painterOf(tester), <dynamic, dynamic>{});
+  return offsets;
 }
 
 /// Drives [RadarPainter] with a clock a test can advance by pumping, standing in
 /// for the `Ticker` that `RadarView` gives it in the app.
 class _Ticking extends StatefulWidget {
-  const _Ticking({required this.maxLd, required this.zoom});
+  const _Ticking({
+    super.key,
+    required this.maxLd,
+    required this.zoom,
+    this.asteroids = const <Asteroid>[],
+    this.selected,
+  });
 
   final double maxLd;
   final double zoom;
+
+  /// Defaults to an empty sky, so the base-layer tests above see exactly the
+  /// frame they were written against: no asteroids, no chips.
+  final List<Asteroid> asteroids;
+  final Asteroid? selected;
 
   @override
   State<_Ticking> createState() => _TickingState();
@@ -311,7 +767,11 @@ class _Ticking extends StatefulWidget {
 
 class _TickingState extends State<_Ticking> with SingleTickerProviderStateMixin {
   final ValueNotifier<Duration> _clock = ValueNotifier<Duration>(Duration.zero);
-  late final Ticker _ticker = createTicker((Duration d) => _clock.value = d);
+  late final RadarOrbits _orbits = RadarOrbits.seed(widget.asteroids);
+  late final Ticker _ticker = createTicker((Duration d) {
+    _orbits.advance(d);
+    _clock.value = d;
+  });
 
   @override
   void initState() {
@@ -328,7 +788,13 @@ class _TickingState extends State<_Ticking> with SingleTickerProviderStateMixin 
 
   @override
   Widget build(BuildContext context) => CustomPaint(
-    painter: RadarPainter(clock: _clock, maxLd: widget.maxLd, zoom: widget.zoom),
+    painter: RadarPainter(
+      clock: _clock,
+      orbits: _orbits,
+      maxLd: widget.maxLd,
+      zoom: widget.zoom,
+      selected: widget.selected,
+    ),
     size: Size.infinite,
   );
 }
