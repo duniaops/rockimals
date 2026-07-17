@@ -106,6 +106,7 @@ class _RadarFieldState extends State<_RadarField>
           orbits: _orbits,
           maxLd: widget.maxLd,
           zoom: _restingZoom,
+          viewRot: _restingRotation,
         ),
         // Fills the tab. With no child, `CustomPaint` takes the largest size
         // its constraints allow.
@@ -122,3 +123,11 @@ class _RadarFieldState extends State<_RadarField>
 /// anyone touches it. Constant until the interactions item makes pinch, scroll,
 /// and the ± buttons drive it between 0.35 and 6.5.
 const double _restingZoom = 1;
+
+/// `Radar.viewRot = 0` (`index.html:625`, `640`) — the field unspun. Constant
+/// for the same reason [_restingZoom] is: the drag handler that gives it a value
+/// is the interactions item's. The painter takes it as a *required* parameter
+/// even so, which is deliberate — a rotation that reaches the animals but not
+/// the Moon spins the sky around a stationary Moon, and the way to make that not
+/// happen is to make it not compile.
+const double _restingRotation = 0;

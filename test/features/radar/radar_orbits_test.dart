@@ -207,7 +207,7 @@ void main() {
 
       final double ring = geometry.radiusFor(rock.asteroid.missLunar);
       for (final double zoom in <double>[0.35, 1, 6.5]) {
-        final Offset at = orbits.positionOf(rock, geometry: geometry, zoom: zoom);
+        final Offset at = orbits.positionOf(rock, geometry: geometry, zoom: zoom, viewRot: 0);
         expect(
           at.dx - geometry.center.dx,
           closeTo(ring * zoom + rock.rOff, 1e-9),
@@ -220,7 +220,12 @@ void main() {
       final RadarOrbits orbits = RadarOrbits.seed(kFallbackAsteroids);
       final RadarOrbit rock = orbits.orbits[3]; // rOff 3.4, phase 3.19 rad
       final double radius = geometry.radiusFor(rock.asteroid.missLunar) + rock.rOff;
-      final Offset at = orbits.positionOf(rock, geometry: geometry, zoom: 1);
+      final Offset at = orbits.positionOf(
+        rock,
+        geometry: geometry,
+        zoom: 1,
+        viewRot: 0,
+      );
 
       expect((at - geometry.center).distance, closeTo(radius, 1e-9));
       expect((at - geometry.center).direction, closeTo(rock.phase - 2 * math.pi, 1e-9));
@@ -230,7 +235,11 @@ void main() {
       final RadarOrbits orbits = RadarOrbits.seed(kFallbackAsteroids);
 
       for (final double zoom in <double>[0.35, 1, 6.5]) {
-        final Offset moon = orbits.moonPosition(geometry: geometry, zoom: zoom);
+        final Offset moon = orbits.moonPosition(
+          geometry: geometry,
+          zoom: zoom,
+          viewRot: 0,
+        );
         // The ring and the Moon on it can never come apart: same radius, at
         // every zoom. A Moon drifting off its own ring would quietly break the
         // one comparison this whole screen is built on.
@@ -254,6 +263,87 @@ void main() {
       expect(orbits.moonPhase, closeTo(2 * math.pi, 0.01));
     });
   });
+
+  group('viewRot', () {
+    const RadarGeometry geometry = RadarGeometry(size: Size(390, 700), maxLd: 60);
+
+    test('turns every animal and the Moon by one shared rotation', () {
+      // **The bug this exists to fail on.** `viewRot` is added at two call sites
+      // (`index.html:837`, `845`), and an author who threads it through the
+      // animals and forgets the Moon gets a screen that looks *almost* right:
+      // the sky spins and the Moon stands still. Every distance on this radar is
+      // read against the Moon's ring, so that is not a cosmetic slip — it is the
+      // ruler coming loose from the thing being measured.
+      final RadarOrbits orbits = RadarOrbits.seed(kFallbackAsteroids);
+      orbits.advance(const Duration(seconds: 3)); // so the Moon is off its start
+
+      const double turn = 0.7;
+      double bearing(Offset at) => (at - geometry.center).direction;
+      double turned(double a, double b) => _wrap(b - a);
+
+      final double moonBefore = bearing(
+        orbits.moonPosition(geometry: geometry, zoom: 1, viewRot: 0),
+      );
+      final double moonAfter = bearing(
+        orbits.moonPosition(geometry: geometry, zoom: 1, viewRot: turn),
+      );
+      expect(turned(moonBefore, moonAfter), closeTo(turn, 1e-9));
+
+      for (final RadarOrbit orbit in orbits.orbits) {
+        final double before = bearing(
+          orbits.positionOf(orbit, geometry: geometry, zoom: 1, viewRot: 0),
+        );
+        final double after = bearing(
+          orbits.positionOf(orbit, geometry: geometry, zoom: 1, viewRot: turn),
+        );
+        expect(
+          turned(before, after),
+          closeTo(turn, 1e-9),
+          reason: '${orbit.asteroid.name} must turn with the Moon, not past it',
+        );
+      }
+    });
+
+    test('is a view transform: it moves nobody and keeps every distance', () {
+      // Spinning the field is a camera move, not an event in the sky. If
+      // `viewRot` were ever folded into `phase` the animals would keep orbiting
+      // from wherever the child let go — the drag would nudge the simulation —
+      // and a rotation would have to be undone rather than simply set to 0 by
+      // the ⤢ button.
+      final RadarOrbits orbits = RadarOrbits.seed(kFallbackAsteroids);
+      final List<double> phases =
+          orbits.orbits.map((RadarOrbit o) => o.phase).toList();
+
+      for (final RadarOrbit orbit in orbits.orbits) {
+        final double resting =
+            (orbits.positionOf(orbit, geometry: geometry, zoom: 1, viewRot: 0) -
+                    geometry.center)
+                .distance;
+        final double spun =
+            (orbits.positionOf(orbit, geometry: geometry, zoom: 1, viewRot: 2.4) -
+                    geometry.center)
+                .distance;
+        // The whole point of rotating rather than re-placing: how far the animal
+        // is from Earth is the one thing this screen must never get wrong, and a
+        // rotation cannot touch it.
+        expect(spun, closeTo(resting, 1e-9), reason: orbit.asteroid.name);
+      }
+
+      expect(
+        orbits.orbits.map((RadarOrbit o) => o.phase),
+        phases,
+        reason: 'asking where an animal is drawn must not move it',
+      );
+    });
+  });
+
+}
+
+/// An angle folded into (-π, π], so two bearings either side of due west can be
+/// subtracted without answering ~2π.
+double _wrap(double radians) {
+  final double turns = (radians + math.pi) / (2 * math.pi);
+  return (radians + math.pi) - (2 * math.pi) * turns.floorToDouble() - math.pi;
 }
 
 /// A rock with only the fields the radar reads, so a test can say what it means.

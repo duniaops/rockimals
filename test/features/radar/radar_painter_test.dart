@@ -296,6 +296,7 @@ Future<void> _radar(
   WidgetTester tester, {
   double maxLd = 60,
   double zoom = 1,
+  double viewRot = 0,
   List<Asteroid> sky = const <Asteroid>[],
   Asteroid? selected,
 }) async {
@@ -315,6 +316,7 @@ Future<void> _radar(
         key: UniqueKey(),
         maxLd: maxLd,
         zoom: zoom,
+        viewRot: viewRot,
         asteroids: sky,
         selected: selected,
       ),
@@ -451,11 +453,11 @@ void _animalTests() {
 
       final Paint wavingRing = _chipAt(
         tester,
-        orbits.positionOf(orbits.orbits[0], geometry: geometry, zoom: 1),
+        orbits.positionOf(orbits.orbits[0], geometry: geometry, zoom: 1, viewRot: 0),
       ).last.paint;
       final Paint passingRing = _chipAt(
         tester,
-        orbits.positionOf(orbits.orbits[1], geometry: geometry, zoom: 1),
+        orbits.positionOf(orbits.orbits[1], geometry: geometry, zoom: 1, viewRot: 0),
       ).last.paint;
 
       // `isSameColorAs`, not `equals`: `Paint.color` round-trips through float32,
@@ -477,6 +479,7 @@ void _animalTests() {
         orbits.orbits[0],
         geometry: const RadarGeometry(size: _size, maxLd: 31.5),
         zoom: 1,
+        viewRot: 0,
       );
       expect(
         _chipAt(tester, at).last.paint.color,
@@ -496,6 +499,7 @@ void _animalTests() {
         orbits.orbits[0],
         geometry: const RadarGeometry(size: _size, maxLd: 60),
         zoom: 1,
+        viewRot: 0,
       );
       final double chip = orbits.orbits[0].chipRadius;
 
@@ -522,12 +526,12 @@ void _animalTests() {
       final RadarOrbits orbits = RadarOrbits.seed(<Asteroid>[a, b]);
 
       expect(
-        _chipAt(tester, orbits.positionOf(orbits.orbits[0], geometry: geometry, zoom: 1)),
+        _chipAt(tester, orbits.positionOf(orbits.orbits[0], geometry: geometry, zoom: 1, viewRot: 0)),
         hasLength(3),
         reason: 'token, ring, halo',
       );
       expect(
-        _chipAt(tester, orbits.positionOf(orbits.orbits[1], geometry: geometry, zoom: 1)),
+        _chipAt(tester, orbits.positionOf(orbits.orbits[1], geometry: geometry, zoom: 1, viewRot: 0)),
         hasLength(2),
         reason: 'token and ring only',
       );
@@ -551,6 +555,7 @@ void _animalTests() {
         orbits.orbits[0],
         geometry: const RadarGeometry(size: _size, maxLd: 60),
         zoom: 1,
+        viewRot: 0,
       );
       expect(_chipAt(tester, at), hasLength(3), reason: 'it is still selected');
     });
@@ -621,6 +626,7 @@ void _animalTests() {
         orbit,
         geometry: const RadarGeometry(size: _size, maxLd: 31.5),
         zoom: 1,
+        viewRot: 0,
       );
 
       await _radar(tester, sky: <Asteroid>[rock], maxLd: 31.5);
@@ -706,7 +712,7 @@ void _animalTests() {
 
       const RadarGeometry geometry = RadarGeometry(size: _size, maxLd: 60);
       final Offset moon = RadarOrbits.seed(const <Asteroid>[])
-          .moonPosition(geometry: geometry, zoom: 1);
+          .moonPosition(geometry: geometry, zoom: 1, viewRot: 0);
       final _Pixels pixels = await _paintedPixels(tester);
 
       expect(pixels.at(moon.dx, moon.dy), const Color(0xFFCFD6DE));
@@ -715,8 +721,60 @@ void _animalTests() {
       // And it really is out on the 1× ring rather than sitting on Earth.
       expect((moon - geometry.center).distance, closeTo(geometry.radiusFor(1), 0.01));
     });
+
+    testWidgets('carries viewRot to the animals *and* the Moon', (tester) async {
+      // **The one bug the pure orbit tests cannot see.** `RadarOrbits` is now
+      // proven to turn everything by one shared angle, but it can only turn what
+      // it is asked to: `viewRot` reaches the field through two separate calls
+      // here (`index.html:837`, `845`), and a painter that passes it to
+      // `positionOf` and forgets `moonPosition` spins the sky around a Moon
+      // standing still. That is invisible in a still frame and wrong in the one
+      // way this screen cannot afford — the Moon is the ruler every distance on
+      // it is read against.
+      final Asteroid rock = _rock(name: 'probe', ld: 5);
+      const RadarGeometry geometry = RadarGeometry(size: _size, maxLd: 60);
+      const double turn = math.pi / 2;
+
+      await _radar(tester, viewRot: turn, sky: <Asteroid>[rock]);
+
+      final RadarOrbits expected = RadarOrbits.seed(<Asteroid>[rock]);
+      final Offset animal = expected.positionOf(
+        expected.orbits[0],
+        geometry: geometry,
+        zoom: 1,
+        viewRot: turn,
+      );
+      final Offset moon = expected.moonPosition(
+        geometry: geometry,
+        zoom: 1,
+        viewRot: turn,
+      );
+
+      // Both are a quarter-turn on from where they rest, which for these two —
+      // the animal seeded at phase 0, the Moon at 0 on a frame that has not
+      // advanced — means both are due *south* of Earth rather than due east.
+      expect(moon.dy, greaterThan(geometry.center.dy));
+      expect(moon.dx, closeTo(geometry.center.dx, 1e-9));
+      expect(animal.dy, greaterThan(geometry.center.dy));
+
+      expect(
+        _circles(tester).map((c) => c.at),
+        containsAll(<Matcher>[
+          _near(moon),
+          _near(animal),
+        ]),
+        reason: 'a Moon left at three o’clock means it never got the rotation',
+      );
+    });
   });
 }
+
+/// Matches an [Offset] within a pixel of [at] — the painter and the test compute
+/// the same trigonometry, so this is about float noise, not tolerance.
+Matcher _near(Offset at) => predicate<Offset>(
+  (Offset o) => (o - at).distance < 1,
+  'within 1px of $at',
+);
 
 /// Where every string the painter laid down this frame was drawn, and how wide
 /// it is.
@@ -749,6 +807,7 @@ class _Ticking extends StatefulWidget {
     super.key,
     required this.maxLd,
     required this.zoom,
+    this.viewRot = 0,
     this.asteroids = const <Asteroid>[],
     this.selected,
   });
@@ -760,6 +819,7 @@ class _Ticking extends StatefulWidget {
   /// frame they were written against: no asteroids, no chips.
   final List<Asteroid> asteroids;
   final Asteroid? selected;
+  final double viewRot;
 
   @override
   State<_Ticking> createState() => _TickingState();
@@ -793,6 +853,7 @@ class _TickingState extends State<_Ticking> with SingleTickerProviderStateMixin 
       orbits: _orbits,
       maxLd: widget.maxLd,
       zoom: widget.zoom,
+      viewRot: widget.viewRot,
       selected: widget.selected,
     ),
     size: Size.infinite,

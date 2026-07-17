@@ -25,6 +25,7 @@ class RadarPainter extends CustomPainter {
     required this.orbits,
     required this.maxLd,
     required this.zoom,
+    required this.viewRot,
     this.selected,
   }) : super(repaint: clock);
 
@@ -41,22 +42,25 @@ class RadarPainter extends CustomPainter {
   /// How far out the field reaches, from [RadarGeometry.maxLdFor].
   final double maxLd;
 
-  /// The pinch/scroll scale (`index.html:625`, clamped to 0.35–6.5 by the
-  /// interactions item). Rings scale with it; **Earth does not** — the
-  /// prototype strokes it at a fixed 15px however far in you are
-  /// (`index.html:874`), so the thing the whole screen is about never grows
-  /// into the field or shrinks out of sight.
+  /// The pinch scale (`index.html:625`), clamped to 0.35–6.5 by the view that
+  /// owns it. Rings scale with it; **Earth does not** — the prototype strokes it
+  /// at a fixed 15px however far in you are (`index.html:874`), so the thing the
+  /// whole screen is about never grows into the field or shrinks out of sight.
   final double zoom;
+
+  /// How far the child has spun the field, in radians (`Radar.viewRot`,
+  /// `index.html:625`).
+  ///
+  /// **Not applied here as a canvas rotation, deliberately.** Turning the whole
+  /// canvas would take the ring labels, the animals' names, and "Earth" round
+  /// with it and leave a child reading upside-down text. The prototype adds it to
+  /// the two *angles* instead (`index.html:837`, `845`) — the animals and the
+  /// Moon travel round the field while every word on it stays the right way up —
+  /// so it is [RadarOrbits]' business, and this painter only carries it there.
+  final double viewRot;
 
   /// The animal a child has tapped, if any (`Radar.selected`,
   /// `index.html:624`) — it wears a white ring that breathes and says its name.
-  ///
-  /// **Nothing sets this yet**: taps are the interactions item's, and this is
-  /// `null` in the app until that lands. It is a parameter rather than a
-  /// hardcoded `false` because the selected state is this item's to *draw* — the
-  /// ring and the bold label are ported and pinned by tests here, so the
-  /// interactions item has only to answer *which* animal, not what one looks
-  /// like.
   final Asteroid? selected;
 
   @override
@@ -153,7 +157,11 @@ class RadarPainter extends CustomPainter {
   /// no switch yet — the toggle chips are their own item, and that item owns
   /// this branch.
   void _paintMoon(Canvas canvas, RadarGeometry geometry) {
-    final Offset moon = orbits.moonPosition(geometry: geometry, zoom: zoom);
+    final Offset moon = orbits.moonPosition(
+      geometry: geometry,
+      zoom: zoom,
+      viewRot: viewRot,
+    );
 
     canvas.drawCircle(moon, _moonRadius, Paint()..color = _moonColour);
     _moonLabel.paint(canvas, moon.dx, moon.dy - 9);
@@ -177,7 +185,12 @@ class RadarPainter extends CustomPainter {
     final Paint stroke = Paint()..style = PaintingStyle.stroke;
 
     for (final RadarOrbit orbit in orbits.orbits) {
-      final Offset at = orbits.positionOf(orbit, geometry: geometry, zoom: zoom);
+      final Offset at = orbits.positionOf(
+        orbit,
+        geometry: geometry,
+        zoom: zoom,
+        viewRot: viewRot,
+      );
       final double chip = orbit.chipRadius;
       // By designation, not by identity: the prototype compares object
       // references (`Radar.selected===a`, `index.html:851`) because it only ever
@@ -276,6 +289,7 @@ class RadarPainter extends CustomPainter {
   bool shouldRepaint(covariant RadarPainter oldDelegate) =>
       oldDelegate.maxLd != maxLd ||
       oldDelegate.zoom != zoom ||
+      oldDelegate.viewRot != viewRot ||
       oldDelegate.selected?.name != selected?.name ||
       !identical(oldDelegate.orbits, orbits);
 }

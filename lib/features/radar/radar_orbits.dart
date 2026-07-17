@@ -160,22 +160,45 @@ class RadarOrbits {
   /// pixels of lane separation at rest into a 44px lie about how far away the
   /// animal is at the 6.5 ceiling, on a screen whose entire job is to show that
   /// distance honestly.
+  ///
+  /// [viewRot] is added to the animal's own [RadarOrbit.phase]
+  /// (`index.html:845`) rather than [phase] being changed, which is what makes
+  /// the drag a *view* transform: let go and the sky keeps orbiting from where
+  /// the child left it, because nothing about where the animals are was ever
+  /// touched.
   Offset positionOf(
     RadarOrbit orbit, {
     required RadarGeometry geometry,
     required double zoom,
+    required double viewRot,
   }) {
     final double radius =
         geometry.radiusFor(orbit.asteroid.missLunar) * zoom + orbit.rOff;
-    return geometry.center +
-        Offset(math.cos(orbit.phase), math.sin(orbit.phase)) * radius;
+    final double angle = orbit.phase + viewRot;
+    return geometry.center + Offset(math.cos(angle), math.sin(angle)) * radius;
   }
 
-  /// Where the Moon is (`index.html:835`).
-  Offset moonPosition({required RadarGeometry geometry, required double zoom}) =>
-      geometry.center +
-      Offset(math.cos(moonPhase), math.sin(moonPhase)) *
-          geometry.moonRadius(zoom: zoom);
+  /// Where the Moon is (`index.html:835-837`).
+  ///
+  /// **[viewRot] is required here for the same reason it is above, and this is
+  /// the pair that has to agree.** The Moon rides the 1× ring and every animal's
+  /// distance is read against it, so a rotation applied to the animals and not to
+  /// the Moon would spin the whole sky around a Moon standing still — the one
+  /// object out there a child already knows, turned into the one thing that does
+  /// not move with everything else. Neither takes a default: a caller that forgets
+  /// [viewRot] on exactly one of these two is precisely that bug, and it does not
+  /// compile.
+  Offset moonPosition({
+    required RadarGeometry geometry,
+    required double zoom,
+    required double viewRot,
+  }) {
+    final double angle = moonPhase + viewRot;
+    return geometry.center +
+        Offset(math.cos(angle), math.sin(angle)) *
+            geometry.moonRadius(zoom: zoom);
+  }
+
 
   /// 0.32 rad/s (`index.html:734`) — a lap in ~19.6 seconds.
   ///
@@ -187,4 +210,5 @@ class RadarOrbits {
 
   /// `min(0.05, …)` (`index.html:730`) — the longest step the sky will take.
   static const double _maxFrame = 0.05;
+
 }
