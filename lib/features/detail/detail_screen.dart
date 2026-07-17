@@ -3,6 +3,7 @@ import 'package:rockimals/core/animals/animal_system.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/features/animals/widgets/flyby_badge.dart';
+import 'package:rockimals/features/detail/distance_comparison.dart';
 import 'package:rockimals/features/detail/size_comparison.dart';
 
 /// The animal detail screen — a port of the prototype's `openDetail`
@@ -11,11 +12,12 @@ import 'package:rockimals/features/detail/size_comparison.dart';
 ///
 /// So far this screen carries the header (big avatar, the `"{Name} the
 /// {Species}"` header title, the `"a {Species}-sized space rock"` line, the
-/// flyby badge), the four kid stat tiles, and the **size-comparison module**
-/// ([SizeComparison], "How big is it?"). The distance-comparison track, the
-/// Follow / Show-on-radar actions, and the parent-gated grown-up facts panel are
-/// each their own later item, so the body below stops after the size comparison
-/// with room left for them under it.
+/// flyby badge), the four kid stat tiles, the **size-comparison module**
+/// ([SizeComparison], "How big is it?"), and the **distance-comparison track**
+/// ([DistanceComparison], "How close does it pass?"). The Follow / Show-on-radar
+/// actions and the parent-gated grown-up facts panel are each their own later
+/// item, so the body below stops after the distance comparison with room left
+/// for them under it.
 ///
 /// Every number reads through the AnimalSystem's own formatters — [sizeLabel],
 /// [distLabel], [powerStars] — so the detail screen cannot phrase a size,
@@ -64,6 +66,10 @@ class DetailScreen extends StatelessWidget {
                   // `index.html:581-590`) — `margin:12px 0`.
                   const SizedBox(height: 12),
                   SizeComparison(asteroid: asteroid),
+                  // The "How close does it pass?" distance-comparison track
+                  // (`.panel`, `index.html:590-602`) — `margin:12px 0`.
+                  const SizedBox(height: 12),
+                  DistanceComparison(asteroid: asteroid),
                 ],
               ),
             ),
