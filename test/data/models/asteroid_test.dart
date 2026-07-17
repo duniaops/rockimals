@@ -153,6 +153,117 @@ void main() {
       );
     });
   });
+
+  group('the cache round trip', () {
+    // `toJson`/`fromJson` are the app's own format, written and read only by the
+    // disk feed cache. What makes them worth their own tests is that they are
+    // the one place an `Asteroid` stops being an object and becomes bytes: a
+    // field lost here comes back as an animal that changed species overnight,
+    // because `hashStr` seeds on `name` and the ladder keys on `diaMax`.
+
+    test('preserves every real record, field for field', () {
+      // Swept over the whole captured feed rather than a probe, because the
+      // interesting values are the ones NASA actually sends — long decimals that
+      // a naive `toString` would round, and negative-exponent diameters.
+      final List<Asteroid> parsed = _parseFixture();
+      expect(parsed, isNotEmpty);
+
+      for (final Asteroid original in parsed) {
+        final Asteroid restored = Asteroid.fromJson(
+          // Through a real encode/decode, not just the map: `jsonEncode` is
+          // where a double would lose precision if it ever were to, and testing
+          // the map alone would skip exactly that step.
+          jsonDecode(jsonEncode(original.toJson())) as Map<String, Object?>,
+        );
+
+        expect(restored.name, original.name);
+        expect(restored.diaMax, original.diaMax);
+        expect(restored.diaMin, original.diaMin);
+        expect(restored.hazardous, original.hazardous);
+        expect(restored.missLunar, original.missLunar);
+        expect(restored.missKm, original.missKm);
+        expect(restored.velKps, original.velKps);
+        expect(restored.mag, original.mag);
+        expect(restored.jpl, original.jpl);
+        expect(restored.date, original.date);
+      }
+    });
+
+    test('rejects a record with a field missing', () {
+      // Strict where `fromNeoWs` is lenient, and the asymmetry is deliberate:
+      // NASA's feed has genuinely optional fields, this format does not — it is
+      // written by this app, so a gap means corruption. The only caller answers
+      // a throw by refetching, so strictness costs a request and buys never
+      // showing a silently wrong animal.
+      final Map<String, Object?> json = _asteroid().toJson();
+
+      for (final String key in json.keys) {
+        expect(
+          () => Asteroid.fromJson(
+            Map<String, Object?>.of(json)..remove(key),
+          ),
+          throwsFormatException,
+          reason: 'a cache entry missing "$key" must not parse',
+        );
+      }
+    });
+
+    test('rejects a missing hazard flag rather than reading it as false', () {
+      // Called out separately because this is the one field where `fromNeoWs`
+      // does the opposite — `!!undefined` is false, mirroring the prototype. A
+      // cache entry with no hazard flag is not an unflagged asteroid; it is not
+      // an asteroid. Read leniently it would silently drop the +2.2 power bump
+      // and the "close flyby" tag.
+      expect(
+        () => Asteroid.fromJson(_asteroid().toJson()..remove('hazardous')),
+        throwsFormatException,
+      );
+      expect(
+        () => Asteroid.fromJson(_asteroid().toJson()..['hazardous'] = 1),
+        throwsFormatException,
+      );
+    });
+
+    test('rejects a field of the wrong type', () {
+      expect(
+        () => Asteroid.fromJson(_asteroid().toJson()..['diaMax'] = 'wide'),
+        throwsFormatException,
+      );
+      expect(
+        () => Asteroid.fromJson(_asteroid().toJson()..['name'] = 42),
+        throwsFormatException,
+      );
+    });
+  });
+}
+
+Asteroid _asteroid() => const Asteroid(
+  name: '2011 EW',
+  diaMax: 302.3,
+  diaMin: 135.2,
+  hazardous: false,
+  missLunar: 12.4,
+  missKm: 4768123.5,
+  velKps: 7.13,
+  mag: 21.2,
+  jpl: 'https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html',
+  date: '2026-07-16',
+);
+
+/// Every asteroid in the captured feed, parsed the way the client parses them.
+List<Asteroid> _parseFixture() {
+  final Map<String, Object?> byDate = _loadFeedByDate();
+  final List<Asteroid> parsed = <Asteroid>[];
+
+  for (final MapEntry<String, Object?> day in byDate.entries) {
+    for (final Object? neo in day.value! as List<Object?>) {
+      final Map<String, Object?> record = neo! as Map<String, Object?>;
+      final Map<String, Object?>? approach = Asteroid.firstCloseApproach(record);
+      if (approach == null) continue;
+      parsed.add(Asteroid.fromNeoWs(record, approach, day.key));
+    }
+  }
+  return parsed;
 }
 
 Map<String, Object?> _loadFeedByDate() {

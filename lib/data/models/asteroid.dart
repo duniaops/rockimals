@@ -77,6 +77,63 @@ class Asteroid {
     );
   }
 
+  /// Reads one record back out of the disk feed cache.
+  ///
+  /// The inverse of [toJson], and **strict**: a missing key, a wrong type, or a
+  /// number that will not parse all throw a [FormatException]. Nothing here
+  /// tolerates absence the way [fromNeoWs] tolerates a missing hazard flag —
+  /// that leniency mirrors a real optionality in NASA's feed, whereas this
+  /// format is one this app wrote itself, so a field that is not there means a
+  /// corrupt entry or one left by a build that spelled the record differently.
+  /// Both mean the same thing to the only caller: throw the entry away and ask
+  /// NASA again.
+  ///
+  /// That is also why there is no version tag. A shape change makes every old
+  /// entry fail to parse, and failing to parse already routes to a refetch —
+  /// which is the whole of what a version tag would have to implement.
+  factory Asteroid.fromJson(Map<String, Object?> json) {
+    // Read strictly rather than through `_boolAt`, whose null-reads-as-false
+    // rule belongs to NASA's feed and not to this format. A cache entry with no
+    // hazard flag is not an unflagged asteroid; it is not an asteroid.
+    final Object? hazardous = json['hazardous'];
+    if (hazardous is! bool) {
+      throw FormatException('cache: expected a bool at "hazardous", got: $hazardous');
+    }
+
+    return Asteroid(
+      name: _stringAt(json, 'name'),
+      diaMax: _doubleAt(json, 'diaMax'),
+      diaMin: _doubleAt(json, 'diaMin'),
+      hazardous: hazardous,
+      missLunar: _doubleAt(json, 'missLunar'),
+      missKm: _doubleAt(json, 'missKm'),
+      velKps: _doubleAt(json, 'velKps'),
+      mag: _doubleAt(json, 'mag'),
+      jpl: _stringAt(json, 'jpl'),
+      date: _stringAt(json, 'date'),
+    );
+  }
+
+  /// This record as the disk feed cache stores it.
+  ///
+  /// Deliberately **not** NeoWs's shape, which [fromNeoWs] parses. The two are
+  /// different formats doing different jobs: that one is NASA's and can change
+  /// underneath this app without warning, while this one is the app's own and
+  /// round-trips exactly the ten fields it keeps. Keys are the field names, so a
+  /// cached entry reads next to this class rather than against a feed capture.
+  Map<String, Object?> toJson() => <String, Object?>{
+    'name': name,
+    'diaMax': diaMax,
+    'diaMin': diaMin,
+    'hazardous': hazardous,
+    'missLunar': missLunar,
+    'missKm': missKm,
+    'velKps': velKps,
+    'mag': mag,
+    'jpl': jpl,
+    'date': date,
+  };
+
   /// The real designation, e.g. `2011 EW`.
   ///
   /// Kid-facing surfaces never show this — it appears only behind the
