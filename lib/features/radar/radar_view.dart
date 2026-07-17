@@ -9,6 +9,7 @@ import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/data/models/asteroid_feed.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/detail/detail_screen.dart';
+import 'package:rockimals/features/games/games_hub.dart';
 import 'package:rockimals/features/radar/planet_backdrop.dart';
 import 'package:rockimals/features/radar/radar_clock.dart';
 import 'package:rockimals/features/radar/radar_focus.dart';
@@ -410,18 +411,12 @@ class _RadarFieldState extends ConsumerState<_RadarField>
   }
 
   /// The home overlay's Play button (`$("playBtn").onclick = openGames`,
-  /// `index.html:457`): push the games hub.
-  ///
-  /// **A stub route until task 04 builds `lib/features/games/games_hub.dart`.**
-  /// The push is real — the hub opens and comes back today, so the CTA is not a
-  /// dead end on any build the radar is in — and only its destination is a
-  /// placeholder. This is the same shape as [_openDetail]: task 04 swaps
-  /// [_GamesStubScreen] for the real hub at this one call site, and nothing else
-  /// about the button changes.
+  /// `index.html:457`): push the games hub ([GamesHub], `specs/04`). The same
+  /// shape as [_openDetail] — one route push at one call site.
   void _openGames() {
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
-        builder: (BuildContext context) => const _GamesStubScreen(),
+        builder: (BuildContext context) => const GamesHub(),
       ),
     );
   }
@@ -1191,44 +1186,6 @@ class _HudButton extends StatelessWidget {
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-/// A placeholder for the games hub until task 04 builds
-/// `lib/features/games/games_hub.dart` (`specs/04-games.md`, the "Build the Play
-/// hub" item).
-///
-/// The Play CTA pushes this so the route exists and returns today; task 04
-/// replaces the destination in [_RadarFieldState._openGames]. Titled **"Play"**,
-/// matching the prototype's games overlay header (`.otitle`, `index.html:323`),
-/// and kid-toned rather than "not implemented" (`CLAUDE.md:63`) — but none of
-/// this copy is load-bearing, since the screen is deleted whole by task 04.
-class _GamesStubScreen extends StatelessWidget {
-  const _GamesStubScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Palette.pageBackground,
-      appBar: AppBar(
-        backgroundColor: Palette.pageBackground,
-        foregroundColor: Palette.ink,
-        title: const Text('Play'),
-      ),
-      body: const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Text('🎮', style: TextStyle(fontSize: 72)),
-            SizedBox(height: 12),
-            Text(
-              'Four games are on their way — coming soon!',
-              style: TextStyle(color: Palette.muted, fontSize: 14),
-            ),
-          ],
         ),
       ),
     );

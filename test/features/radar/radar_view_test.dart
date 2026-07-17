@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/data/models/asteroid_feed.dart';
 import 'package:rockimals/features/data/providers.dart';
+import 'package:rockimals/features/games/games_providers.dart';
 import 'package:rockimals/features/radar/radar_geometry.dart';
 import 'package:rockimals/features/radar/radar_layers.dart';
 import 'package:rockimals/features/radar/radar_painter.dart';
@@ -538,7 +539,11 @@ void main() {
       // in the tree, so its CTA is still findable underneath.
       expect(find.text(_hubMarker), findsOneWidget);
 
-      await tester.pageBack();
+      // Tap the hub's own `.obar` back pill, not `tester.pageBack()`: the hub
+      // uses the detail screen's flat back-bar (a `Semantics(label:'Back')`
+      // pill), not a Material [AppBar], so there is no `BackButton` for
+      // `pageBack` to find.
+      await tester.tap(find.bySemanticsLabel('Back'));
       // A full second, not the push's 350ms: the pop's reverse transition runs
       // longer, and `pumpAndSettle` is out because the radar's perpetual ticker
       // would never let it settle. The trailing frame tears the popped route out
@@ -574,9 +579,10 @@ void main() {
   });
 }
 
-/// A line only the games-hub stub renders, so a `find` for it means the hub
-/// route is up rather than the covered radar showing through.
-const String _hubMarker = 'Four games are on their way — coming soon!';
+/// A game card title only the games hub renders, so a `find` for it means the
+/// hub route is up rather than the covered radar showing through. The hub's own
+/// suite asserts its full contents; here it stands in for "the route opened".
+const String _hubMarker = 'Power Duel';
 
 /// Earth, and the centre of the field.
 Offset _centre(WidgetTester tester) {
@@ -654,6 +660,14 @@ Future<void> _mount(WidgetTester tester, AsteroidFeed feed) async {
         // itself, and its Follow persistence, are exercised in
         // selected_animal_card_test.dart against a real box.
         followsProvider.overrideWith(_NoFollows.new),
+        // The Play CTA now pushes the real games hub, which reads its numbers
+        // and sound state off the store. Stand values in front of both so these
+        // radar tests stay off a Hive box the same way the feed and follow
+        // overrides do — the hub's own suite exercises them against a real box.
+        gamesHubStatsProvider.overrideWithValue(
+          const GamesHubStats(points: 0, bestDuel: 0, bestCloser: 0, bestSize: 0),
+        ),
+        soundOnProvider.overrideWith(_SoundOn.new),
       ],
       child: const MaterialApp(home: RadarView()),
     ),
@@ -738,6 +752,13 @@ AsteroidFeed _sky(List<double> missLunar) {
 class _NoFollows extends FollowsNotifier {
   @override
   Set<String> build() => <String>{};
+}
+
+/// Sound on, without a store — these radar tests never toggle it, they only
+/// need the hub's button to build.
+class _SoundOn extends SoundOnNotifier {
+  @override
+  bool build() => true;
 }
 
 /// Nothing but `missLunar` reaches the radar's base layer, so the rest is
