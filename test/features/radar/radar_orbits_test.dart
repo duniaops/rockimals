@@ -130,44 +130,17 @@ void main() {
         for (final RadarOrbit o in orbits.orbits) o.phase,
       ];
 
-      // Four 10ms frames — under the 50ms clamp, so all of it lands.
-      for (int i = 1; i <= 4; i++) {
-        orbits.advance(Duration(milliseconds: i * 10));
+      // Four 10ms frames. The step is [FrameClock]'s to measure and to clamp —
+      // this class is handed one and spends all of it, which is why the numbers
+      // here are seconds rather than `Duration`s.
+      for (int i = 0; i < 4; i++) {
+        orbits.advance(0.01);
       }
 
       for (final (int i, RadarOrbit orbit) in orbits.orbits.indexed) {
         expect(orbit.phase, closeTo(before[i] + orbit.angVel * 0.04, 1e-9));
       }
       expect(orbits.moonPhase, closeTo(0.32 * 0.04, 1e-9));
-    });
-
-    test('refuses to let a slow frame teleport the sky', () {
-      // The dt clamp (`index.html:730`) and the reason it exists. A frame gap of
-      // ten seconds — backgrounded, or a tab that was not being drawn — must
-      // advance the sky by 50ms, not by ten seconds. Otherwise coming back to
-      // the radar snaps every animal to a new angle in one frame, which is the
-      // jolt the screen exists not to give.
-      final RadarOrbits jumped = RadarOrbits.seed(kFallbackAsteroids);
-      final List<double> before = <double>[
-        for (final RadarOrbit o in jumped.orbits) o.phase,
-      ];
-      jumped.advance(const Duration(seconds: 10));
-
-      expect(jumped.moonPhase, closeTo(0.32 * 0.05, 1e-9));
-      for (final (int i, RadarOrbit orbit) in jumped.orbits.indexed) {
-        // Bounded by one clamped step, whatever the animal's own speed.
-        expect(orbit.phase - before[i], closeTo(orbit.angVel * 0.05, 1e-9));
-      }
-    });
-
-    test('takes the first frame from zero rather than from an unset clock', () {
-      // A `Ticker` reports elapsed time from its own start, so the first
-      // callback arrives at ~0 and the first dt must be ~0 — not a jump from
-      // whatever the clock was before the radar existed.
-      final RadarOrbits orbits = RadarOrbits.seed(kFallbackAsteroids);
-      orbits.advance(const Duration(milliseconds: 16));
-
-      expect(orbits.moonPhase, closeTo(0.32 * 0.016, 1e-9));
     });
 
     test('accumulates rather than recomputing, so a pause can hold the sky still', () {
@@ -178,8 +151,8 @@ void main() {
       final List<double> before = <double>[
         for (final RadarOrbit o in stepped.orbits) o.phase,
       ];
-      for (int ms = 20; ms <= 1000; ms += 20) {
-        stepped.advance(Duration(milliseconds: ms));
+      for (int i = 0; i < 50; i++) {
+        stepped.advance(0.02);
       }
 
       expect(stepped.moonPhase, closeTo(0.32 * 1.0, 1e-9));
@@ -256,8 +229,8 @@ void main() {
       // child would ever see move. It is the hand of a clock saying the sky is
       // live.
       final RadarOrbits orbits = RadarOrbits.seed(kFallbackAsteroids);
-      for (int ms = 20; ms <= 19640; ms += 20) {
-        orbits.advance(Duration(milliseconds: ms));
+      for (int i = 0; i < 982; i++) {
+        orbits.advance(0.02);
       }
 
       expect(orbits.moonPhase, closeTo(2 * math.pi, 0.01));
@@ -275,7 +248,7 @@ void main() {
       // read against the Moon's ring, so that is not a cosmetic slip — it is the
       // ruler coming loose from the thing being measured.
       final RadarOrbits orbits = RadarOrbits.seed(kFallbackAsteroids);
-      orbits.advance(const Duration(seconds: 3)); // so the Moon is off its start
+      orbits.advance(0.05); // so the Moon is off its start
 
       const double turn = 0.7;
       double bearing(Offset at) => (at - geometry.center).direction;

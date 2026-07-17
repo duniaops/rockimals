@@ -6,6 +6,7 @@ import 'package:flutter/painting.dart';
 // that has to call it.
 import 'package:rockimals/core/animals/animal_system.dart' as animals;
 import 'package:rockimals/data/models/asteroid.dart';
+import 'package:rockimals/features/radar/radar_clock.dart';
 import 'package:rockimals/features/radar/radar_geometry.dart';
 
 /// One animal on the radar: which rock it is, everything about how it is drawn
@@ -99,15 +100,15 @@ class RadarOrbit {
   final bool isCloseFlyby;
 }
 
-/// Every animal on the radar and the Moon, and the clock that moves them —
-/// `radarLoop`'s integration step (`index.html:729-739`).
+/// Every animal on the radar and the Moon, and what moves them —
+/// `radarLoop`'s integration step (`index.html:731-734`).
 ///
 /// **This is deliberately mutable and deliberately integrated, rather than a
 /// pure function of elapsed time.** `phase = phase0 + angVel * t` would be
 /// equivalent today and would be wrong the moment either of the next two items
 /// lands: the play/pause item stops the clock without moving the animals back,
-/// and this class's [advance] already refuses to hand a slow frame a big jump.
-/// Both are properties of an accumulator, not of a formula.
+/// and [FrameClock] refuses to hand a slow frame a big jump. Both are properties
+/// of an accumulator, not of a formula.
 class RadarOrbits {
   RadarOrbits._(this.orbits);
 
@@ -124,28 +125,15 @@ class RadarOrbits {
   /// The Moon's own angle around the 1× ring (`index.html:626`, `734`).
   double moonPhase = 0;
 
-  /// The last [advance] timestamp, so a dt can be taken from a clock that only
-  /// reports elapsed time. `Radar.last` (`index.html:730`).
-  Duration _last = Duration.zero;
-
-  /// Moves every animal and the Moon on to where [elapsed] says they should be.
+  /// Moves every animal and the Moon on by [dt] seconds
+  /// (`index.html:733-734`).
   ///
-  /// **The dt clamp is the whole reason this takes a duration rather than a
-  /// dt.** `min(0.05, …)` (`index.html:730`) means a frame that took longer than
-  /// 50ms — the app was backgrounded, the phone was busy, the tab was hidden —
-  /// advances the sky by 50ms and no more. Without it, returning to the radar
-  /// after a minute away teleports every animal to a new angle in one frame,
-  /// which is exactly the jolt `specs/02-live-radar.md:28` asks the screen never
-  /// to give. The sky simply falls behind instead, which nobody can tell,
-  /// because there is nothing to be behind: these orbits are decorative, not a
-  /// prediction of where the rock really is.
-  void advance(Duration elapsed) {
-    final double dt = math.min(
-      _maxFrame,
-      (elapsed - _last).inMicroseconds / Duration.microsecondsPerSecond,
-    );
-    _last = elapsed;
-
+  /// **[dt] is the frame's step and not this class's to derive** — it comes from
+  /// [FrameClock.step], which is where the clamp that stops a slow frame
+  /// teleporting the sky lives, and which hands the same number to the backdrop's
+  /// drift on the same frame. The prototype computes it once for all three
+  /// (`index.html:730`); passing it in is what keeps that one number one number.
+  void advance(double dt) {
     for (final RadarOrbit orbit in orbits) {
       orbit.phase += orbit.angVel * dt;
     }
@@ -264,9 +252,6 @@ class RadarOrbits {
   /// one object out there they already know, so it reads as the hand of a clock
   /// telling them the sky is live.
   static const double _moonAngVel = 0.32;
-
-  /// `min(0.05, …)` (`index.html:730`) — the longest step the sky will take.
-  static const double _maxFrame = 0.05;
 
   /// The smallest reach a tap is ever given (`index.html:711`). Dead — see
   /// [hitTest].

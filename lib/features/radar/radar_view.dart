@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/features/data/providers.dart';
+import 'package:rockimals/features/radar/radar_clock.dart';
 import 'package:rockimals/features/radar/radar_geometry.dart';
 import 'package:rockimals/features/radar/radar_orbits.dart';
 import 'package:rockimals/features/radar/radar_painter.dart';
@@ -73,12 +74,17 @@ class _RadarFieldState extends State<_RadarField>
   /// by the painter — never rebuilt, which is the point of it being mutable.
   late final RadarOrbits _orbits = RadarOrbits.seed(widget.asteroids);
 
+  /// How far this frame moves the sky — `radarLoop`'s own first line
+  /// (`index.html:730`). Distinct from [_clock] above, which publishes the time
+  /// itself to the painter: this measures the *step* between two of its values.
+  final FrameClock _frame = FrameClock();
+
   /// **The order inside this callback is the whole contract with the painter.**
   /// The sky is advanced first and the clock published second, so the notify
   /// that triggers the repaint always follows the state that repaint will read.
   /// Swapped, every frame would draw the sky one frame stale.
   late final Ticker _ticker = createTicker((Duration elapsed) {
-    _orbits.advance(elapsed);
+    _orbits.advance(_frame.step(elapsed));
     _clock.value = elapsed;
   });
 

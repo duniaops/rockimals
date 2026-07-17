@@ -7,6 +7,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rockimals/data/models/asteroid.dart';
+import 'package:rockimals/features/radar/radar_clock.dart';
 import 'package:rockimals/features/radar/radar_geometry.dart';
 import 'package:rockimals/features/radar/radar_labels.dart';
 import 'package:rockimals/features/radar/radar_orbits.dart';
@@ -829,8 +830,12 @@ class _Ticking extends StatefulWidget {
 class _TickingState extends State<_Ticking> with SingleTickerProviderStateMixin {
   final ValueNotifier<Duration> _clock = ValueNotifier<Duration>(Duration.zero);
   late final RadarOrbits _orbits = RadarOrbits.seed(widget.asteroids);
+
+  /// The app's own wiring (`radar_view.dart`): one step per frame, measured once.
+  final FrameClock _frame = FrameClock();
+
   late final Ticker _ticker = createTicker((Duration d) {
-    _orbits.advance(d);
+    _orbits.advance(_frame.step(d));
     _clock.value = d;
   });
 
