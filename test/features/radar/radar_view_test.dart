@@ -516,7 +516,67 @@ void main() {
       expect(_painter(tester), _glowRadius(closeTo(29, 0.05)));
     });
   });
+
+  group('the Play button', () {
+    testWidgets('opens the games hub and comes back', (tester) async {
+      // The item's Done-when, whole: the CTA is on the home view, tapping it
+      // pushes the hub, and Back returns to the radar. `openGames`
+      // (`index.html:457`) — the games surface itself is task 04's, so the
+      // destination is a stub and this test asserts only the route, not its
+      // contents.
+      await _mount(tester, _sky(<double>[3]));
+      expect(find.text('🎮 Play · 4 games'), findsOneWidget);
+
+      await tester.tap(find.text('🎮 Play · 4 games'));
+      // No `pumpAndSettle`: the radar's ticker never stops scheduling frames, so
+      // it would time out. Pump the push transition by hand instead.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+
+      // The hub is up. Keyed on the hub's own copy rather than "the CTA is gone"
+      // — a `MaterialPageRoute` keeps the covered radar (`maintainState: true`)
+      // in the tree, so its CTA is still findable underneath.
+      expect(find.text(_hubMarker), findsOneWidget);
+
+      await tester.pageBack();
+      // A full second, not the push's 350ms: the pop's reverse transition runs
+      // longer, and `pumpAndSettle` is out because the radar's perpetual ticker
+      // would never let it settle. The trailing frame tears the popped route out
+      // of the tree once its animation has finished.
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
+
+      // Back on the radar: the hub is gone and the CTA is the only thing left.
+      expect(find.text(_hubMarker), findsNothing);
+      expect(find.text('🎮 Play · 4 games'), findsOneWidget);
+    });
+
+    testWidgets('stays put beneath a selected animal, not only the hint', (
+      tester,
+    ) async {
+      // The prototype keeps `.homeCTA` on screen whether or not the HUD is up
+      // (`index.html:291` is outside the selection branch); the hint gives way to
+      // the card, but the Play button does not. So selecting an animal must leave
+      // the CTA reachable.
+      await _mount(tester, _sky(<double>[3]));
+      await tester.tapAt(_animalAt(tester));
+      await tester.pump();
+      expect(_view(tester).selected, isNotNull, reason: 'the premise');
+
+      expect(find.text('🎮 Play · 4 games'), findsOneWidget);
+
+      await tester.tap(find.text('🎮 Play · 4 games'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(find.text(_hubMarker), findsOneWidget);
+    });
+  });
 }
+
+/// A line only the games-hub stub renders, so a `find` for it means the hub
+/// route is up rather than the covered radar showing through.
+const String _hubMarker = 'Four games are on their way — coming soon!';
 
 /// Earth, and the centre of the field.
 Offset _centre(WidgetTester tester) {

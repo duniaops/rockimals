@@ -382,6 +382,23 @@ class _RadarFieldState extends State<_RadarField>
     );
   }
 
+  /// The home overlay's Play button (`$("playBtn").onclick = openGames`,
+  /// `index.html:457`): push the games hub.
+  ///
+  /// **A stub route until task 04 builds `lib/features/games/games_hub.dart`.**
+  /// The push is real — the hub opens and comes back today, so the CTA is not a
+  /// dead end on any build the radar is in — and only its destination is a
+  /// placeholder. This is the same shape as [_openDetail]: task 04 swaps
+  /// [_GamesStubScreen] for the real hub at this one call site, and nothing else
+  /// about the button changes.
+  void _openGames() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) => const _GamesStubScreen(),
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -461,6 +478,7 @@ class _RadarFieldState extends State<_RadarField>
           layers: _layers,
           onToggle: _toggle,
           showHint: _selected == null,
+          onPlay: _openGames,
         ),
         // The selected-animal card, above the canvas so its Meet/Follow buttons
         // take their own taps rather than falling through to a deselect — the
@@ -544,6 +562,7 @@ class _HomeOverlay extends ConsumerWidget {
     required this.layers,
     required this.onToggle,
     required this.showHint,
+    required this.onPlay,
   });
 
   final RadarLayers layers;
@@ -552,6 +571,12 @@ class _HomeOverlay extends ConsumerWidget {
   /// Whether the drag/pinch/tap hint is shown. Off while the selected-animal
   /// card is up, which sits in the same bottom strip (`index.html:719`).
   final bool showHint;
+
+  /// Tapping the Play CTA (`$("playBtn").onclick = openGames`,
+  /// `index.html:457`) — pushes the games hub. Carried through from
+  /// [_RadarFieldState] rather than pushed here so the navigation stays with the
+  /// widget that owns the route, next to [_RadarFieldState._openDetail].
+  final VoidCallback onPlay;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -588,6 +613,17 @@ class _HomeOverlay extends ConsumerWidget {
               bottom: _hintBottomGap,
               child: _RadarHint(),
             ),
+          // The persistent Play CTA along the very bottom (`.homeCTA`,
+          // `index.html:196`, `291`) — shown whether or not an animal is
+          // selected, exactly as the prototype keeps it beneath both the hint
+          // and the HUD. It is the full-width hero button the hint and the
+          // selected-animal card both clear by sitting a strip above it.
+          Positioned(
+            left: _homeSideGap,
+            right: _homeSideGap,
+            bottom: _ctaBottomGap,
+            child: _PlayCta(onTap: onPlay),
+          ),
         ],
       ),
     );
@@ -857,6 +893,82 @@ class _RadarHint extends StatelessWidget {
   }
 }
 
+/// The home view's big Play button (`.homeCTA` > `.btn`, `index.html:196`,
+/// `291`, `52`): the full-width call to action that opens the games hub.
+///
+/// **This is the prototype's full-width `.btn` in the one place it belongs — a
+/// hero CTA — so it carries the soft orange halo the card's smaller buttons drop
+/// (see [_HudButton]).** `box-shadow:0 8px 22px rgba(232,87,31,.32)` is cheap
+/// here: this button sits on the static home overlay, off the canvas's per-frame
+/// [RepaintBoundary], so the shadow is rasterised once rather than sixty times a
+/// second.
+///
+/// The label glyph is decoration, so it is excluded from semantics and the
+/// button's meaning is spoken in words — the same pattern the nav, the chips,
+/// and the zoom buttons all follow.
+class _PlayCta extends StatelessWidget {
+  const _PlayCta({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Play, 4 games',
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          // `linear-gradient(180deg, var(--accent2), var(--accent))`
+          // (`index.html:52`) — top to bottom, lighter orange into the accent.
+          gradient: const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: <Color>[Palette.accent2, Palette.accent],
+          ),
+          borderRadius: const BorderRadius.all(Radius.circular(14)),
+          boxShadow: <BoxShadow>[
+            // `0 8px 22px rgba(232,87,31,.32)` — `--accent` at .32 alpha (0x52).
+            BoxShadow(
+              color: Palette.accent.withValues(alpha: 0.32),
+              offset: const Offset(0, 8),
+              blurRadius: 22,
+            ),
+          ],
+        ),
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            borderRadius: const BorderRadius.all(Radius.circular(14)),
+            onTap: onTap,
+            child: const Padding(
+              // `padding:14px` (`index.html:52`). The enclosing [Positioned]
+              // gives the button its full width, so the padded [Text] receives a
+              // tight width and `textAlign` centres it — no [Center] wrapper,
+              // which an unbounded-height [Positioned] child would over-run.
+              padding: EdgeInsets.all(14),
+              child: ExcludeSemantics(
+                child: Text(
+                  '🎮 Play · 4 games',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    // `.btn` — `color:#1a0d05`, `font-weight:800`,
+                    // `letter-spacing:.3px`, `font-size:15px` (`index.html:51-52`).
+                    color: Palette.onAccent,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.3,
+                    height: 1,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// The selected-animal HUD card (`.rhud` / `radarSelect`, `index.html:181-183`,
 /// `715-726`): the card that slides up from the bottom when a child taps an
 /// animal, naming it and offering **Meet** and **Follow**.
@@ -1093,6 +1205,44 @@ class _MeetStubScreen extends StatelessWidget {
   }
 }
 
+/// A placeholder for the games hub until task 04 builds
+/// `lib/features/games/games_hub.dart` (`specs/04-games.md`, the "Build the Play
+/// hub" item).
+///
+/// The Play CTA pushes this so the route exists and returns today; task 04
+/// replaces the destination in [_RadarFieldState._openGames]. Titled **"Play"**,
+/// matching the prototype's games overlay header (`.otitle`, `index.html:323`),
+/// and kid-toned rather than "not implemented" (`CLAUDE.md:63`) — but none of
+/// this copy is load-bearing, since the screen is deleted whole by task 04.
+class _GamesStubScreen extends StatelessWidget {
+  const _GamesStubScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Palette.pageBackground,
+      appBar: AppBar(
+        backgroundColor: Palette.pageBackground,
+        foregroundColor: Palette.ink,
+        title: const Text('Play'),
+      ),
+      body: const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Text('🎮', style: TextStyle(fontSize: 72)),
+            SizedBox(height: 12),
+            Text(
+              'Four games are on their way — coming soon!',
+              style: TextStyle(color: Palette.muted, fontSize: 14),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// One pill (`.rchip`, `index.html:174-175`).
 ///
 /// Lit when [on]: the accent fill and dark glyph the app uses everywhere for
@@ -1289,18 +1439,29 @@ const double _chipGap = 6;
 /// The home overlay's own metrics (`.homeTop` / `.homeStrip` / `.rhint2`,
 /// `index.html:190-196`). `_homeTopGap` is small because the enclosing
 /// [SafeArea] already clears the status bar the prototype's fixed frame did not
-/// have; `_hintBottomGap` sits the hint just off the bottom, where the Play CTA
-/// (its own item) will later go beneath it.
+/// have.
 const double _homeTopGap = 10;
 const double _homeSideGap = 12;
 const double _homeRowGap = 8;
-const double _hintBottomGap = 16;
 
-/// Where the selected-animal card rests from the bottom of the field. The
-/// prototype floats its HUD at `bottom:66px` to clear a `.rbottom` play/pause
-/// bar this port does not have (play/pause moved to the zoom column), so the
-/// card takes the hint's own low strip instead — the hint gives way to it.
-const double _hudBottomGap = 16;
+/// Where the Play CTA rests from the bottom of the field (`.homeCTA` `bottom:14`,
+/// `index.html:196`). The button beneath everything else on the home view.
+const double _ctaBottomGap = 14;
+
+/// Where the drag/pinch/tap hint sits — a strip **above** the Play CTA, matching
+/// the prototype's `.rhint2{bottom:73px}` (`index.html:197`) clearing the
+/// `.homeCTA` at `bottom:14`. Shares the strip with the selected-animal card
+/// ([_hudBottomGap]); the two never show together (`showHint = _selected ==
+/// null`), so one number places both.
+const double _hintBottomGap = 70;
+
+/// Where the selected-animal card rests from the bottom of the field
+/// (`#view-today .rhud{bottom:70px}`, `index.html:201`). It takes the same strip
+/// the hint does, a step above the persistent Play CTA — the prototype floats
+/// the HUD clear of its own `.rbottom` play/pause bar, and this port keeps the
+/// card clear of the Play CTA the same way (play/pause itself having moved to the
+/// zoom column).
+const double _hudBottomGap = 70;
 
 /// `.rhud` fill — `rgba(12,26,50,.95)` (`index.html:181`), a heavier, more
 /// opaque panel than the chips' translucent card because the card carries the
