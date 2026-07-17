@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/data/models/asteroid_feed.dart';
+import 'package:rockimals/data/models/feed_window.dart';
 import 'package:rockimals/data/neows_client.dart';
 
 /// Resolves the sky the app shows, from NASA if it can and from the bundled
@@ -57,6 +58,30 @@ class AsteroidRepository {
   /// 2x2 grid.
   static const int _minimumTodayCount = 4;
 
+  /// How far into the past a window may reach and still be a sky worth showing.
+  /// Older than this and the bundled sample set wins instead.
+  ///
+  /// Only the feed cache can produce an old window at all — it holds the last
+  /// thing NASA said, and offers it when the network is gone. That is a real
+  /// kindness for a real child (a plane, a tunnel, a weekend at a caravan park),
+  /// and the caption never lies about it: [AsteroidFeed.feedRange] prints the
+  /// days the rocks are actually from. So this is not a rule about honesty. It
+  /// is a rule about **when a true statement stops being interesting**.
+  ///
+  /// Three days, and the reasoning is the app's own live behaviour rather than
+  /// taste: the live window is already three days wide ([_windowLength]), so a
+  /// rock two days old is *routinely* part of "the sky" and nobody minds. A
+  /// window that ended three days ago puts the oldest rock in it at five days —
+  /// roughly double the staleness the app ships on its best day, which is about
+  /// as far as "look what's flying past" can stretch and still mean anything.
+  /// Beyond it, a fixed real sky is worth no more to a child than the sample one
+  /// and carries a stranger caption, so the sample set wins.
+  ///
+  /// Deliberately **not** derived from [_windowLength]: that they are both three
+  /// is an argument, not a law, and binding them would let a future change to the
+  /// fetch window silently redefine what counts as too old.
+  static const int _maxWindowAgeDays = 3;
+
   /// Never throws. [AsteroidFeed.usingFallback] is how a caller learns the
   /// network path did not work out; there is deliberately nothing more specific
   /// to report, because no surface in this app would do anything different with
@@ -73,24 +98,36 @@ class AsteroidRepository {
       // hung request. It abandons the attempt rather than cancelling it — the
       // request runs on until the client's own timeouts end it, which is
       // harmless, because nothing below here mutates anything.
-      final List<Asteroid> pool = await _source
+      final FeedWindow answered = await _source
           .fetchFeed(startDate: startKey, endDate: endKey)
           .timeout(_loadCeiling);
+
+      // **Everything below reads the window that came back, never the one asked
+      // for**, and that is the whole shape of this item. The source may answer an
+      // earlier window than it was given — the cache does exactly that when the
+      // network is gone (see [FeedWindow]) — and a caption, a day filter, or an
+      // age check written against `startKey`/`endKey` would then describe a sky
+      // that is not the one on the screen.
+      if (_isTooOld(answered.endDate, end)) return AsteroidFeed.fallback();
 
       // Checked on the raw pool, *before* dedupe, exactly as the prototype does
       // (`index.html:376-377`). Six records that collapse to two therefore
       // pass, and the app shows two animals. Faithful on purpose: moving the
       // check after dedupe would send more days to the sample set than the
       // prototype does, and it is the prototype that has been watched working.
-      if (pool.length < _minimumPoolSize) return AsteroidFeed.fallback();
+      if (answered.asteroids.length < _minimumPoolSize) {
+        return AsteroidFeed.fallback();
+      }
 
-      final List<Asteroid> asteroids = _dedupe(pool);
+      final List<Asteroid> asteroids = _dedupe(answered.asteroids);
 
       return AsteroidFeed(
         asteroids: asteroids,
-        todayList: _todayList(asteroids, endKey),
-        feedRange: '$startKey → $endKey',
-        usingFallback: false,
+        todayList: _todayList(asteroids, answered.endDate),
+        feedRange: '${answered.startDate} → ${answered.endDate}',
+        provenance: answered.endDate == endKey
+            ? FeedProvenance.today
+            : FeedProvenance.earlier,
       );
     } catch (_) {
       // Bare on purpose, and specified that way (spec 01 §3): "if the network
@@ -100,6 +137,31 @@ class AsteroidRepository {
       // ceiling above throws — crash the app instead.
       return AsteroidFeed.fallback();
     }
+  }
+
+  /// Whether a window that ended on [endDate] is too far in the past to show,
+  /// judged against the same [now] the window was built from.
+  ///
+  /// **This compares date *keys*, and never parses one, which is the point.**
+  /// The obvious implementation — `DateTime.parse(endDate)` and subtract — has a
+  /// bug that no test in a UTC timezone would ever show: a bare `2026-07-14`
+  /// parses as **local** midnight, so differencing it against a UTC clock is off
+  /// by the device's offset, up to ±14 hours. That is more than enough to move
+  /// the answer across a day boundary, and it would do so only for children east
+  /// of UTC — every one of them, and none of us. Building the acceptable keys
+  /// with [_formatFeedDate], the very function that built the window, keeps the
+  /// whole question in the one representation the feed itself uses and leaves no
+  /// timezone surface to get wrong.
+  ///
+  /// It also disposes of the clock-knocked-backwards case for free, rather than
+  /// with a second rule: a window dated in the *future* is not in the set either,
+  /// so it is refused without anyone having to think of it as a separate branch.
+  bool _isTooOld(String endDate, DateTime now) {
+    final Set<String> servable = <String>{
+      for (int daysAgo = 0; daysAgo <= _maxWindowAgeDays; daysAgo++)
+        _formatFeedDate(now.subtract(Duration(days: daysAgo))),
+    };
+    return !servable.contains(endDate);
   }
 
   /// First-seen-wins (`index.html:396`). The same asteroid appears once per day
@@ -115,16 +177,30 @@ class AsteroidRepository {
     return unique;
   }
 
-  /// Today's animals, or the first few of the window if today is quiet
-  /// (`index.html:378`).
+  /// The animals of the window's last day, or the first few of the window if
+  /// that day is quiet (`index.html:378`).
+  ///
+  /// **[dayKey] is the last day of the window that was actually answered, which
+  /// is today whenever the sky is a live one and is *not* today when the cache
+  /// served an earlier window.** Passing the real today instead would be a quiet
+  /// bug rather than a rounding error: no record in an earlier window carries
+  /// today's date, so the filter would match nothing, every cached load would
+  /// take the pad branch below, and `todayList` would be exactly the window's
+  /// first four rocks — every time. The Challenge deals from
+  /// `todayList.length >= 4 ? todayList : asteroids` (`index.html:881`), so it
+  /// would then deal those same four rocks to the same child on every offline
+  /// launch, forever. Filtering on the answered day reproduces the live shape
+  /// exactly, and [AsteroidFeed.provenance] is what tells a surface not to call
+  /// the result "today".
   ///
   /// The padding replaces the date-filtered list rather than topping it up, so
   /// on a quiet day the strip shows the window's first four — which may not
-  /// include today's one rock at all. That is the prototype's behaviour and the
-  /// strip is honest about it either way, since it is captioned by [feedRange].
-  static List<Asteroid> _todayList(List<Asteroid> asteroids, String todayKey) {
+  /// include that day's one rock at all. That is the prototype's behaviour and
+  /// the strip is honest about it either way, since it is captioned by
+  /// [AsteroidFeed.feedRange].
+  static List<Asteroid> _todayList(List<Asteroid> asteroids, String dayKey) {
     final List<Asteroid> today = asteroids
-        .where((Asteroid a) => a.date == todayKey)
+        .where((Asteroid a) => a.date == dayKey)
         .toList(growable: false);
     if (today.length >= _minimumTodayCount) return today;
 

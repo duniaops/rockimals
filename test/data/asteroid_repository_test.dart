@@ -7,6 +7,7 @@ import 'package:rockimals/data/asteroid_repository.dart';
 import 'package:rockimals/data/fallback_asteroids.dart';
 import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/data/models/asteroid_feed.dart';
+import 'package:rockimals/data/models/feed_window.dart';
 import 'package:rockimals/data/neows_client.dart';
 
 import '../support/stub_http_adapter.dart';
@@ -288,6 +289,152 @@ void main() {
       expect(feed.todayList.length, 7);
     });
   });
+
+  group('AsteroidRepository.loadData — a window from an earlier day', () {
+    // Only the feed cache can answer a window other than the one it was asked
+    // for: it holds the last thing NASA said and offers it when the network is
+    // gone. These are the rules for what the repository then does with it, and
+    // they are the reason a device offline since yesterday shows real rocks
+    // instead of the fourteen invented ones.
+
+    /// A source stuck on the window ending [endDate], as an offline cache is.
+    Future<AsteroidFeed> loadCached({
+      required String endDate,
+      String startDate = '2026-07-12',
+      List<Asteroid>? pool,
+    }) => _repository(
+      _FakeSource.answering(
+        pool ?? _pool(12, date: endDate),
+        startDate: startDate,
+        endDate: endDate,
+      ),
+      at: DateTime.utc(2026, 7, 16),
+    ).loadData();
+
+    test('is shown, captioned with the window it really came from', () async {
+      // The item's whole promise. The app asked for `2026-07-14 → 2026-07-16`
+      // and got a two-day-old window; the child sees real animals and a footer
+      // that says exactly which days they are from. Nothing pretends.
+      final AsteroidFeed feed = await loadCached(endDate: '2026-07-14');
+
+      expect(feed.usingFallback, isFalse);
+      expect(feed.asteroids.length, 12);
+      expect(feed.feedRange, '2026-07-12 → 2026-07-14');
+    });
+
+    test('is marked `earlier`, so nothing may call it today', () async {
+      // `usingFallback` cannot express this: these rocks are neither invented
+      // nor current. The prototype's home strip renders
+      // `${todayList.length} visiting ${usingFallback?'(sample)':'today'}`
+      // (`index.html:454`), and on this feed both branches are false — which is
+      // what `FeedProvenance` exists to stop a future port from discovering the
+      // hard way.
+      final AsteroidFeed feed = await loadCached(endDate: '2026-07-14');
+
+      expect(feed.provenance, FeedProvenance.earlier);
+      expect(feed.usingFallback, isFalse);
+    });
+
+    test('a window ending today is `today`, cache or not', () async {
+      // The mirror, and the reason the value is not called `live`: a fresh cache
+      // hit for today's window never touches the network, and is still `today`.
+      // Nothing above the cache can tell, and nothing needs to — the rocks and
+      // the days are identical either way.
+      final AsteroidFeed feed = await loadCached(
+        startDate: '2026-07-14',
+        endDate: '2026-07-16',
+      );
+
+      expect(feed.provenance, FeedProvenance.today);
+    });
+
+    test('deals its Challenge from the window\'s own last day', () async {
+      // The bug that filtering on the *real* today would have caused, pinned so
+      // it cannot come back. No record in an earlier window carries today's
+      // date, so that filter matches nothing, `todayList` becomes the window's
+      // first four rocks, and — since the Challenge deals from
+      // `todayList.length >= 4 ? todayList : asteroids` (`index.html:881`) —
+      // every offline child gets the same four animals on every launch, forever.
+      // Filtering on the answered day reproduces the live shape instead.
+      final AsteroidFeed feed = await loadCached(
+        endDate: '2026-07-14',
+        // `from:` so the two days do not share designations — first-seen-wins
+        // dedupe would otherwise eat the later day whole.
+        pool: <Asteroid>[
+          ..._pool(6, date: '2026-07-13'),
+          ..._pool(5, date: '2026-07-14', from: 6),
+        ],
+      );
+
+      expect(feed.todayList.length, 5);
+      expect(feed.todayList.every((Asteroid a) => a.date == '2026-07-14'), isTrue);
+    });
+
+    test('is refused once it is older than the ceiling — sample set instead',
+        () async {
+      // Three days back is the last servable window; four is a museum piece. A
+      // fixed real sky that old is worth no more to a child than the sample one
+      // and carries a stranger caption, so the sample set wins.
+      final AsteroidFeed feed = await loadCached(endDate: '2026-07-12');
+
+      expect(feed.usingFallback, isTrue);
+      expect(feed.asteroids.length, 14);
+    });
+
+    test('is kept at exactly the ceiling — the boundary is not off by one',
+        () async {
+      final AsteroidFeed feed = await loadCached(endDate: '2026-07-13');
+
+      expect(feed.usingFallback, isFalse);
+      expect(feed.feedRange, '2026-07-12 → 2026-07-13');
+    });
+
+    test('a window dated in the future is refused, not served', () async {
+      // A device clock knocked backwards — a manual change, a setup screen, an
+      // NTP correction — leaves a perfectly real entry apparently ahead of
+      // today. There is no separate branch for this: the ceiling asks whether
+      // the window is one of the last few days, and tomorrow is not one of them.
+      final AsteroidFeed feed = await loadCached(endDate: '2026-07-17');
+
+      expect(feed.usingFallback, isTrue);
+    });
+
+    test('judges the ceiling in UTC, not in the device timezone', () async {
+      // The bug this design exists to avoid, and it would never have shown up in
+      // a test run in UTC. `DateTime.parse('2026-07-13')` yields **local**
+      // midnight, so differencing it against a UTC clock is out by the device's
+      // offset — up to ±14 hours, which is more than enough to move a window
+      // across the ceiling. It would have misfired only for children east of
+      // UTC: every one of them, and none of us.
+      //
+      // The window ends 3 days and 1 hour before the clock here. In UTC that is
+      // the day `2026-07-13`, which is exactly at the ceiling and must be kept.
+      // Parsing dates instead would make the answer depend on where the phone is.
+      final AsteroidFeed feed = await _repository(
+        _FakeSource.answering(
+          _pool(12, date: '2026-07-13'),
+          startDate: '2026-07-11',
+          endDate: '2026-07-13',
+        ),
+        at: DateTime.utc(2026, 7, 16, 1),
+      ).loadData();
+
+      expect(feed.usingFallback, isFalse);
+      expect(feed.feedRange, '2026-07-11 → 2026-07-13');
+    });
+
+    test('still applies every live rule to it — thin is thin', () async {
+      // An old window is a sky, not an exemption: the too-few rule, dedupe and
+      // the rest run on it exactly as they do on a live one.
+      final AsteroidFeed feed = await loadCached(
+        endDate: '2026-07-14',
+        pool: _pool(5, date: '2026-07-14'),
+      );
+
+      expect(feed.usingFallback, isTrue);
+      expect(feed.asteroids.length, 14);
+    });
+  });
 }
 
 /// The real client over the real capture, with the clock pinned to the day the
@@ -349,15 +496,40 @@ class SocketExceptionStandIn implements Exception {
 class _FakeSource implements AsteroidFeedSource {
   _FakeSource.returning(List<Asteroid> pool)
     : _pool = pool,
+      _answers = null,
       _error = null,
       _hangs = false;
-  _FakeSource.failing(Object error) : _pool = null, _error = error, _hangs = false;
+
+  /// A source that answers a **different window** than the one it was asked for
+  /// — which is exactly what `CachingFeedSource` does when the network is gone
+  /// and the only entry on the disk is yesterday's. Faked at this seam rather
+  /// than through a real cache: what is under test is the repository's rule for
+  /// an old window, and `feed_cache_test.dart` already owns the assembled stack.
+  _FakeSource.answering(
+    List<Asteroid> pool, {
+    required String startDate,
+    required String endDate,
+  }) : _pool = pool,
+       _answers = <String>[startDate, endDate],
+       _error = null,
+       _hangs = false;
+
+  _FakeSource.failing(Object error)
+    : _pool = null,
+      _answers = null,
+      _error = error,
+      _hangs = false;
 
   /// Answers nothing, ever — the captive portal. Note it does not throw: this
   /// is the failure the repository's catch cannot see.
-  _FakeSource.hanging() : _pool = null, _error = null, _hangs = true;
+  _FakeSource.hanging()
+    : _pool = null,
+      _answers = null,
+      _error = null,
+      _hangs = true;
 
   final List<Asteroid>? _pool;
+  final List<String>? _answers;
   final Object? _error;
   final bool _hangs;
 
@@ -366,16 +538,21 @@ class _FakeSource implements AsteroidFeedSource {
   String? lastEnd;
 
   @override
-  Future<List<Asteroid>> fetchFeed({
+  Future<FeedWindow> fetchFeed({
     required String startDate,
     required String endDate,
   }) async {
     calls++;
     lastStart = startDate;
     lastEnd = endDate;
-    if (_hangs) return Completer<List<Asteroid>>().future;
+    if (_hangs) return Completer<FeedWindow>().future;
     final Object? error = _error;
     if (error != null) throw error;
-    return _pool!;
+    final List<String>? answers = _answers;
+    return FeedWindow(
+      asteroids: _pool!,
+      startDate: answers?[0] ?? startDate,
+      endDate: answers?[1] ?? endDate,
+    );
   }
 }

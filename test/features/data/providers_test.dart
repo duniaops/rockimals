@@ -12,6 +12,7 @@ import 'package:rockimals/data/asteroid_repository.dart';
 import 'package:rockimals/data/fallback_asteroids.dart';
 import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/data/models/asteroid_feed.dart';
+import 'package:rockimals/data/models/feed_window.dart';
 import 'package:rockimals/data/neows_client.dart';
 import 'package:rockimals/features/data/providers.dart';
 
@@ -433,7 +434,7 @@ AsteroidFeed _liveFeed({
     asteroids: asteroids,
     todayList: asteroids.take(1).toList(growable: false),
     feedRange: '2026-07-14 → 2026-07-16',
-    usingFallback: false,
+    provenance: FeedProvenance.today,
   );
 }
 
@@ -481,7 +482,7 @@ class _LoadFailure implements Exception {
 /// to the sample set.
 class _UnusedSource implements AsteroidFeedSource {
   @override
-  Future<List<Asteroid>> fetchFeed({
+  Future<FeedWindow> fetchFeed({
     required String startDate,
     required String endDate,
   }) => throw StateError('the fake repository never reaches its source');

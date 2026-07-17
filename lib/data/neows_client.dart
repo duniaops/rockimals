@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:rockimals/core/config/app_config.dart';
 import 'package:rockimals/data/models/asteroid.dart';
+import 'package:rockimals/data/models/feed_window.dart';
 import 'package:rockimals/data/retry_interceptor.dart';
 
 /// Where the app's live asteroids come from.
@@ -10,14 +11,23 @@ import 'package:rockimals/data/retry_interceptor.dart';
 /// need to exercise a thin feed, a duplicate designation, and a dead network
 /// without calling NASA 30 times an hour on a shared demo key.
 abstract interface class AsteroidFeedSource {
-  /// Every asteroid the feed lists between [startDate] and [endDate] inclusive
-  /// (`YYYY-MM-DD`), in the order the feed returned them.
+  /// The asteroids for a window, **and which window that turned out to be**.
+  ///
+  /// [startDate] and [endDate] (`YYYY-MM-DD`, inclusive) are what the caller
+  /// wants. The returned [FeedWindow] says what it got, and the two need not
+  /// match: a source with no network may still hold a real sky for an earlier
+  /// window, and answering it honestly is strictly better than refusing (see
+  /// [FeedWindow]). An implementation that goes and asks NASA, of course, always
+  /// answers the window it was given.
+  ///
+  /// A caller must therefore caption and age-check what it *received*, never
+  /// what it requested.
   ///
   /// Throws on anything the app cannot use — a dead network, a non-2xx status,
   /// a body that is not the shape NeoWs documents, or a record whose numbers do
   /// not parse. Every one of those means the same thing to the caller ("use the
   /// sample data"), so none of them is distinguished here.
-  Future<List<Asteroid>> fetchFeed({
+  Future<FeedWindow> fetchFeed({
     required String startDate,
     required String endDate,
   });
@@ -65,8 +75,11 @@ class NeoWsClient implements AsteroidFeedSource {
   /// a 500 from NASA both land in the caller's fallback path. What differs is
   /// the route: the 500 gets retried on the way there ([RetryInterceptor]), the
   /// 429 does not, because an hourly limit outlasts any backoff worth waiting.
+  /// Always answers the window it was asked for, because it just asked NASA for
+  /// exactly that — the honesty [FeedWindow] exists to allow costs this class
+  /// nothing. It is `CachingFeedSource` that has a real choice to make.
   @override
-  Future<List<Asteroid>> fetchFeed({
+  Future<FeedWindow> fetchFeed({
     required String startDate,
     required String endDate,
   }) async {
@@ -78,7 +91,11 @@ class NeoWsClient implements AsteroidFeedSource {
         'api_key': AppConfig.nasaApiKey,
       },
     );
-    return _parseFeed(response.data);
+    return FeedWindow(
+      asteroids: _parseFeed(response.data),
+      startDate: startDate,
+      endDate: endDate,
+    );
   }
 
   /// The feed nests its objects under `near_earth_objects` keyed by date, and

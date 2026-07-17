@@ -125,6 +125,15 @@ final Provider<AsyncValue<String>> feedRangeProvider = _fieldOf(
 /// Whether this sky is the bundled sample set. Only ever decides whether a
 /// surface says "(sample)" — the app is equally playable either way, and it
 /// must never pass invented rocks off as today's real sky.
+///
+/// **`false` does not mean "today".** It used to, and no longer does: the feed
+/// cache serves the last window NASA answered when the network is gone, so a
+/// sky can be real, not the sample set, and still be from an earlier day. A
+/// surface that needs to say *when* — the home strip's
+/// `${todayList.length} visiting today` (`index.html:454`) is the one that does
+/// — must read [AsteroidFeed.provenance] and its three cases, not this. Watch
+/// [asteroidFeedProvider] for it; a `provenanceProvider` is one `_fieldOf` call
+/// away and is left for the first surface that actually needs one.
 final Provider<AsyncValue<bool>> usingFallbackProvider = _fieldOf(
   (AsteroidFeed feed) => feed.usingFallback,
   name: 'usingFallback',

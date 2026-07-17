@@ -33,7 +33,7 @@ class AsteroidFeed {
     required List<Asteroid> asteroids,
     required List<Asteroid> todayList,
     required this.feedRange,
-    required this.usingFallback,
+    required this.provenance,
   }) : asteroids = List<Asteroid>.unmodifiable(asteroids),
        todayList = List<Asteroid>.unmodifiable(todayList);
 
@@ -50,7 +50,7 @@ class AsteroidFeed {
         .take(_fallbackTodayCount)
         .toList(growable: false),
     feedRange: sampleFeedRange,
-    usingFallback: true,
+    provenance: FeedProvenance.sample,
   );
 
   static const int _fallbackTodayCount = 7;
@@ -71,13 +71,66 @@ class AsteroidFeed {
 
   /// Kid-facing provenance for the Sky tab's footer: `2026-07-14 → 2026-07-16`,
   /// or [sampleFeedRange] offline.
+  ///
+  /// Always the window this sky is **actually** about, which is not necessarily
+  /// the one the app asked for — see [FeedProvenance.earlier].
   final String feedRange;
+
+  /// Which of the three skies this is. See [FeedProvenance]; the app is equally
+  /// playable on any of them.
+  final FeedProvenance provenance;
 
   /// True when this is the bundled sample set rather than anything NASA served.
   /// The app stays fully playable either way; this only decides whether a
   /// surface says "(sample)" — which it must, rather than passing invented
   /// rocks off as today's sky.
-  final bool usingFallback;
+  ///
+  /// Derived rather than stored, so it cannot contradict [provenance].
+  bool get usingFallback => provenance == FeedProvenance.sample;
+}
+
+/// Which sky a child is looking at, and therefore what a surface may honestly
+/// call it.
+///
+/// **This exists because "not the sample set" stopped meaning "today".** It used
+/// to: every live feed was a window ending today, so one bool told a surface
+/// everything. Then the disk cache learned to serve the last window NASA
+/// answered when the network is gone — real rocks, but from an earlier window —
+/// and a single bool would have had to call that either "sample" (it isn't, and
+/// the footer would deny it came from NASA) or "today" (it isn't, and the
+/// prototype's home strip renders exactly that word:
+/// `${todayList.length} visiting ${usingFallback?'(sample)':'today'}`,
+/// `index.html:454`). Neither is true, so there are three values and not two.
+///
+/// A bool pair would have permitted a fourth, meaningless state; one enum cannot
+/// be internally contradictory, which is the same reason [AsteroidFeed] exists
+/// at all rather than a scatter of globals.
+enum FeedProvenance {
+  /// A real window ending today. The ordinary case, online.
+  ///
+  /// It deliberately does **not** claim the network was touched: a fresh cache
+  /// hit for today's window comes off the disk and is still `today`, because
+  /// nothing above `CachingFeedSource` can tell — nor should it, since the rocks
+  /// and the days are identical either way. What this value promises is about
+  /// *when the sky is from*, not *where the bytes came from*.
+  today,
+
+  /// A real window from NASA that ended **before** today, kept on the disk and
+  /// served because the network could not be reached — a plane, a tunnel, a
+  /// weekend away.
+  ///
+  /// These are real asteroids and [AsteroidFeed.feedRange] says which days they
+  /// are from, so nothing here is a lie. But they are not visiting *now*, and a
+  /// surface must not say they are. `AsteroidRepository` refuses windows older
+  /// than a few days outright, so this is stale by days, never by seasons.
+  earlier,
+
+  /// The bundled sample set: fourteen invented rocks, no network needed, and the
+  /// app fully playable (spec 01 §3).
+  ///
+  /// A surface must say so — `(sample)` — rather than passing them off as
+  /// anything NASA published.
+  sample,
 }
 
 /// What [AsteroidFeed.feedRange] reads when the app is running on the bundled

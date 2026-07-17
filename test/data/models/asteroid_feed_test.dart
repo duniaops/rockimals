@@ -90,7 +90,7 @@ void main() {
         asteroids: source,
         todayList: source,
         feedRange: '2026-07-14 → 2026-07-16',
-        usingFallback: false,
+        provenance: FeedProvenance.today,
       );
 
       source
@@ -119,7 +119,7 @@ AsteroidFeed _feed() => AsteroidFeed(
     _rock('433 Eros', diaMax: 23300),
   ],
   feedRange: '2026-07-14 → 2026-07-16',
-  usingFallback: false,
+  provenance: FeedProvenance.today,
 );
 
 Asteroid _rock(String name, {double diaMax = 100}) => Asteroid(

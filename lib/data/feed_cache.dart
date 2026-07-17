@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/data/models/asteroid.dart';
+import 'package:rockimals/data/models/feed_window.dart';
 import 'package:rockimals/data/neows_client.dart';
 
 /// Keeps the last window NASA answered on the disk, so that a launch which
@@ -59,78 +60,64 @@ class CachingFeedSource implements AsteroidFeedSource {
   /// and the app is at its most fragile exactly when it is most used.
   static const Duration _defaultTtl = Duration(hours: 6);
 
-  static const String _windowField = 'window';
+  static const String _startDateField = 'startDate';
+  static const String _endDateField = 'endDate';
   static const String _savedAtField = 'savedAt';
   static const String _asteroidsField = 'asteroids';
 
-  /// Three outcomes, and which one happens turns on the window key first and the
+  /// Three outcomes, and which one happens turns on the window first and the
   /// TTL second:
   ///
-  ///  * **Fresh hit** — an entry for *this* window, saved within the TTL. Answer
-  ///    from the disk and touch no network.
+  ///  * **Fresh hit** — an entry for *exactly this* window, saved within the
+  ///    TTL. Answer from the disk and touch no network.
   ///  * **Miss or stale** — go to NASA, and store whatever comes back.
-  ///  * **Miss or stale, and NASA cannot be reached** — answer with the stale
-  ///    entry if it is for this window. Yesterday's real rocks beat the sample
-  ///    set, and it is the reason this class is on the disk rather than in
-  ///    memory.
+  ///  * **NASA cannot be reached** — answer with whatever entry is on the disk,
+  ///    **whichever window it is for**, and say which window that is. Real rocks
+  ///    beat invented ones, and it is the reason this class is on the disk
+  ///    rather than in memory.
   ///
-  /// **The stale-on-failure answer is deliberately limited to *this* window,
-  /// and that costs something worth naming.** A device offline across a UTC
-  /// midnight holds an entry only for yesterday's window, so it misses, and the
-  /// repository shows the sample set — even though real rocks were right there.
-  /// The alternative is worse: this class's contract is "the asteroids between
-  /// [startDate] and [endDate]", and the repository captions whatever it gets
-  /// with the range it *asked* for. Handing back a different window's rocks
-  /// would print `2026-07-15 → 2026-07-17` over data from two days earlier, and
-  /// with no upper bound — a phone left offline for a season would show a
-  /// season-old sky labelled as today's, reported by nothing, with
-  /// `usingFallback` calmly false. The sample set is at least honest about being
-  /// the sample set. Serving old rocks *with their own caption* is a real
-  /// improvement over both, but it needs this interface to say which window it
-  /// answered; see the plan's follow-up item.
+  /// **A hit still demands an exact window match; only the failure path is
+  /// generous.** The two are different questions. A hit is "may I skip asking?",
+  /// and a different window is a different question, so the answer is no — the
+  /// key self-invalidates every UTC day and a new day must re-ask (plan decision
+  /// 13). The failure path is "is there anything better than the sample set?",
+  /// and yesterday's real sky plainly is.
+  ///
+  /// **This serves an old window without deciding whether it is too old, and
+  /// that restraint is the design.** It says only what it has and which days it
+  /// is about; whether a three-day-old sky is still worth showing a child is a
+  /// question about the app's promises, and `AsteroidRepository` owns those. So
+  /// there is no age ceiling here, and no way for one to drift out of step with
+  /// the caption, which the repository derives from the same [FeedWindow].
   @override
-  Future<List<Asteroid>> fetchFeed({
+  Future<FeedWindow> fetchFeed({
     required String startDate,
     required String endDate,
   }) async {
-    final String window = _windowKey(startDate, endDate);
     final _CacheEntry? cached = _read();
-    final _CacheEntry? forThisWindow = cached?.window == window ? cached : null;
+    final bool isThisWindow =
+        cached != null &&
+        cached.feed.startDate == startDate &&
+        cached.feed.endDate == endDate;
 
-    if (forThisWindow != null && _isFresh(forThisWindow)) {
-      return forThisWindow.asteroids;
-    }
+    if (cached != null && isThisWindow && _isFresh(cached)) return cached.feed;
 
     try {
-      final List<Asteroid> fetched = await _source.fetchFeed(
+      final FeedWindow fetched = await _source.fetchFeed(
         startDate: startDate,
         endDate: endDate,
       );
-      await _save(window, fetched);
+      await _save(fetched);
       return fetched;
     } catch (_) {
       // Bare, and it rethrows rather than deciding anything: what a dead network
       // means is the repository's call (the sample set), and it has already been
       // made one layer up. All this adds is the one better answer available
       // here — that NASA said something recently, and it is still on the disk.
-      if (forThisWindow != null) return forThisWindow.asteroids;
+      if (cached != null) return cached.feed;
       rethrow;
     }
   }
-
-  /// The two dates, exactly as the repository asked for them.
-  ///
-  /// Keyed by the **window**, not by the day, and not assembled from per-day
-  /// entries (plan decision 13). NeoWs bills per request and this app makes one
-  /// range request, so a day-partitioned cache would cost the same single
-  /// request and save nothing — while forcing a cross-day ordering that the
-  /// repository's first-seen-wins dedupe would then resolve against the home
-  /// strip, silently dropping today's rocks out of it.
-  ///
-  /// It reads like [AsteroidFeed.feedRange] and is not it: that is a caption for
-  /// a child, this is a key. They are free to diverge.
-  static String _windowKey(String startDate, String endDate) =>
-      '$startDate → $endDate';
 
   /// An entry saved in the *future* is not fresh, it is unexplained.
   ///
@@ -140,6 +127,12 @@ class CachingFeedSource implements AsteroidFeedSource {
   /// negative age passes any `age < ttl` test forever, so the app would serve
   /// one frozen sky until the clock caught up. Distrusting the entry costs one
   /// request; trusting it costs a sky that never changes again.
+  ///
+  /// Such an entry is never *fresh*, but it is not thrown away either: it is
+  /// still real rocks for a real window, so it stays servable on the failure
+  /// path, where the repository judges it on the days it describes rather than
+  /// on a `savedAt` the clock has made meaningless. The first successful fetch
+  /// overwrites it.
   bool _isFresh(_CacheEntry entry) {
     final Duration age = _now().toUtc().difference(entry.savedAt);
     return !age.isNegative && age < _ttl;
@@ -153,13 +146,14 @@ class CachingFeedSource implements AsteroidFeedSource {
   /// would drop into the catch above and answer with a *stale* sky — or with the
   /// sample set — while the real one sat in a local variable, which would be an
   /// absurd way to lose it.
-  Future<void> _save(String window, List<Asteroid> asteroids) async {
+  Future<void> _save(FeedWindow feed) async {
     try {
       await _store.setCachedFeed(
         jsonEncode(<String, Object?>{
-          _windowField: window,
+          _startDateField: feed.startDate,
+          _endDateField: feed.endDate,
           _savedAtField: _now().toUtc().toIso8601String(),
-          _asteroidsField: asteroids
+          _asteroidsField: feed.asteroids
               .map((Asteroid a) => a.toJson())
               .toList(growable: false),
         }),
@@ -192,57 +186,71 @@ class CachingFeedSource implements AsteroidFeedSource {
       final Object? decoded = jsonDecode(raw);
       if (decoded is! Map<String, Object?>) return null;
 
-      final Object? window = decoded[_windowField];
+      final Object? startDate = decoded[_startDateField];
+      final Object? endDate = decoded[_endDateField];
       final Object? savedAt = decoded[_savedAtField];
       final Object? asteroids = decoded[_asteroidsField];
-      if (window is! String || savedAt is! String) return null;
-      if (asteroids is! List<Object?>) return null;
+      if (savedAt is! String || asteroids is! List<Object?>) return null;
+      if (startDate is! String || endDate is! String) return null;
+      if (!_isDateKey(startDate) || !_isDateKey(endDate)) return null;
 
       final DateTime? parsedAt = DateTime.tryParse(savedAt);
       if (parsedAt == null) return null;
 
       return _CacheEntry(
-        window: window,
         savedAt: parsedAt.toUtc(),
-        // Unmodifiable, because this list is handed straight out and the entry
-        // is re-read from one string that a caller could otherwise sort out from
-        // under the next reader (plan decision 13).
-        asteroids: List<Asteroid>.unmodifiable(
-          asteroids.map((Object? json) {
+        feed: FeedWindow(
+          startDate: startDate,
+          endDate: endDate,
+          asteroids: asteroids.map((Object? json) {
             if (json is! Map<String, Object?>) {
               throw FormatException('cache: expected an asteroid, got: $json');
             }
             return Asteroid.fromJson(json);
-          }),
+          }).toList(growable: false),
         ),
       );
     } catch (_) {
       return null;
     }
   }
+
+  /// A stored window date has to be a `YYYY-MM-DD` key or the entry is not whole.
+  ///
+  /// **Checked here even though the repository would reject a nonsense window
+  /// anyway**, because "the repository happens to catch it" is not the same as
+  /// this class being correct: [fetchFeed] promises a [FeedWindow] that says
+  /// which days its rocks are about, and `endDate: "banana"` does not. Leaving it
+  /// would make this file's contract depend on a rule living in another one.
+  ///
+  /// A miss rather than a throw, like every other unreadable entry: it costs one
+  /// request and the next successful fetch overwrites the corruption.
+  static bool _isDateKey(String value) => _dateKeyPattern.hasMatch(value);
+
+  static final RegExp _dateKeyPattern = RegExp(r'^\d{4}-\d{2}-\d{2}$');
 }
 
-/// One stored window: what NASA said, which window it said it about, and when.
+/// One stored window — a [FeedWindow] exactly as it will be served — plus the
+/// one fact that is nobody's business but this class's: when it was saved.
 ///
-/// [asteroids] being empty is a perfectly good entry and **not** a miss (plan
-/// decision 13). NASA does list quiet windows, and an empty answer must hold its
-/// slot for the TTL like any other — otherwise every launch on a quiet window
-/// re-asks, which is the one case where the cache would be both useless and
-/// expensive. The repository turns an empty window into the sample set through
-/// its too-few rule, which is a decision about what to *show*, not a claim that
-/// nothing was ever fetched.
+/// The split is the layering in miniature. [FeedWindow] is what a child can
+/// eventually see (real rocks, and the days they are about); [savedAt] is a
+/// receipt for a request, and it is used for one thing — deciding whether to
+/// spend another. It stops at this file.
+///
+/// [FeedWindow.asteroids] being empty is a perfectly good entry and **not** a
+/// miss (plan decision 13). NASA does list quiet windows, and an empty answer
+/// must hold its slot for the TTL like any other — otherwise every launch on a
+/// quiet window re-asks, which is the one case where the cache would be both
+/// useless and expensive. The repository turns an empty window into the sample
+/// set through its too-few rule, which is a decision about what to *show*, not a
+/// claim that nothing was ever fetched.
 class _CacheEntry {
-  const _CacheEntry({
-    required this.window,
-    required this.savedAt,
-    required this.asteroids,
-  });
-
-  final String window;
+  const _CacheEntry({required this.savedAt, required this.feed});
 
   /// Always UTC. Stored as an ISO-8601 instant so that a phone crossing
   /// timezones compares the same two moments it would have at home.
   final DateTime savedAt;
 
-  final List<Asteroid> asteroids;
+  final FeedWindow feed;
 }

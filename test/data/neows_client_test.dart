@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rockimals/data/models/asteroid.dart';
+import 'package:rockimals/data/models/feed_window.dart';
 import 'package:rockimals/data/neows_client.dart';
 
 import '../support/stub_http_adapter.dart';
@@ -28,16 +29,16 @@ void main() {
     test('parses every object in a real capture, in the feed\'s own order', () async {
       final NeoWsClient client = _clientReturning(feedJson);
 
-      final List<Asteroid> pool = await client.fetchFeed(
+      final FeedWindow answered = await client.fetchFeed(
         startDate: '2026-07-14',
         endDate: '2026-07-16',
       );
 
-      expect(pool.length, 13);
+      expect(answered.asteroids.length, 13);
       // Document order, not chronological: the five of 07-16 first.
-      expect(pool.first.name, '2009 DB1');
-      expect(pool[5].name, '2011 UT');
-      expect(pool.last.name, '2015 AF45');
+      expect(answered.asteroids.first.name, '2009 DB1');
+      expect(answered.asteroids[5].name, '2011 UT');
+      expect(answered.asteroids.last.name, '2015 AF45');
     });
 
     test('threads the date key each object was filed under onto the asteroid', () async {
@@ -46,14 +47,52 @@ void main() {
       // strip padding from the window every single day, silently.
       final NeoWsClient client = _clientReturning(feedJson);
 
-      final List<Asteroid> pool = await client.fetchFeed(
+      final FeedWindow answered = await client.fetchFeed(
         startDate: '2026-07-14',
         endDate: '2026-07-16',
       );
 
-      expect(pool.where((Asteroid a) => a.date == '2026-07-16').length, 5);
-      expect(pool.where((Asteroid a) => a.date == '2026-07-14').length, 4);
-      expect(pool.where((Asteroid a) => a.date == '2026-07-15').length, 4);
+      expect(answered.asteroids.where((Asteroid a) => a.date == '2026-07-16').length, 5);
+      expect(answered.asteroids.where((Asteroid a) => a.date == '2026-07-14').length, 4);
+      expect(answered.asteroids.where((Asteroid a) => a.date == '2026-07-15').length, 4);
+    });
+
+    test('reports the window it answered — which is always the one it asked for',
+        () async {
+      // Trivial for this class and load-bearing for the caller. `FeedWindow`
+      // exists because `CachingFeedSource` can answer an *earlier* window than
+      // it was given, and the repository captions whatever comes back; this is
+      // the other side of that contract, and the reason the repository's caption
+      // is unchanged for every online child.
+      final NeoWsClient client = _clientReturning(feedJson);
+
+      final FeedWindow answered = await client.fetchFeed(
+        startDate: '2026-07-14',
+        endDate: '2026-07-16',
+      );
+
+      expect(answered.startDate, '2026-07-14');
+      expect(answered.endDate, '2026-07-16');
+    });
+
+    test('hands back a sky no consumer can reorder', () async {
+      // The order is the feed's own and it is load-bearing — the radar seeds
+      // each animal's orbit phase from list index (plan decision 9). `FeedWindow`
+      // guards it at the type rather than asking each of its two producers to
+      // remember.
+      final NeoWsClient client = _clientReturning(feedJson);
+
+      final FeedWindow answered = await client.fetchFeed(
+        startDate: '2026-07-14',
+        endDate: '2026-07-16',
+      );
+
+      expect(
+        () => answered.asteroids.sort(
+          (Asteroid a, Asteroid b) => a.name.compareTo(b.name),
+        ),
+        throwsUnsupportedError,
+      );
     });
 
     test('asks NASA for the window it was given, with the configured key', () async {
@@ -99,12 +138,12 @@ void main() {
         }),
       );
 
-      final List<Asteroid> pool = await client.fetchFeed(
+      final FeedWindow answered = await client.fetchFeed(
         startDate: '2026-07-16',
         endDate: '2026-07-16',
       );
 
-      expect(pool.map((Asteroid a) => a.name), <String>['2020 SW']);
+      expect(answered.asteroids.map((Asteroid a) => a.name), <String>['2020 SW']);
     });
 
     test('reads a feed with no objects as empty, not as broken', () async {
@@ -114,7 +153,10 @@ void main() {
       final NeoWsClient client = _clientReturning('{"element_count":0}');
 
       expect(
-        await client.fetchFeed(startDate: '2026-07-16', endDate: '2026-07-16'),
+        (await client.fetchFeed(
+          startDate: '2026-07-16',
+          endDate: '2026-07-16',
+        )).asteroids,
         isEmpty,
       );
     });
@@ -162,12 +204,12 @@ void main() {
         sleep: (Duration _) async {},
       );
 
-      final List<Asteroid> pool = await client.fetchFeed(
+      final FeedWindow answered = await client.fetchFeed(
         startDate: '2026-07-14',
         endDate: '2026-07-16',
       );
 
-      expect(pool.length, 13);
+      expect(answered.asteroids.length, 13);
       expect(calls, 2);
     });
 

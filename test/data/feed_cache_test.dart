@@ -8,6 +8,7 @@ import 'package:rockimals/data/asteroid_repository.dart';
 import 'package:rockimals/data/feed_cache.dart';
 import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/data/models/asteroid_feed.dart';
+import 'package:rockimals/data/models/feed_window.dart';
 import 'package:rockimals/data/neows_client.dart';
 
 /// The cache exists for one moment: a child opens the app somewhere with no
@@ -51,17 +52,24 @@ void main() {
     store = await Store.open();
   }
 
-  Future<List<Asteroid>> fetch({
+  Future<FeedWindow> fetch({
     String start = '2026-07-15',
     String end = '2026-07-17',
   }) => cache().fetchFeed(startDate: start, endDate: end);
 
+  /// Just the rocks, for the many tests that are not about which window they
+  /// came from.
+  Future<List<Asteroid>> fetchRocks({
+    String start = '2026-07-15',
+    String end = '2026-07-17',
+  }) async => (await fetch(start: start, end: end)).asteroids;
+
   group('a hit', () {
     test('skips the network entirely', () async {
-      await fetch();
+      await fetchRocks();
       await restart();
 
-      final List<Asteroid> second = await fetch();
+      final List<Asteroid> second = await fetchRocks();
 
       expect(source.fetchCount, 1);
       expect(second.map((Asteroid a) => a.name), <String>['2011 EW', '2020 SW']);
@@ -69,14 +77,14 @@ void main() {
 
     test('survives the app being force-quit — the whole point of the disk',
         () async {
-      await fetch();
+      await fetchRocks();
       await restart();
 
       // A brand new source, as if the process had restarted around a dead
       // network. The sky still comes back, and it is NASA's, not the sample set.
       source = _FakeSource.dead();
 
-      expect((await fetch()).map((Asteroid a) => a.name), <String>[
+      expect((await fetchRocks()).map((Asteroid a) => a.name), <String>[
         '2011 EW',
         '2020 SW',
       ]);
@@ -94,11 +102,11 @@ void main() {
       // `diaMax`.
       final Asteroid original = _asteroid('433 Eros', hazardous: true);
       source = _FakeSource(<Asteroid>[original]);
-      await fetch();
+      await fetchRocks();
       await restart();
       source = _FakeSource.dead();
 
-      final Asteroid restored = (await fetch()).single;
+      final Asteroid restored = (await fetchRocks()).single;
 
       expect(restored.name, original.name);
       expect(restored.diaMax, original.diaMax);
@@ -116,10 +124,10 @@ void main() {
       // The entry is re-read from one string and handed straight out, so a
       // caller sorting it would reorder what the next reader sees — and the
       // radar seeds each animal's orbit phase from list index (plan decision 9).
-      await fetch();
+      await fetchRocks();
       await restart();
 
-      final List<Asteroid> cached = await fetch();
+      final List<Asteroid> cached = await fetchRocks();
 
       expect(
         () => cached.sort((Asteroid a, Asteroid b) => a.name.compareTo(b.name)),
@@ -130,11 +138,11 @@ void main() {
 
   group('a stale entry', () {
     test('refetches once the TTL is spent', () async {
-      await fetch();
+      await fetchRocks();
       await restart();
       clock = clock.add(ttl + const Duration(minutes: 1));
 
-      await fetch();
+      await fetchRocks();
 
       expect(source.fetchCount, 2);
     });
@@ -142,11 +150,11 @@ void main() {
     test('is still fresh one minute inside the TTL', () async {
       // Pins which side of the boundary is which, so that a `<` flipped to `>`
       // cannot pass by being off by a hair.
-      await fetch();
+      await fetchRocks();
       await restart();
       clock = clock.add(ttl - const Duration(minutes: 1));
 
-      await fetch();
+      await fetchRocks();
 
       expect(source.fetchCount, 1);
     });
@@ -157,27 +165,27 @@ void main() {
       // disk at all. Note what it does *not* do: it does not answer the sample
       // set, because that is the repository's decision and this layer only says
       // "I still have what NASA said".
-      await fetch();
+      await fetchRocks();
       await restart();
       clock = clock.add(ttl * 10);
       source = _FakeSource.dead();
 
-      final List<Asteroid> served = await fetch();
+      final List<Asteroid> served = await fetchRocks();
 
       expect(served.map((Asteroid a) => a.name), <String>['2011 EW', '2020 SW']);
       expect(source.fetchCount, 1, reason: 'it tried the network first');
     });
 
     test('is replaced, not appended to, by a successful refetch', () async {
-      await fetch();
+      await fetchRocks();
       clock = clock.add(ttl + const Duration(minutes: 1));
       source = _FakeSource(<Asteroid>[_asteroid('99942 Apophis')]);
 
-      await fetch();
+      await fetchRocks();
       await restart();
       source = _FakeSource.dead();
 
-      expect((await fetch()).map((Asteroid a) => a.name), <String>[
+      expect((await fetchRocks()).map((Asteroid a) => a.name), <String>[
         '99942 Apophis',
       ]);
     });
@@ -209,24 +217,61 @@ void main() {
     });
 
     test(
-      'a dead network with only another window cached falls through to the '
-      'repository',
+      'a dead network with only another window cached serves it, saying which '
+      'window it is',
       () async {
-        // The deliberate cost of keying honestly, written down as a test so it
-        // is a decision and not an accident: a device offline across UTC
-        // midnight holds real rocks and shows the sample set anyway. Serving
-        // them would mean captioning a two-day-old window as today's, with no
-        // upper bound on how old — see the class doc and the plan's follow-up.
+        // **This replaces the test that pinned the opposite**, which read: "a
+        // dead network with only another window cached falls through to the
+        // repository". That was the deliberate cost of a source that could only
+        // answer `List<Asteroid>` — a different window's rocks could not be
+        // served without the repository captioning them as today's, so the
+        // honest move was to refuse, and a child offline across UTC midnight got
+        // fourteen invented rocks while real ones sat on the disk.
+        //
+        // Saying *which* window came back unties it: the rocks are served and
+        // nothing has to pretend they are today's. The refusal has not been
+        // dropped, it has moved and grown a reason — `AsteroidRepository` still
+        // refuses this window once it is genuinely old (see its ceiling tests),
+        // which is a rule about staleness rather than a limit of the type.
         await fetch(start: '2026-07-13', end: '2026-07-15');
         await restart();
         source = _FakeSource.dead();
 
-        await expectLater(
-          fetch(start: '2026-07-14', end: '2026-07-16'),
-          throwsA(isA<_DeadNetwork>()),
+        final FeedWindow served = await fetch(
+          start: '2026-07-14',
+          end: '2026-07-16',
         );
+
+        expect(served.asteroids.map((Asteroid a) => a.name), <String>[
+          '2011 EW',
+          '2020 SW',
+        ]);
+        // The window it answered, not the window it was asked for. Everything
+        // this item is worth rests on this line.
+        expect(served.startDate, '2026-07-13');
+        expect(served.endDate, '2026-07-15');
+        expect(source.fetchCount, 1, reason: 'it tried the network first');
       },
     );
+
+    test('a fresh entry for another window is still a miss — hits stay exact',
+        () async {
+      // The generosity above is strictly a failure-path rule. Asking "may I skip
+      // the network?" of an entry for a different window must still be answered
+      // no, however fresh it is, or a new UTC day would never re-ask and the sky
+      // would stop moving (plan decision 13). The clock has not moved here; only
+      // the window has.
+      await fetch(start: '2026-07-13', end: '2026-07-15');
+      await restart();
+
+      final FeedWindow served = await fetch(
+        start: '2026-07-14',
+        end: '2026-07-16',
+      );
+
+      expect(source.fetchCount, 2);
+      expect(served.endDate, '2026-07-16', reason: 'the fresh one it fetched');
+    });
   });
 
   group('an empty window', () {
@@ -239,10 +284,10 @@ void main() {
       // no fetch happened.
       source = _FakeSource(<Asteroid>[]);
 
-      expect(await fetch(), isEmpty);
+      expect(await fetchRocks(), isEmpty);
       await restart();
 
-      expect(await fetch(), isEmpty);
+      expect(await fetchRocks(), isEmpty);
       expect(source.fetchCount, 1);
     });
   });
@@ -254,11 +299,11 @@ void main() {
       // as the clock stays behind. Without this guard the app would serve one
       // frozen sky indefinitely, which is a worse failure than one extra
       // request.
-      await fetch();
+      await fetchRocks();
       await restart();
       clock = clock.subtract(const Duration(days: 365));
 
-      await fetch();
+      await fetchRocks();
 
       expect(source.fetchCount, 2);
     });
@@ -269,15 +314,17 @@ void main() {
       await store.setCachedFeed('this is not json{{{');
       await restart();
 
-      expect((await fetch()).length, 2);
+      expect((await fetchRocks()).length, 2);
       expect(source.fetchCount, 1);
     });
 
     test('a half-written entry is a miss', () async {
-      await store.setCachedFeed(jsonEncode(<String, Object?>{'window': 'x'}));
+      await store.setCachedFeed(
+        jsonEncode(<String, Object?>{'startDate': '2026-07-15'}),
+      );
       await restart();
 
-      expect((await fetch()).length, 2);
+      expect((await fetchRocks()).length, 2);
     });
 
     test('one corrupt asteroid throws the whole entry away', () async {
@@ -286,33 +333,43 @@ void main() {
       // be trusted — and unlike a live feed, there is a pristine copy one
       // request away. `Asteroid.fromJson` is strict for this reason.
       await store.setCachedFeed(
-        jsonEncode(<String, Object?>{
-          'window': '2026-07-15 → 2026-07-17',
-          'savedAt': clock.toIso8601String(),
-          'asteroids': <Object?>[
+        _entry(
+          asteroids: <Object?>[
             _asteroid('2011 EW').toJson(),
             <String, Object?>{'name': '2020 SW'}, // every other field missing
           ],
-        }),
+        ),
       );
       await restart();
 
-      expect((await fetch()).length, 2);
+      expect((await fetchRocks()).length, 2);
       expect(source.fetchCount, 1);
     });
 
     test('a savedAt that is not a date is a miss', () async {
-      await store.setCachedFeed(
-        jsonEncode(<String, Object?>{
-          'window': '2026-07-15 → 2026-07-17',
-          'savedAt': 'yesterday-ish',
-          'asteroids': <Object?>[_asteroid('2011 EW').toJson()],
-        }),
-      );
+      await store.setCachedFeed(_entry(savedAt: 'yesterday-ish'));
       await restart();
 
       expect(source.fetchCount, 0);
-      expect((await fetch()).length, 2);
+      expect((await fetchRocks()).length, 2);
+    });
+
+    test('a window that is not a pair of dates is a miss', () async {
+      // The entry is otherwise perfect — fresh, and its asteroids parse. But a
+      // `FeedWindow` promises to say which days its rocks are about, and
+      // `banana` does not, so there is no whole entry here to hand out.
+      //
+      // **The network is dead on purpose, and that is the whole test.** Written
+      // against a live source it asserted nothing: a rejected entry and an
+      // unreadable one both end in "ask NASA, get two rocks", so it passed
+      // whether or not the check existed — and the mutation that deleted the
+      // check sailed through it. Only a dead network separates the two, because
+      // only then does a bad entry actually get served to somebody.
+      source = _FakeSource.dead();
+      await store.setCachedFeed(_entry(startDate: 'banana'));
+      await restart();
+
+      await expectLater(fetch(), throwsA(isA<_DeadNetwork>()));
     });
 
     test('a box that will not answer never costs a good fetch', () async {
@@ -322,7 +379,7 @@ void main() {
       // on write must not lose a sky that is already in hand.
       await store.close();
 
-      final List<Asteroid> served = await fetch();
+      final List<Asteroid> served = await fetchRocks();
 
       expect(served.length, 2);
       expect(source.fetchCount, 1);
@@ -391,6 +448,28 @@ void main() {
   });
 }
 
+/// A hand-written entry in the on-disk shape, defaulting to a **valid** one for
+/// the suite's window and clock.
+///
+/// Each corruption test overrides exactly one field, so that what it breaks is
+/// the only thing that can make it a miss. That matters more than it looks: when
+/// the stored shape changed from a single `window` string to a `startDate` /
+/// `endDate` pair, every one of these tests kept passing — as a miss for a
+/// missing field, not for the corruption each was written to pin. They asserted
+/// nothing and said so in green. Building from one shared default is what stops
+/// that happening the next time the shape moves.
+String _entry({
+  String startDate = '2026-07-15',
+  String endDate = '2026-07-17',
+  String? savedAt,
+  List<Object?>? asteroids,
+}) => jsonEncode(<String, Object?>{
+  'startDate': startDate,
+  'endDate': endDate,
+  'savedAt': savedAt ?? DateTime.utc(2026, 7, 17, 12).toIso8601String(),
+  'asteroids': asteroids ?? <Object?>[_asteroid('2011 EW').toJson()],
+});
+
 Asteroid _asteroid(String name, {bool hazardous = false}) => Asteroid(
   name: name,
   diaMax: 302.3,
@@ -417,15 +496,20 @@ class _FakeSource implements AsteroidFeedSource {
   final List<Asteroid>? _asteroids;
   int fetchCount = 0;
 
+  /// Stands in for `NeoWsClient`, so it answers the window it was asked for.
   @override
-  Future<List<Asteroid>> fetchFeed({
+  Future<FeedWindow> fetchFeed({
     required String startDate,
     required String endDate,
   }) async {
     fetchCount++;
     final List<Asteroid>? asteroids = _asteroids;
     if (asteroids == null) throw _DeadNetwork();
-    return asteroids;
+    return FeedWindow(
+      asteroids: asteroids,
+      startDate: startDate,
+      endDate: endDate,
+    );
   }
 }
 
