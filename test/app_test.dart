@@ -10,16 +10,17 @@ import 'package:path_provider_platform_interface/path_provider_platform_interfac
 import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/data/models/asteroid_feed.dart';
 import 'package:rockimals/features/data/providers.dart';
-import 'package:rockimals/features/debug/debug_animal_list_screen.dart';
+import 'package:rockimals/features/shell/app_shell.dart';
 import 'package:rockimals/main.dart';
 
 void main() {
-  // What `RockimalsApp` opens onto. It was the scaffold's placeholder; it is
-  // now the task-01 debug list (spec 01 §5), and a plan item deletes it once
-  // the shell and radar land. `debug_animal_list_screen_test.dart` owns what
-  // that screen renders — all this pins is that the app opens onto it.
-  testWidgets('opens onto the debug animal list', (tester) async {
-    // Needs a scope now: the screen watches the feed. Overridden with a
+  // What `RockimalsApp` opens onto. It was the scaffold's placeholder, then the
+  // task-01 debug list; it is now the four-tab shell, which still shows that
+  // debug list as its Radar tab until the real radar displaces it.
+  // `app_shell_test.dart` owns which tabs exist and how they switch — all this
+  // pins is that the app opens onto the shell at all.
+  testWidgets('opens onto the app shell', (tester) async {
+    // Needs a scope: the Radar tab watches the feed. Overridden with a
     // never-completing future rather than left to the real repository, which
     // would build a Dio and a store to answer a question about routing.
     await tester.pumpWidget(
@@ -33,7 +34,7 @@ void main() {
       ),
     );
 
-    expect(find.byType(DebugAnimalListScreen), findsOneWidget);
+    expect(find.byType(AppShell), findsOneWidget);
   });
 
   group('bootstrap', () {
@@ -135,8 +136,8 @@ void main() {
 /// [WidgetTester.runAsync].
 ///
 /// The feed is overridden with a future that never completes, so these stay
-/// tests of the boot sequence. `RockimalsApp` opens onto the debug list, which
-/// watches the feed — so without this, asking whether the store is open would
+/// tests of the boot sequence. `RockimalsApp` opens onto the shell, whose Radar
+/// tab watches the feed — so without this, asking whether the store is open would
 /// build a real Dio, fire a real request, and leave the repository's
 /// ten-second ceiling pending when the tree is disposed. A never-completing
 /// future also holds the screen on its spinner, which is exactly the state a
@@ -162,7 +163,7 @@ Future<Widget> _bootstrap(WidgetTester tester) async => (await tester.runAsync(
 
 Store _storeOf(WidgetTester tester) {
   return ProviderScope.containerOf(
-    tester.element(find.byType(DebugAnimalListScreen)),
+    tester.element(find.byType(AppShell)),
   ).read(storeProvider);
 }
 

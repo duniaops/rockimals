@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/misc.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/features/data/providers.dart';
-import 'package:rockimals/features/debug/debug_animal_list_screen.dart';
+import 'package:rockimals/features/shell/app_shell.dart';
 
 Future<void> main() async {
   // Explicit rather than left to `Hive.initFlutter()`, which calls it too:
@@ -64,12 +64,10 @@ class RockimalsApp extends StatelessWidget {
           brightness: Brightness.dark,
         ),
       ),
-      // The task-01 throwaway (spec 01 §5), and the app's only screen until the
-      // shell and radar land — at which point a plan item deletes it. It
-      // replaced the scaffold's placeholder rather than joining it: two
-      // stand-ins would be one more than the app has room for, and the
-      // placeholder was never a thing to build on.
-      home: const DebugAnimalListScreen(),
+      // The four-tab frame. Everything the app will ever show is a tab or
+      // something a tab opens — including the task-01 debug screen, which now
+      // sits in the Radar slot until the real radar displaces it.
+      home: const AppShell(),
     );
   }
 }
