@@ -8,6 +8,7 @@ import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/data/models/asteroid_feed.dart';
 import 'package:rockimals/features/data/providers.dart';
+import 'package:rockimals/features/detail/detail_screen.dart';
 import 'package:rockimals/features/radar/planet_backdrop.dart';
 import 'package:rockimals/features/radar/radar_clock.dart';
 import 'package:rockimals/features/radar/radar_geometry.dart';
@@ -365,19 +366,14 @@ class _RadarFieldState extends State<_RadarField>
   });
 
   /// The card's **Meet** button (`openDetail(a)`, `index.html:724`): push the
-  /// animal's detail screen.
+  /// animal's detail screen ([DetailScreen], `features/detail/detail_screen.dart`).
   ///
-  /// **A stub route until task 03 builds `lib/features/detail/detail_screen.dart`.**
-  /// The push is real — the route opens and comes back today, so the button is
-  /// not a dead end for a child on any build the radar is in — and only its
-  /// destination is a placeholder. Task 03 swaps [_MeetStubScreen] for the real
-  /// screen at this one call site; nothing else about the card changes. The
-  /// asteroid is passed in rather than read off [_selected] so a selection that
-  /// changes between the tap and the push cannot open the wrong animal.
+  /// The asteroid is passed in rather than read off [_selected] so a selection
+  /// that changes between the tap and the push cannot open the wrong animal.
   void _openDetail(Asteroid asteroid) {
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
-        builder: (BuildContext context) => _MeetStubScreen(asteroid: asteroid),
+        builder: (BuildContext context) => DetailScreen(asteroid: asteroid),
       ),
     );
   }
@@ -1150,55 +1146,6 @@ class _HudButton extends StatelessWidget {
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-/// A placeholder for the animal detail screen until task 03 builds
-/// `lib/features/detail/detail_screen.dart` (`specs/03-meet-animal.md`).
-///
-/// The Meet button pushes this so the route exists and returns today; task 03
-/// replaces the destination in [_RadarFieldState._openDetail]. Kid-toned rather
-/// than "not implemented" (`CLAUDE.md:63`), and it shows the animal so a child
-/// who tapped **Meet Milo** lands on Milo rather than a blank page — but none of
-/// this copy is load-bearing, since the screen is deleted whole by task 03.
-class _MeetStubScreen extends StatelessWidget {
-  const _MeetStubScreen({required this.asteroid});
-
-  final Asteroid asteroid;
-
-  @override
-  Widget build(BuildContext context) {
-    final Critter c = critter(asteroid);
-    return Scaffold(
-      backgroundColor: Palette.pageBackground,
-      appBar: AppBar(
-        backgroundColor: Palette.pageBackground,
-        foregroundColor: Palette.ink,
-        title: Text('Meet ${c.first}'),
-      ),
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Text(c.animal.emoji, style: const TextStyle(fontSize: 72)),
-            const SizedBox(height: 12),
-            Text(
-              c.name,
-              style: const TextStyle(
-                color: Palette.ink,
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '${c.first} can’t wait to meet you — coming soon!',
-              style: const TextStyle(color: Palette.muted, fontSize: 14),
-            ),
-          ],
         ),
       ),
     );

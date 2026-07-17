@@ -5,6 +5,7 @@ import 'package:rockimals/core/animals/animal_system.dart';
 import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/data/models/asteroid_feed.dart';
 import 'package:rockimals/features/data/providers.dart';
+import 'package:rockimals/features/detail/detail_screen.dart';
 import 'package:rockimals/features/radar/radar_geometry.dart';
 import 'package:rockimals/features/radar/radar_painter.dart';
 import 'package:rockimals/features/radar/radar_view.dart';
@@ -85,9 +86,7 @@ void main() {
     expect(find.text('⭐ Follow'), findsNothing);
   });
 
-  testWidgets('Meet opens the (stubbed) detail screen for that animal', (
-    tester,
-  ) async {
+  testWidgets('Meet opens the detail screen for that animal', (tester) async {
     await _mount(tester);
     await _tapAnimal(tester);
 
@@ -95,12 +94,16 @@ void main() {
     await tester.pump(); // start the route transition
     await tester.pump(const Duration(milliseconds: 400)); // and finish it
 
-    // The stub screen for this animal — replaced whole by task 03, but real
-    // enough today that Meet is not a dead end. Its avatar (the bare species
-    // emoji, distinct from the card's "🐯 Milo the Tiger" name line) and its
-    // copy confirm the child landed on the animal they tapped, not a blank page.
-    expect(find.text(critter(_rock).animal.emoji), findsOneWidget);
-    expect(find.textContaining('coming soon'), findsOneWidget);
+    // The real detail screen (`DetailScreen`, task 03) for the tapped animal.
+    // "How wide" and its `diaMin–diaMax` range are unique to the detail — the
+    // card underneath (kept in the tree by the maintained route) never shows
+    // them — so they confirm the child landed on the detail, not still the card.
+    // 2026 AB is 50–100 m.
+    expect(find.byType(DetailScreen), findsOneWidget);
+    expect(
+      find.text('${_rock.diaMin.round()}–${_rock.diaMax.round()} m'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('a tap on empty space closes the card and brings the hint back', (
