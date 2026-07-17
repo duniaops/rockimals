@@ -274,15 +274,62 @@ void main() {
   });
 
   group('asteroidRepositoryProvider', () {
-    test('builds a NeoWs-backed repository by default', () {
-      // The composition root is the one place the app names a concrete client.
-      // Reading it must not perform any I/O — construction is wiring, and the
-      // request only happens when something asks for the feed.
-      final ProviderContainer container = ProviderContainer.test();
+    late Directory tempDir;
+    late Store store;
+
+    setUp(() async {
+      tempDir = await Directory.systemTemp.createTemp('rockimals_repo_prov');
+      Hive.init(tempDir.path);
+      store = await Store.open();
+    });
+
+    tearDown(() async {
+      await Hive.deleteFromDisk();
+      await Hive.close();
+      if (tempDir.existsSync()) await tempDir.delete(recursive: true);
+    });
+
+    test('builds a NeoWs-backed, cache-wrapped repository by default', () {
+      // The composition root is the one place the app names a concrete client or
+      // assembles the stack around it. Reading it must not perform any I/O —
+      // construction is wiring, and neither the request nor the disk read
+      // happens until something asks for the feed.
+      final ProviderContainer container = ProviderContainer.test(
+        overrides: [storeProvider.overrideWithValue(store)],
+      );
 
       expect(
         container.read(asteroidRepositoryProvider),
         isA<AsteroidRepository>(),
+      );
+    });
+
+    test('needs the store, and says so rather than quietly skipping the cache',
+        () {
+      // The cache's entire value is on the disk, so a repository built without a
+      // store would be the no-cache app — offline launches back to fourteen
+      // sample rocks — and it would be that silently, on the one path nobody
+      // would think to test. `storeProvider` throwing is what makes this a
+      // wiring bug you cannot ship.
+      final ProviderContainer container = ProviderContainer.test();
+
+      // Asserted on the message rather than the type, because Riverpod 3 wraps
+      // **once per hop**: the failure is a `ProviderException` (this provider)
+      // whose `.exception` is another `ProviderException` (the store's) whose
+      // `.exception` is finally the `UnimplementedError`. The store's own test
+      // above reaches through one layer and can name the type; from a provider
+      // two hops away, matching a type would mean hard-coding the nesting depth
+      // — so it would break the day a fourth provider is inserted between them,
+      // which is not a thing worth a red test. The message survives any depth.
+      expect(
+        () => container.read(asteroidRepositoryProvider),
+        throwsA(
+          isA<ProviderException>().having(
+            (ProviderException e) => e.toString(),
+            'toString',
+            contains('storeProvider was read before it was overridden'),
+          ),
+        ),
       );
     });
   });

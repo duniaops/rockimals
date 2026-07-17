@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/data/asteroid_repository.dart';
+import 'package:rockimals/data/feed_cache.dart';
 import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/data/models/asteroid_feed.dart';
 import 'package:rockimals/data/neows_client.dart';
@@ -35,20 +36,27 @@ final Provider<Store> storeProvider = Provider<Store>(
   name: 'store',
 );
 
-/// The data layer's composition root, and the seam every test and every future
-/// decorator reaches for.
+/// The data layer's composition root, and the seam every test reaches for.
 ///
-/// This is the only place the app names a concrete [NeoWsClient]. The feed
-/// cache lands as a decorator here (`Repository → CachingFeedSource →
-/// NeoWsClient`) without a single consumer changing, and tests swap the whole
-/// repository for a fake rather than standing up a socket.
+/// This is the only place the app names a concrete [NeoWsClient] or assembles
+/// the stack around it: `AsteroidRepository → CachingFeedSource → NeoWsClient →
+/// Dio[retry]`. That order is load-bearing at both joints — the cache sits
+/// outside the client so a hit costs no retries and no request, and inside the
+/// repository so it only ever stores what NASA really said rather than the
+/// sample set the repository substitutes (plan decision 13).
+///
+/// **It reads [storeProvider], so this now throws until the store is wired.**
+/// That is the intended direction of the dependency: the cache's whole value is
+/// on the disk, and a repository built without one would be the no-cache app
+/// silently, on a path nobody would think to test.
 ///
 /// Deliberately not `autoDispose`: one load per process is the design
 /// ([asteroidFeedProvider]), so a repository that could be thrown away and
 /// rebuilt between listeners would only reopen a connection nothing asked for.
 final Provider<AsteroidRepository> asteroidRepositoryProvider =
     Provider<AsteroidRepository>(
-      (Ref ref) => AsteroidRepository(NeoWsClient()),
+      (Ref ref) =>
+          AsteroidRepository(CachingFeedSource(NeoWsClient(), ref.watch(storeProvider))),
       name: 'asteroidRepository',
     );
 
