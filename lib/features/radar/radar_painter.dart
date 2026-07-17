@@ -6,6 +6,7 @@ import 'package:flutter/rendering.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/features/radar/radar_geometry.dart';
+import 'package:rockimals/features/radar/radar_labels.dart';
 import 'package:rockimals/features/radar/radar_orbits.dart';
 
 /// The radar: deep space, the distance rings, the Moon, the animals orbiting on
@@ -378,7 +379,7 @@ const Color _outerRingColour = Color.fromRGBO(90, 120, 170, 0.16);
 /// `final` rather than `const` because no const expression can derive one
 /// colour's alpha from another. It costs nothing per frame: a top-level `final`
 /// is computed once, on first access, and the labels it paints are themselves
-/// laid out once and cached (see `_Label`).
+/// laid out once and cached (see [RadarLabel]).
 final Color _ringLabelColour = Palette.muted.withValues(alpha: 0.55);
 
 /// `#cfd6de` (`index.html:837`) — the Moon, and the only grey on the field.
@@ -433,116 +434,27 @@ const Color _earthDark = Color(0xFF0C355C);
 /// `rgba(147,168,202,.85)` — `--muted` again (`index.html:875`).
 final Color _earthLabelColour = Palette.muted.withValues(alpha: 0.85);
 
-/// Text on this canvas, laid out once and kept.
-///
-/// **Laying text out is by a distance the most expensive thing the radar does
-/// per frame**, and there are only ever seven strings on it — six ring labels
-/// and "Earth" — none of which ever change. Measuring them sixty times a second
-/// would be the single biggest cost on the screen, spent on an answer that was
-/// the same the last fifty-nine times (`CLAUDE.md:80`).
-/// How many labels this process has laid out.
-///
-/// Exists so the cache below can be held to its claim. "Laid out once" is the
-/// single biggest per-frame cost on this screen (`CLAUDE.md:80`) and it is
-/// invisible from the outside: a radar that re-measured all sixty of its animals
-/// every frame would look exactly like one that did not, until it was on a
-/// child's actual phone.
-@visibleForTesting
-int debugLabelLayouts = 0;
+/// The radar's text is laid out once each and kept for the life of the app —
+/// see [radarLabel] in `radar_labels.dart` for why, and for the cache the four
+/// helpers below sit on.
 
-class _Label {
-  factory _Label(
-    String text, {
-    required double fontSize,
-    required Color colour,
-    String? family,
-    FontWeight? weight,
-  }) {
-    debugLabelLayouts++;
-    final TextPainter painter = TextPainter(
-      text: TextSpan(
-        text: text,
-        // A null family is the port of `-apple-system, sans-serif`
-        // (`index.html:824`), i.e. whatever the phone's own font is. The emoji
-        // asks for `serif` outright (`index.html:861`) and is the only caller
-        // that passes one.
-        style: TextStyle(
-          fontSize: fontSize,
-          color: colour,
-          fontFamily: family,
-          fontWeight: weight,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-
-    return _Label._(
-      painter,
-      painter.computeDistanceToActualBaseline(TextBaseline.alphabetic),
-    );
-  }
-
-  const _Label._(this._painter, this._baseline);
-
-  final TextPainter _painter;
-  final double _baseline;
-
-  /// Draws with [x] through the text's centre and [y] on its alphabetic
-  /// baseline — canvas's `textAlign="center"` and its default `textBaseline`,
-  /// which is what every `fillText` in `radarDraw` is positioned by.
-  void paint(Canvas canvas, double x, double y) =>
-      _painter.paint(canvas, Offset(x - _painter.width / 2, y - _baseline));
-
-  /// Draws with [at] through the text's centre in *both* axes — canvas's
-  /// `textBaseline="middle"`, which `radarDraw` switches to for the animal
-  /// emoji alone and switches back straight after (`index.html:861-863`). It is
-  /// the difference between an animal sitting in its token and an animal
-  /// standing on it.
-  void paintCentred(Canvas canvas, Offset at) => _painter.paint(
-    canvas,
-    at.translate(-_painter.width / 2, -_painter.height / 2),
-  );
-}
-
-/// The radar's text, laid out once each and kept for the life of the app.
-///
-/// **Bounded by the data, not by the frame count**, which is what makes a
-/// process-lifetime cache safe here: the keys are the six ring labels, "Earth",
-/// "Moon", one entry per (species, size) pair on the field, and one per name
-/// shown — a few dozen in total, all of them reachable again on the very next
-/// frame. Records are structurally equal in Dart, so the key is just the style.
-final Map<({String text, double size, Color colour, String? family, FontWeight? weight}), _Label>
-_labels =
-    <({String text, double size, Color colour, String? family, FontWeight? weight}), _Label>{};
-
-_Label _label(
-  String text, {
-  required double size,
-  required Color colour,
-  String? family,
-  FontWeight? weight,
-}) => _labels.putIfAbsent(
-  (text: text, size: size, colour: colour, family: family, weight: weight),
-  () => _Label(text, fontSize: size, colour: colour, family: family, weight: weight),
-);
-
-_Label _ringLabel(int ld) =>
-    _label(ringLabelText(ld), size: 9, colour: _ringLabelColour);
+RadarLabel _ringLabel(int ld) =>
+    radarLabel(ringLabelText(ld), size: 9, colour: _ringLabelColour);
 
 /// `${em}px serif` (`index.html:861`). The size is per-animal, so this is the
 /// one label whose key really varies.
-_Label _emoji(String emoji, double size) =>
-    _label(emoji, size: size, colour: _emojiColour, family: 'serif');
+RadarLabel _emoji(String emoji, double size) =>
+    radarLabel(emoji, size: size, colour: _emojiColour, family: 'serif');
 
 /// A close flyby's or the selected animal's first name (`index.html:865-867`).
 /// The selected one is white and bold; everyone else waving is warm amber.
-_Label _animalName(String first, {required bool selected}) => _label(
+RadarLabel _animalName(String first, {required bool selected}) => radarLabel(
   first,
   size: 10,
   colour: selected ? _selectedRing : _flybyNameColour,
   weight: selected ? FontWeight.bold : null,
 );
 
-final _Label _earthLabel = _Label('Earth', fontSize: 10, colour: _earthLabelColour);
+final RadarLabel _earthLabel = RadarLabel('Earth', fontSize: 10, colour: _earthLabelColour);
 
-final _Label _moonLabel = _Label('Moon', fontSize: 9, colour: _moonLabelColour);
+final RadarLabel _moonLabel = RadarLabel('Moon', fontSize: 9, colour: _moonLabelColour);
