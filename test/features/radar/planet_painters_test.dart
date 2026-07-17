@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rockimals/features/radar/planet_backdrop.dart';
 import 'package:rockimals/features/radar/planet_painters.dart';
 
 /// What the decorative backdrop's six bodies actually put on the screen.
@@ -34,7 +35,7 @@ void main() {
       // `arc(x, y, r*2.3)` (`index.html:750-752`) — the gradient and the disc
       // share an edge, so the glow ends exactly where it stops being drawn
       // rather than being cut off mid-ramp.
-      await _paint(tester, (Canvas c, Offset at, double r) {
+      await _paint(tester, (Canvas c, Offset at, double r, {required bool showLabels}) {
         paintGlow(c, at, r, colour: _neptuneGlow, alpha: 0.6);
       });
 
@@ -47,7 +48,7 @@ void main() {
       // alpha by the same constant is arithmetically identical — and costs no
       // `saveLayer`. Pinned at the core, which is flat colour: 0.3 × 0.6 = 0.18
       // of `rgb(60,110,230)` over black.
-      await _paint(tester, (Canvas c, Offset at, double r) {
+      await _paint(tester, (Canvas c, Offset at, double r, {required bool showLabels}) {
         paintGlow(c, at, r, colour: _neptuneGlow, alpha: 0.6);
       });
 
@@ -70,7 +71,7 @@ void main() {
       // where alpha is 0.09 and the two behaviours differ by a clean factor of
       // two: `0.09 × (60,110,230)` here, against `0.09 × (30,55,115)` if the
       // far stop were the literal transparent black.
-      await _paint(tester, (Canvas c, Offset at, double r) {
+      await _paint(tester, (Canvas c, Offset at, double r, {required bool showLabels}) {
         paintGlow(c, at, r, colour: _neptuneGlow, alpha: 0.6);
       });
 
@@ -86,7 +87,7 @@ void main() {
     testWidgets('draws the body, then the shadow over it', (tester) async {
       // Two fills of radius r (`index.html:744`, `747`). The second is the
       // terminator and must land on top, or the planet is a flat disc.
-      await _paint(tester, (Canvas c, Offset at, double r) {
+      await _paint(tester, (Canvas c, Offset at, double r, {required bool showLabels}) {
         paintSphere(c, at, r, lit: _mercuryLit, mid: _mercuryMid, dark: _mercuryDark);
       });
 
@@ -106,7 +107,7 @@ void main() {
       // (`radar_painter.dart`), so one imaginary sun lights the whole field. A
       // planet lit from the other side would read as a sticker on the scene
       // rather than a thing in it.
-      await _paint(tester, (Canvas c, Offset at, double r) {
+      await _paint(tester, (Canvas c, Offset at, double r, {required bool showLabels}) {
         paintSphere(c, at, r, lit: _mercuryLit, mid: _mercuryMid, dark: _mercuryDark);
       });
 
@@ -124,8 +125,7 @@ void main() {
     testWidgets('each glows, then is a sphere, and says its name', (tester) async {
       // The shared shape of `index.html:759-788`: a halo at 2.3r, the body at r,
       // the terminator at r, then a 9px name 11px under the rim.
-      for (final (String name, void Function(Canvas, Offset, double) draw)
-          in <(String, void Function(Canvas, Offset, double))>[
+      for (final (String name, PlanetPainter draw) in <(String, PlanetPainter)>[
         ('Venus', paintVenus),
         ('Neptune', paintNeptune),
       ]) {
@@ -152,6 +152,30 @@ void main() {
       expect(
         _calls(tester).where((_Call c) => c.method == #drawParagraph),
         isEmpty,
+      );
+    });
+
+    testWidgets('drops every name when the Labels chip is off, keeping the body',
+        (tester) async {
+      // `if (!Radar.showLabels) return` at the top of `pLabel` (`index.html:755`)
+      // — the Labels chip switches the planets' names off with the animals' and
+      // the Sun's. The body is scenery and stays; only the caption goes. Saturn
+      // is the one to check because it draws the most (four ring passes plus the
+      // sphere), so "no paragraph" here really is the label gone and not the
+      // planet with it.
+      await _paint(tester, paintSaturn, showLabels: false);
+      expect(
+        _calls(tester).where((_Call c) => c.method == #drawParagraph),
+        isEmpty,
+        reason: 'the name is gone',
+      );
+      // The sphere is still there — a `drawCircle` at the body's own radius.
+      expect(
+        _calls(tester).where(
+          (_Call c) => c.method == #drawCircle && (c.args[1] as double) == 20,
+        ),
+        isNotEmpty,
+        reason: 'the planet is not',
       );
     });
 
@@ -202,6 +226,24 @@ void main() {
       await _paint(tester, paintSun);
 
       expect(_painterOf(tester), paints..paragraph(offset: _labelOffset('Sun', 132)));
+    });
+
+    testWidgets('keeps its disc but drops its name when Labels is off', (tester) async {
+      // `if (Radar.showLabels)` around the caption alone (`index.html:806`) — the
+      // Sun is scenery a child must never try to tap, so the Planets chip is what
+      // removes it; the Labels chip only takes its name. Two circles as ever, no
+      // paragraph.
+      await _paint(tester, paintSun, showLabels: false);
+
+      expect(
+        _calls(tester).where((_Call c) => c.method == #drawParagraph),
+        isEmpty,
+      );
+      expect(
+        _calls(tester).where((_Call c) => c.method == #drawCircle),
+        hasLength(2),
+        reason: 'the glow and the disc are untouched',
+      );
     });
 
     testWidgets('burns white off-centre and cools to orange at the rim', (tester) async {
@@ -303,7 +345,7 @@ void main() {
       await _paint(tester, paintMars);
       final _Pixels marked = await _pixels(tester);
 
-      await _paint(tester, (Canvas c, Offset at, double r) {
+      await _paint(tester, (Canvas c, Offset at, double r, {required bool showLabels}) {
         paintSphere(c, at, r, lit: _marsLit, mid: _marsMid, dark: _marsDark);
       });
       final _Pixels bare = await _pixels(tester);
@@ -382,7 +424,7 @@ void main() {
       await _paint(tester, paintSaturn);
       final _Pixels ringed = await _pixels(tester);
 
-      await _paint(tester, (Canvas c, Offset at, double r) {
+      await _paint(tester, (Canvas c, Offset at, double r, {required bool showLabels}) {
         paintSphere(c, at, r, lit: _saturnLit, mid: _saturnMid, dark: _saturnDark);
       });
       final _Pixels bare = await _pixels(tester);
@@ -546,8 +588,9 @@ void _expectPixel(_Pixels pixels, Offset at, Color expected, {double tolerance =
 
 Future<void> _paint(
   WidgetTester tester,
-  void Function(Canvas canvas, Offset at, double radius) draw,
-) async {
+  PlanetPainter draw, {
+  bool showLabels = true,
+}) async {
   tester.view
     ..physicalSize = _size
     ..devicePixelRatio = 1;
@@ -557,7 +600,11 @@ Future<void> _paint(
     RepaintBoundary(
       child: ColoredBox(
         color: _backdrop,
-        child: CustomPaint(key: UniqueKey(), painter: _Planet(draw), size: _size),
+        child: CustomPaint(
+          key: UniqueKey(),
+          painter: _Planet(draw, showLabels: showLabels),
+          size: _size,
+        ),
       ),
     ),
   );
@@ -613,12 +660,14 @@ class _Pixels {
 }
 
 class _Planet extends CustomPainter {
-  const _Planet(this.draw);
+  const _Planet(this.draw, {required this.showLabels});
 
-  final void Function(Canvas canvas, Offset at, double radius) draw;
+  final PlanetPainter draw;
+  final bool showLabels;
 
   @override
-  void paint(Canvas canvas, Size size) => draw(canvas, _at, _r);
+  void paint(Canvas canvas, Size size) =>
+      draw(canvas, _at, _r, showLabels: showLabels);
 
   @override
   bool shouldRepaint(_Planet oldDelegate) => true;

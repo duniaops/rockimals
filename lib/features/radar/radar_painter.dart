@@ -9,6 +9,7 @@ import 'package:rockimals/features/radar/planet_backdrop.dart';
 import 'package:rockimals/features/radar/planet_painters.dart';
 import 'package:rockimals/features/radar/radar_geometry.dart';
 import 'package:rockimals/features/radar/radar_labels.dart';
+import 'package:rockimals/features/radar/radar_layers.dart';
 import 'package:rockimals/features/radar/radar_orbits.dart';
 
 /// The radar: deep space, the planet backdrop, the distance rings, the Moon,
@@ -30,6 +31,7 @@ class RadarPainter extends CustomPainter {
     required this.maxLd,
     required this.zoom,
     required this.viewRot,
+    required this.layers,
     this.selected,
   }) : super(repaint: clock);
 
@@ -71,6 +73,11 @@ class RadarPainter extends CustomPainter {
   /// `index.html:624`) — it wears a white ring that breathes and says its name.
   final Asteroid? selected;
 
+  /// Which of the five toggle layers are on (`Radar.showHaz`/`showLabels`/
+  /// `showRings`/`showMoon`/`showPlanets`, `index.html:625`). Every guard in
+  /// [paint] reads one of these; the view owns flipping them.
+  final RadarLayers layers;
+
   @override
   void paint(Canvas canvas, Size size) {
     final RadarGeometry geometry = RadarGeometry(size: size, maxLd: maxLd);
@@ -86,9 +93,13 @@ class RadarPainter extends CustomPainter {
     // the animals are the subject, and Earth is last because it is the smallest
     // and most important thing on the screen.
     _paintSpace(canvas, size);
-    _paintBackdrop(canvas, geometry, ts);
-    _paintRings(canvas, geometry);
-    _paintMoon(canvas, geometry);
+    // Each layer is behind its chip (`index.html:816-877`). The animals and
+    // Earth have no chip — the sky always has its subject and its centre — so
+    // they are unguarded; the Close-flybys filter thins the animals rather than
+    // hiding them all, and it lives inside [_paintAnimals].
+    if (layers.planets) _paintBackdrop(canvas, geometry, ts);
+    if (layers.rings) _paintRings(canvas, geometry);
+    if (layers.moon) _paintMoon(canvas, geometry);
     _paintAnimals(canvas, geometry, pulse: pulse);
     _paintEarth(canvas, geometry, pulse: pulse);
   }
@@ -134,26 +145,31 @@ class RadarPainter extends CustomPainter {
   /// why it is worth pinning: when they do meet, they should meet the way the
   /// prototype has them meet.
   ///
-  /// **`if (Radar.showPlanets)` (`index.html:818`) is not ported**, on the same
-  /// grounds as `_paintMoon`'s missing `!showRings` branch and
-  /// `paintPlanetLabel`'s missing `showLabels` guard: there are no toggle chips
-  /// yet, so the flag would be a constant `true` that nothing can change —
-  /// plan decision 1's dead state. The chip is the toggle-chips item's, and it
-  /// is one line here.
+  /// **The whole method is behind `if (Radar.showPlanets)` (`index.html:818`)**,
+  /// which [paint] applies at the call site — the guard wraps the Sun *and* the
+  /// six planets, so the Planets chip clears the 44px orange glare in the corner
+  /// along with the planets rather than leaving it bleeding across a switched-off
+  /// backdrop.
+  ///
+  /// [RadarLayers.labels] is passed on to the Sun and every planet so the Labels
+  /// chip can switch their names off with the animals' (`index.html:755`, `806`).
   void _paintBackdrop(Canvas canvas, RadarGeometry geometry, double ts) {
     paintSun(
       canvas,
       backdrop.sunPosition(geometry: geometry, zoom: zoom, ts: ts),
       backdrop.sunRadius(zoom: zoom),
+      showLabels: layers.labels,
     );
 
     for (final Planet planet in backdrop.planets) {
       // `p.draw(ctx, x, y, rr)` (`index.html:812`) — the table's own function
-      // reference, called with the prototype's own three arguments.
+      // reference, called with the prototype's own three arguments plus the
+      // labels flag its `pLabel` reads off a global.
       planet.draw(
         canvas,
         backdrop.positionOf(planet, geometry: geometry, zoom: zoom, ts: ts),
         backdrop.radiusOf(planet, zoom: zoom),
+        showLabels: layers.labels,
       );
     }
   }
@@ -196,11 +212,25 @@ class RadarPainter extends CustomPainter {
   /// has already seen with their own eyes, which is what makes it the ruler
   /// every other distance on this screen is measured with (`CLAUDE.md:66`).
   ///
-  /// The prototype strokes the 1× ring here itself when the rings are switched
-  /// off (`index.html:835`), so the Moon is never floating on nothing. There is
-  /// no switch yet — the toggle chips are their own item, and that item owns
-  /// this branch.
+  /// **When the Rings chip is off but the Moon is on, the 1× ring is drawn here
+  /// anyway** (`index.html:835`), so the Moon keeps a visible track rather than
+  /// floating on nothing. It is a hair dimmer than the rings' own 1× stroke
+  /// (`.28` against `.30`, `index.html:835` vs `827`) — a track for the Moon, not
+  /// a distance ring in its own right — and it shares the Moon's [3, 5] dash so
+  /// the two read as the same object.
   void _paintMoon(Canvas canvas, RadarGeometry geometry) {
+    final Offset center = geometry.center;
+
+    if (!layers.rings) {
+      canvas.drawPath(
+        dashedCircle(center, geometry.moonRadius(zoom: zoom), on: 3, off: 5),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1
+          ..color = _moonTrackColour,
+      );
+    }
+
     final Offset moon = orbits.moonPosition(
       geometry: geometry,
       zoom: zoom,
@@ -228,7 +258,13 @@ class RadarPainter extends CustomPainter {
     final Paint fill = Paint();
     final Paint stroke = Paint()..style = PaintingStyle.stroke;
 
-    for (final RadarOrbit orbit in orbits.orbits) {
+    // `if (Radar.showHaz && !a.hazardous) { a._sx = null; return; }`
+    // (`index.html:843`), read through the tag rather than the raw flag (plan
+    // decision 2). Iterating [RadarOrbits.visible] — the same list the hit test
+    // walks — is what stops a filtered animal from being tappable while off
+    // screen.
+    for (final RadarOrbit orbit
+        in orbits.visible(onlyCloseFlybys: layers.closeFlybysOnly)) {
       final Offset at = orbits.positionOf(
         orbit,
         geometry: geometry,
@@ -272,11 +308,12 @@ class RadarPainter extends CustomPainter {
 
       _emoji(orbit.critter.animal.emoji, orbit.emojiSize).paintCentred(canvas, at);
 
-      // Only the animals waving and the one being looked at say their names
+      // Only the animals waving and the one being looked at say their names,
+      // and only while the Labels chip is on — `showLabels && (close || sel)`
       // (`index.html:864`). Sixty labels at once would be a wall of text on a
       // screen a five-year-old is meant to be able to read; the rest introduce
       // themselves when they are tapped.
-      if (orbit.isCloseFlyby || isSelected) {
+      if (layers.labels && (orbit.isCloseFlyby || isSelected)) {
         _animalName(orbit.critter.first, selected: isSelected).paint(
           canvas,
           at.dx,
@@ -335,6 +372,7 @@ class RadarPainter extends CustomPainter {
       oldDelegate.zoom != zoom ||
       oldDelegate.viewRot != viewRot ||
       oldDelegate.selected?.name != selected?.name ||
+      oldDelegate.layers != layers ||
       !identical(oldDelegate.orbits, orbits) ||
       !identical(oldDelegate.backdrop, backdrop);
 }
@@ -417,6 +455,12 @@ const Color _moonRingColour = Color.fromRGBO(207, 214, 222, 0.30);
 /// `rgba(90,120,170,.16)` (`index.html:827`) — the 2× and beyond, faint enough
 /// to be scale rather than scenery.
 const Color _outerRingColour = Color.fromRGBO(90, 120, 170, 0.16);
+
+/// `rgba(207,214,222,.28)` (`index.html:835`) — the Moon's fallback track, drawn
+/// only when the Rings chip is off. Two points dimmer than the 1× ring proper
+/// (`.30`), because here it is the Moon's own orbit and not one of the measuring
+/// marks.
+const Color _moonTrackColour = Color.fromRGBO(207, 214, 222, 0.28);
 
 /// `rgba(147,168,202,.55)` — `--muted`, dimmed (`index.html:830`).
 ///

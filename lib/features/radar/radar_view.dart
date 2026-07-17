@@ -9,6 +9,7 @@ import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/radar/planet_backdrop.dart';
 import 'package:rockimals/features/radar/radar_clock.dart';
 import 'package:rockimals/features/radar/radar_geometry.dart';
+import 'package:rockimals/features/radar/radar_layers.dart';
 import 'package:rockimals/features/radar/radar_orbits.dart';
 import 'package:rockimals/features/radar/radar_painter.dart';
 
@@ -97,16 +98,28 @@ class _RadarFieldState extends State<_RadarField>
   /// **One step, spent on both** (`index.html:730-735`) — the animals and the
   /// backdrop are moved by the same [FrameClock.step], because they are two
   /// things moving through one frame and not two clocks.
+  ///
+  /// **[_playing] gates the movement, not the frame** — the prototype steps the
+  /// clock outside its `if (Radar.playing)` guard and calls `radarDraw` every
+  /// frame regardless (`index.html:730-735`). So pausing is "stop calling
+  /// advance": [_orbits] and [_backdrop] are accumulators, so a step skipped is a
+  /// step never taken and the sky simply holds still, while [_clock] keeps
+  /// publishing — Earth's glow keeps breathing and the planets keep bobbing off
+  /// `ts`, because "paused" means the sky has stopped *going* anywhere, not that
+  /// the app has frozen. Stepping [_frame] even while paused is what stops the
+  /// frame play is pressed on from being a clamped 50ms lurch (see [FrameClock]).
   late final Ticker _ticker = createTicker((Duration elapsed) {
     final double dt = _frame.step(elapsed);
-    _orbits.advance(dt);
+    if (_playing) {
+      _orbits.advance(dt);
 
-    // The backdrop drifts in the field's own pixels and wraps at its edge, so
-    // unlike the animals it cannot move until there *is* an edge. This is the
-    // prototype's own lazy answer to the same problem — `if (p.x == null) p.x =
-    // Radar.W * p.xf`, checked at the top of every frame (`index.html:734`).
-    final double? width = _fieldWidth;
-    if (width != null) _backdrop.advance(dt, width: width);
+      // The backdrop drifts in the field's own pixels and wraps at its edge, so
+      // unlike the animals it cannot move until there *is* an edge. This is the
+      // prototype's own lazy answer to the same problem — `if (p.x == null) p.x =
+      // Radar.W * p.xf`, checked at the top of every frame (`index.html:734`).
+      final double? width = _fieldWidth;
+      if (width != null) _backdrop.advance(dt, width: width);
+    }
 
     _clock.value = elapsed;
   });
@@ -148,6 +161,17 @@ class _RadarFieldState extends State<_RadarField>
   /// nobody has built — the speculative-helper trap this plan has paid for twice
   /// (`usingDemoKey`, `isCloseFlyby`).
   Asteroid? _selected;
+
+  /// Which of the five toggle chips are on (`Radar.showHaz`/`showLabels`/
+  /// `showRings`/`showMoon`/`showPlanets`, `index.html:625`). Starts on the
+  /// prototype's opening state — Close-flybys off, the rest on — and is flipped
+  /// a chip at a time by [_toggle].
+  RadarLayers _layers = const RadarLayers();
+
+  /// `Radar.playing` (`index.html:625`). Whether the sky is *moving* — a paused
+  /// radar keeps drawing and keeps breathing (see the ticker below), it just
+  /// stops orbiting. Starts true; the play/pause button flips it.
+  bool _playing = true;
 
   // ── Pointer bookkeeping — `Radar.pointers`, `dragAng`, `pinchDist`, `moved`,
   // `downT`, `downXY` (`index.html:627`).
@@ -305,9 +329,21 @@ class _RadarFieldState extends State<_RadarField>
       geometry: _geometry,
       zoom: _zoom,
       viewRot: _viewRot,
+      // The Close-flybys chip hides some animals, and a hidden animal must not
+      // answer a tap — the hit test walks the same filtered list the painter
+      // draws (`index.html:843`, `710`).
+      onlyCloseFlybys: _layers.closeFlybysOnly,
     );
     setState(() => _selected = under?.asteroid);
   }
+
+  /// Flip one chip's layer (`Radar[k] = !Radar[k]`, `index.html:672`).
+  void _toggle(RadarLayer layer) =>
+      setState(() => _layers = _layers.toggle(layer));
+
+  /// The play/pause button (`index.html:701`): freeze the sky where it is, or
+  /// let it move again.
+  void _togglePlay() => setState(() => _playing = !_playing);
 
   /// The ＋ and − buttons (`index.html:697-698`).
   void _zoomBy(double factor) =>
@@ -381,6 +417,7 @@ class _RadarFieldState extends State<_RadarField>
                 zoom: _zoom,
                 viewRot: _viewRot,
                 selected: _selected,
+                layers: _layers,
               ),
               // Fills the tab. With no child, `CustomPaint` takes the largest
               // size its constraints allow.
@@ -391,7 +428,10 @@ class _RadarFieldState extends State<_RadarField>
             ),
           ),
         ),
+        _RadarChips(layers: _layers, onToggle: _toggle),
         _ZoomControls(
+          playing: _playing,
+          onPlayPause: _togglePlay,
           onIn: () => _zoomBy(_zoomInStep),
           onOut: () => _zoomBy(_zoomOutStep),
           onReset: _resetView,
@@ -401,12 +441,104 @@ class _RadarFieldState extends State<_RadarField>
   }
 }
 
-/// The ＋ − ⤢ column down the right of the field (`.rzoom`,
+/// The row of toggle chips across the top-left of the field (`.rchips` /
+/// `radarChips()`, `index.html:281`, `669-672`).
+///
+/// **Laid over the top-left corner with room kept for the zoom column on the
+/// right** — `top:10px; left:10px; right:56px` (`index.html:173`), so a chip and
+/// a ＋ never land on the same pixel. When the home overlay lands (its own item)
+/// the prototype restacks these into its flow (`#view-today .rchips`,
+/// `index.html:198`); until then this is where they live.
+///
+/// A [Wrap] rather than a [Row] because five chips plus their padding can be
+/// wider than a narrow phone, and the prototype's `flex-wrap:wrap`
+/// (`index.html:173`) lets them spill onto a second line rather than overflow.
+class _RadarChips extends StatelessWidget {
+  const _RadarChips({required this.layers, required this.onToggle});
+
+  final RadarLayers layers;
+  final ValueChanged<RadarLayer> onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: 10,
+      left: 10,
+      right: 56,
+      child: Wrap(
+        spacing: _chipGap,
+        runSpacing: _chipGap,
+        children: <Widget>[
+          for (final RadarLayer layer in RadarLayer.values)
+            _RadarChip(
+              label: layer.label,
+              on: layers.isOn(layer),
+              onTap: () => onToggle(layer),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One pill (`.rchip`, `index.html:174-175`).
+///
+/// Lit when [on]: the accent fill and dark glyph the app uses everywhere for
+/// "this is selected" (`.rchip.on`, `index.html:175`); otherwise the translucent
+/// card the zoom buttons and the home strip share. A [Semantics] `toggled` so a
+/// screen reader announces the chip's state, not just its name — the nav's
+/// `Semantics(button:)` precedent, one layer on.
+class _RadarChip extends StatelessWidget {
+  const _RadarChip({required this.label, required this.on, required this.onTap});
+
+  final String label;
+  final bool on;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      toggled: on,
+      label: label,
+      child: Material(
+        color: on ? Palette.accent : _chipSurface,
+        shape: RoundedRectangleBorder(
+          borderRadius: const BorderRadius.all(Radius.circular(16)),
+          side: BorderSide(color: on ? Palette.accent : Palette.line),
+        ),
+        child: InkWell(
+          borderRadius: const BorderRadius.all(Radius.circular(16)),
+          onTap: onTap,
+          child: Padding(
+            // `padding:5px 10px` (`index.html:174`).
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            child: ExcludeSemantics(
+              child: Text(
+                label,
+                style: TextStyle(
+                  // `color:var(--muted)` off, `#1a0d05` on (`index.html:174-175`).
+                  color: on ? Palette.onAccent : Palette.muted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  height: 1,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The ⏸ ＋ − ⤢ column down the right of the field (`.rzoom`,
 /// `index.html:283-288`).
 ///
-/// **The prototype's play button belongs in this column too** (`index.html:284`)
-/// and is not here: it is the "toggle chips and play/pause" item's, which owns
-/// the whole idea of a stopped sky. It slots in above the ＋.
+/// **The play/pause button leads the column** (`index.html:284`, `rPlay` above
+/// the ＋), because stopping the sky is the control a child reaches for first —
+/// the others are all about *where* they are looking, this one is about whether
+/// the looking has to keep up.
 ///
 /// Vertically centred rather than at the top, because the radar *is* the home
 /// view and `#view-today .rzoom` overrides `top:10px` to `top:50%` with a
@@ -414,11 +546,15 @@ class _RadarFieldState extends State<_RadarField>
 /// home overlay's title and stat strip go.
 class _ZoomControls extends StatelessWidget {
   const _ZoomControls({
+    required this.playing,
+    required this.onPlayPause,
     required this.onIn,
     required this.onOut,
     required this.onReset,
   });
 
+  final bool playing;
+  final VoidCallback onPlayPause;
   final VoidCallback onIn;
   final VoidCallback onOut;
   final VoidCallback onReset;
@@ -432,6 +568,16 @@ class _ZoomControls extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
+            // `⏸` while the sky moves, `▶` once it is stopped (`index.html:701`) —
+            // the glyph shows the action the tap performs' opposite, i.e. the
+            // state it is in, so the label is what actually says what pressing
+            // does.
+            _ZoomButton(
+              glyph: playing ? '⏸' : '▶',
+              label: playing ? 'Pause the animals' : 'Play the animals',
+              onTap: onPlayPause,
+            ),
+            const SizedBox(height: _zoomButtonGap),
             // The glyphs are `＋ － ⤢` and mean nothing to a screen reader, so
             // each says in words what it does — the nav's `Semantics(button:
             // true)` precedent, which the accessibility item will hold the whole
@@ -518,6 +664,15 @@ const double _zoomButtonGap = 6;
 /// idiom for making chrome legible over busy content, and this content is not
 /// busy.
 final Color _zoomButtonSurface = Palette.card.withValues(alpha: 0.85);
+
+/// `rgba(19,42,77,.85)` (`index.html:174`) — the same translucent card the zoom
+/// buttons use, which is why an unlit chip and a zoom button read as the same
+/// chrome. `backdrop-filter:blur(4px)` is dropped for the reason spelled out on
+/// [_zoomButtonSurface].
+final Color _chipSurface = Palette.card.withValues(alpha: 0.85);
+
+/// `gap:6px` between chips (`index.html:173`).
+const double _chipGap = 6;
 
 /// `Radar.zoom = 1` (`index.html:625`, `640`) — where the field rests before
 /// anyone touches it, and what ⤢ puts it back to.

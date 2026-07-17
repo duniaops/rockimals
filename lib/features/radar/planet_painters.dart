@@ -141,15 +141,22 @@ void paintGlow(
 
 /// A planet's name, under it (`pLabel`, `index.html:754-758`).
 ///
-/// **The prototype's `if (!Radar.showLabels) return` guard is not ported**, on
-/// the same grounds `_paintMoon`'s missing `!showRings` branch is not: there are
-/// no toggle chips yet, so the branch is unreachable and would be the plan's
-/// decision 1 dead state. The toggle-chips item owns switching this off, and the
-/// prototype gates the planets' names on the *same* `showLabels` flag as the
-/// animals' — one chip, both layers.
-void paintPlanetLabel(Canvas canvas, Offset at, double radius, String name) =>
-    radarLabel(name, size: 9, colour: _planetLabelColour)
-        .paint(canvas, at.dx, at.dy + radius + 11);
+/// **[showLabels] is the prototype's `if (!Radar.showLabels) return` at the top
+/// of `pLabel`** (`index.html:755`) — the Labels chip gates the planets' names
+/// on the same flag as the animals' and the Sun's, one chip over all three
+/// layers. When it is off, this draws nothing, so the caller can pass the flag
+/// straight through rather than wrapping every call in an `if`.
+void paintPlanetLabel(
+  Canvas canvas,
+  Offset at,
+  double radius,
+  String name, {
+  required bool showLabels,
+}) {
+  if (!showLabels) return;
+  radarLabel(name, size: 9, colour: _planetLabelColour)
+      .paint(canvas, at.dx, at.dy + radius + 11);
+}
 
 // ── The six planets, in the prototype's own order (`index.html:759-788`).
 
@@ -158,21 +165,39 @@ void paintPlanetLabel(Canvas canvas, Offset at, double radius, String name) =>
 /// smallest thing in the backdrop, and a 9px label under a 6px dot would read as
 /// a caption for nothing. It is a grey speck near the Sun, which is what
 /// Mercury is.
-void paintMercury(Canvas canvas, Offset at, double radius) {
+///
+/// **It still takes [showLabels]** — to match [PlanetPainter] so the table ports
+/// as a plain reference — and ignores it, having no label to switch off.
+void paintMercury(
+  Canvas canvas,
+  Offset at,
+  double radius, {
+  required bool showLabels,
+}) {
   paintGlow(canvas, at, radius, colour: _mercuryGlow, alpha: 0.5);
   paintSphere(canvas, at, radius, lit: _mercuryLit, mid: _mercuryMid, dark: _mercuryDark);
 }
 
-void paintVenus(Canvas canvas, Offset at, double radius) {
+void paintVenus(
+  Canvas canvas,
+  Offset at,
+  double radius, {
+  required bool showLabels,
+}) {
   paintGlow(canvas, at, radius, colour: _venusGlow, alpha: 0.6);
   paintSphere(canvas, at, radius, lit: _venusLit, mid: _venusMid, dark: _venusDark);
-  paintPlanetLabel(canvas, at, radius, 'Venus');
+  paintPlanetLabel(canvas, at, radius, 'Venus', showLabels: showLabels);
 }
 
-void paintNeptune(Canvas canvas, Offset at, double radius) {
+void paintNeptune(
+  Canvas canvas,
+  Offset at,
+  double radius, {
+  required bool showLabels,
+}) {
   paintGlow(canvas, at, radius, colour: _neptuneGlow, alpha: 0.6);
   paintSphere(canvas, at, radius, lit: _neptuneLit, mid: _neptuneMid, dark: _neptuneDark);
-  paintPlanetLabel(canvas, at, radius, 'Neptune');
+  paintPlanetLabel(canvas, at, radius, 'Neptune', showLabels: showLabels);
 }
 
 /// Rust, a dark plain, and a polar cap (`index.html:762-768`).
@@ -187,7 +212,12 @@ void paintNeptune(Canvas canvas, Offset at, double radius) {
 /// bite. The cap missing the rim by 0.2% of the radius is presumably luck rather
 /// than intent — which is exactly why the clip stays: shift the cap by a hair
 /// and it starts earning its keep.
-void paintMars(Canvas canvas, Offset at, double radius) {
+void paintMars(
+  Canvas canvas,
+  Offset at,
+  double radius, {
+  required bool showLabels,
+}) {
   paintGlow(canvas, at, radius, colour: _marsGlow, alpha: 0.6);
   paintSphere(canvas, at, radius, lit: _marsLit, mid: _marsMid, dark: _marsDark);
 
@@ -212,7 +242,7 @@ void paintMars(Canvas canvas, Offset at, double radius) {
   );
 
   canvas.restore();
-  paintPlanetLabel(canvas, at, radius, 'Mars');
+  paintPlanetLabel(canvas, at, radius, 'Mars', showLabels: showLabels);
 }
 
 /// Five cloud bands and the Great Red Spot (`index.html:769-776`).
@@ -226,7 +256,12 @@ void paintMars(Canvas canvas, Offset at, double radius) {
 /// reaches past the rim (`1.01r` to `1.27r` at its corners), so without it
 /// Jupiter is a disc with five stripes ruled straight across the sky behind it.
 /// The red spot does not need it (`0.54r`), but it shares the clip for free.
-void paintJupiter(Canvas canvas, Offset at, double radius) {
+void paintJupiter(
+  Canvas canvas,
+  Offset at,
+  double radius, {
+  required bool showLabels,
+}) {
   paintGlow(canvas, at, radius, colour: _jupiterGlow, alpha: 0.55);
   paintSphere(canvas, at, radius, lit: _jupiterLit, mid: _jupiterMid, dark: _jupiterDark);
 
@@ -257,7 +292,7 @@ void paintJupiter(Canvas canvas, Offset at, double radius) {
   );
 
   canvas.restore();
-  paintPlanetLabel(canvas, at, radius, 'Jupiter');
+  paintPlanetLabel(canvas, at, radius, 'Jupiter', showLabels: showLabels);
 }
 
 /// The rings, in four passes (`index.html:777-788`).
@@ -272,7 +307,12 @@ void paintJupiter(Canvas canvas, Offset at, double radius) {
 /// The front arc is also *brighter* than the back one (`.85` against `.5`),
 /// which does the rest of the work: the far side reads as being in the planet's
 /// shadow.
-void paintSaturn(Canvas canvas, Offset at, double radius) {
+void paintSaturn(
+  Canvas canvas,
+  Offset at,
+  double radius, {
+  required bool showLabels,
+}) {
   paintGlow(canvas, at, radius, colour: _saturnGlow, alpha: 0.5);
 
   // π → 2π sweeps the *top* of the ellipse (canvas's y grows downward), which is
@@ -310,7 +350,7 @@ void paintSaturn(Canvas canvas, Offset at, double radius) {
 
   // `r * 1.1`, not `r` — the one planet whose label is pushed out, so it clears
   // the rings rather than sitting on them (`index.html:787`).
-  paintPlanetLabel(canvas, at, radius * 1.1, 'Saturn');
+  paintPlanetLabel(canvas, at, radius * 1.1, 'Saturn', showLabels: showLabels);
 }
 
 /// Half of a tilted ellipse (`index.html:780`, `784`, `786`).
@@ -361,7 +401,12 @@ void _paintRingArc(
 /// flattens into an even glare, which is more or less what happens when you get
 /// closer to something that big. Ported literally either way — the alternative
 /// is inventing a proportion the prototype does not have.
-void paintSun(Canvas canvas, Offset at, double radius) {
+void paintSun(
+  Canvas canvas,
+  Offset at,
+  double radius, {
+  required bool showLabels,
+}) {
   paintGlow(canvas, at, radius, colour: _sunGlow, alpha: 0.95);
 
   canvas.drawCircle(
@@ -379,6 +424,11 @@ void paintSun(Canvas canvas, Offset at, double radius) {
         4,
       ),
   );
+
+  // `if (Radar.showLabels)` (`index.html:806`) — the Labels chip switches the
+  // Sun's name off with everything else's. Gated here rather than in `paintSun`'s
+  // head because only the label is optional; the disc is scenery that stays.
+  if (!showLabels) return;
 
   // **Not [paintPlanetLabel]**, close as it looks: the Sun's caption is written
   // out longhand in `drawPlanets` (`index.html:806`) with its own warm colour

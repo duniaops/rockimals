@@ -317,8 +317,13 @@ void main() {
     Offset centreOf(RadarOrbit orbit, {double viewRot = 0}) =>
         orbits.positionOf(orbit, geometry: geometry, zoom: 1, viewRot: viewRot);
 
-    RadarOrbit? hit(Offset at, {double viewRot = 0}) =>
-        orbits.hitTest(at, geometry: geometry, zoom: 1, viewRot: viewRot);
+    RadarOrbit? hit(Offset at, {double viewRot = 0}) => orbits.hitTest(
+      at,
+      geometry: geometry,
+      zoom: 1,
+      viewRot: viewRot,
+      onlyCloseFlybys: false,
+    );
 
     test('selects the animal a tap lands on', () {
       final RadarOrbit target = orbits.orbits[4];
@@ -366,8 +371,13 @@ void main() {
       final RadarOrbit second = crowded.orbits[1];
       Offset at(RadarOrbit o) =>
           crowded.positionOf(o, geometry: geometry, zoom: 1, viewRot: 0);
-      RadarOrbit? hitCrowded(Offset p) =>
-          crowded.hitTest(p, geometry: geometry, zoom: 1, viewRot: 0);
+      RadarOrbit? hitCrowded(Offset p) => crowded.hitTest(
+        p,
+        geometry: geometry,
+        zoom: 1,
+        viewRot: 0,
+        onlyCloseFlybys: false,
+      );
 
       final Offset a = at(first);
       final Offset b = at(second);
@@ -417,6 +427,60 @@ void main() {
           reason: 'a ${dia}m animal would have made the floor bite',
         );
       }
+    });
+  });
+
+  group('the Close-flybys filter', () {
+    const RadarGeometry geometry = RadarGeometry(size: Size(390, 700), maxLd: 31.5);
+    // One waving, one just passing (`flybyTag` is `hazardous || missLunar < 1`).
+    final RadarOrbits orbits = RadarOrbits.seed(<Asteroid>[
+      _rock(missLunar: 0.4),
+      _rock(missLunar: 30),
+    ]);
+    final RadarOrbit waving = orbits.orbits[0];
+    final RadarOrbit passing = orbits.orbits[1];
+
+    test('off, every animal is visible', () {
+      // The chip's default (`showHaz:false`, `index.html:625`) — the sky opens
+      // showing every animal, waving or not.
+      expect(waving.isCloseFlyby, isTrue, reason: 'the premise');
+      expect(passing.isCloseFlyby, isFalse, reason: 'the premise');
+      expect(
+        orbits.visible(onlyCloseFlybys: false),
+        orderedEquals(<RadarOrbit>[waving, passing]),
+      );
+    });
+
+    test('on, only the animals that are waving survive', () {
+      // `if (Radar.showHaz && !a.hazardous)` (`index.html:843`), read through the
+      // tag not the raw flag (plan decision 2).
+      expect(
+        orbits.visible(onlyCloseFlybys: true),
+        orderedEquals(<RadarOrbit>[waving]),
+      );
+    });
+
+    test('a hidden animal cannot be tapped, so the two never disagree', () {
+      // The whole reason [RadarOrbits.visible] exists: the painter draws it and
+      // the hit test walks it, so an animal the filter hides is untappable too
+      // (`index.html:843`, `710`). Tapped dead-on, the just-passing animal comes
+      // back null while the chip is on — a child cannot open a card for a rock
+      // that is not on screen.
+      Offset at(RadarOrbit o) =>
+          orbits.positionOf(o, geometry: geometry, zoom: 1, viewRot: 0);
+      RadarOrbit? hit(Offset p, {required bool onlyCloseFlybys}) => orbits.hitTest(
+        p,
+        geometry: geometry,
+        zoom: 1,
+        viewRot: 0,
+        onlyCloseFlybys: onlyCloseFlybys,
+      );
+
+      // Off: both are hittable where they sit.
+      expect(hit(at(passing), onlyCloseFlybys: false), same(passing));
+      // On: the waving one still answers, the passing one has gone quiet.
+      expect(hit(at(waving), onlyCloseFlybys: true), same(waving));
+      expect(hit(at(passing), onlyCloseFlybys: true), isNull);
     });
   });
 }

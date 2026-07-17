@@ -11,6 +11,7 @@ import 'package:rockimals/features/radar/planet_backdrop.dart';
 import 'package:rockimals/features/radar/radar_clock.dart';
 import 'package:rockimals/features/radar/radar_geometry.dart';
 import 'package:rockimals/features/radar/radar_labels.dart';
+import 'package:rockimals/features/radar/radar_layers.dart';
 import 'package:rockimals/features/radar/radar_orbits.dart';
 import 'package:rockimals/features/radar/radar_painter.dart';
 
@@ -331,6 +332,125 @@ void main() {
     });
   });
 
+  group('RadarPainter — layers', () {
+    // The Sun's glow is a 44px disc's halo at 2.3×, i.e. 101.2px — a radius
+    // nothing else on the frame draws, so it stands in for "the backdrop is
+    // painted".
+    const double sunGlow = 44 * 2.3;
+    bool hasCircle(WidgetTester tester, double radius) => _circles(tester).any(
+      (({Offset at, double radius, Paint paint}) c) =>
+          (c.radius - radius).abs() < 0.01,
+    );
+
+    testWidgets('the Planets chip clears the Sun and the six planets', (tester) async {
+      // `if (Radar.showPlanets)` wraps the whole of `drawPlanets`, Sun included
+      // (`index.html:818`) — so the chip must clear the 44px orange glare in the
+      // corner along with the planets, not leave it bleeding across a
+      // switched-off backdrop.
+      await _radar(tester);
+      expect(hasCircle(tester, sunGlow), isTrue, reason: 'the premise: the Sun is on');
+
+      await _radar(tester, layers: const RadarLayers(planets: false));
+      expect(hasCircle(tester, sunGlow), isFalse, reason: 'no Sun, and no planets with it');
+    });
+
+    testWidgets('the Rings chip clears the distance rings', (tester) async {
+      await _radar(tester);
+      expect(_ringPaths(tester), hasLength(6));
+
+      // Moon off as well, so its fallback track cannot stand in for a ring and
+      // make an empty chip look like it did nothing.
+      await _radar(tester, layers: const RadarLayers(rings: false, moon: false));
+      expect(_ringPaths(tester), isEmpty);
+    });
+
+    testWidgets('keeps the Moon\'s track when the rings are off but the Moon is not',
+        (tester) async {
+      // The coupling this item owns (`index.html:835`): Rings off, Moon on —
+      // the 1× ring is still stroked so the Moon is never floating on nothing.
+      await _radar(tester, layers: const RadarLayers(rings: false));
+
+      final List<Path> track = _ringPaths(tester);
+      expect(track, hasLength(1), reason: 'exactly the Moon\'s own track');
+      // It rides the 1× ring — same radius the Moon disc does.
+      expect(
+        _ringRadii(tester).first,
+        closeTo(const RadarGeometry(size: _size, maxLd: 60).radiusFor(1), 0.5),
+      );
+      // And it is dashed on the Moon's own [3, 5] pattern, not a solid stroke.
+      final List<double> dashes = <double>[
+        for (final ui.PathMetric d in track.first.computeMetrics()) d.length,
+      ];
+      expect(dashes.length, greaterThan(1));
+      expect(dashes.first, closeTo(3, 0.01));
+    });
+
+    testWidgets('the Moon chip clears the Moon, and draws no track in its place',
+        (tester) async {
+      await _radar(tester);
+      expect(hasCircle(tester, 5), isTrue, reason: 'the premise: the 5px Moon disc');
+
+      await _radar(tester, layers: const RadarLayers(moon: false));
+      expect(hasCircle(tester, 5), isFalse, reason: 'no Moon');
+      // Rings are still on, so the six real rings remain — and none of them is a
+      // stray Moon track, which only appears when the Moon itself is drawn.
+      expect(_ringPaths(tester), hasLength(6));
+    });
+
+    testWidgets('the Close-flybys chip thins the sky to the animals that are waving',
+        (tester) async {
+      // `if (Radar.showHaz && !a.hazardous)` (`index.html:843`), read through the
+      // tag (plan decision 2). Counted by the 2px stroke that is the animals'
+      // rings alone (the halo is 2.5, the distance rings 1, Saturn's arcs paths).
+      final Asteroid waving = _rock(name: '2020 AA', ld: 0.4);
+      final Asteroid passing = _rock(name: '2020 BB', ld: 30);
+
+      List<({Offset at, double radius, Paint paint})> animalRings() => <({Offset at, double radius, Paint paint})>[
+        for (final ({Offset at, double radius, Paint paint}) c in _circles(tester))
+          if (c.paint.style == PaintingStyle.stroke && c.paint.strokeWidth == 2) c,
+      ];
+
+      await _radar(tester, sky: <Asteroid>[waving, passing], maxLd: 31.5);
+      expect(animalRings(), hasLength(2), reason: 'the premise: both are on');
+
+      await _radar(
+        tester,
+        sky: <Asteroid>[waving, passing],
+        maxLd: 31.5,
+        layers: const RadarLayers(closeFlybysOnly: true),
+      );
+      expect(animalRings(), hasLength(1), reason: 'only the one waving');
+    });
+
+    testWidgets('the Labels chip clears the planets\', the Sun\'s, and the animals\' names',
+        (tester) async {
+      // The Labels chip is one chip over three layers (`index.html:755`, `806`,
+      // `864`). Isolated by differencing counts rather than reading text a
+      // paragraph does not carry: the planet/Sun names show up as (empty on −
+      // empty off), and the animal name as the extra paragraph a waving animal
+      // adds beyond its own emoji.
+      const RadarLayers off = RadarLayers(labels: false);
+      final Asteroid waving = _rock(name: '2020 AA', ld: 0.4);
+
+      await _radar(tester, maxLd: 31.5);
+      final int emptyOn = _paragraphOffsets(tester).length;
+      await _radar(tester, sky: <Asteroid>[waving], maxLd: 31.5);
+      final int wavingOn = _paragraphOffsets(tester).length;
+
+      await _radar(tester, maxLd: 31.5, layers: off);
+      final int emptyOff = _paragraphOffsets(tester).length;
+      await _radar(tester, sky: <Asteroid>[waving], maxLd: 31.5, layers: off);
+      final int wavingOff = _paragraphOffsets(tester).length;
+
+      // Five planet names and the Sun's (Mercury has none) go quiet — the ring
+      // labels, "Earth" and "Moon" are not label-gated and stay.
+      expect(emptyOn - emptyOff, 6, reason: 'the planets and the Sun');
+      // On, a waving animal adds its emoji and its name; off, only its emoji.
+      expect(wavingOn - emptyOn, 2, reason: 'emoji and name');
+      expect(wavingOff - emptyOff, 1, reason: 'emoji only — the name is gone');
+    });
+  });
+
   _animalTests();
 }
 
@@ -350,6 +470,7 @@ Future<void> _radar(
   List<Asteroid> sky = const <Asteroid>[],
   Asteroid? selected,
   PlanetBackdrop? backdrop,
+  RadarLayers layers = const RadarLayers(),
 }) async {
   tester.view
     ..physicalSize = _size
@@ -371,6 +492,7 @@ Future<void> _radar(
         asteroids: sky,
         selected: selected,
         backdrop: backdrop,
+        layers: layers,
       ),
     ),
   );
@@ -900,6 +1022,7 @@ class _Ticking extends StatefulWidget {
     this.asteroids = const <Asteroid>[],
     this.selected,
     this.backdrop,
+    this.layers = const RadarLayers(),
   });
 
   final double maxLd;
@@ -912,6 +1035,11 @@ class _Ticking extends StatefulWidget {
   final double viewRot;
 
   final PlanetBackdrop? backdrop;
+
+  /// Defaults to every layer on and Close-flybys off — the prototype's opening
+  /// state (`index.html:625`), which is what every test above was written
+  /// against. Toggle tests pass their own.
+  final RadarLayers layers;
 
   @override
   State<_Ticking> createState() => _TickingState();
@@ -954,6 +1082,7 @@ class _TickingState extends State<_Ticking> with SingleTickerProviderStateMixin 
       zoom: widget.zoom,
       viewRot: widget.viewRot,
       selected: widget.selected,
+      layers: widget.layers,
     ),
     size: Size.infinite,
   );

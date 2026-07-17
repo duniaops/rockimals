@@ -125,6 +125,24 @@ class RadarOrbits {
   /// The Moon's own angle around the 1× ring (`index.html:626`, `734`).
   double moonPhase = 0;
 
+  /// The animals currently on the field — every one, or only those waving when
+  /// the Close-flybys chip is on (`showHaz`, `index.html:843`).
+  ///
+  /// **This is the one definition of "hidden", and both the painter and
+  /// [hitTest] read it** — which is the whole reason it exists rather than each
+  /// filtering the loop itself. The prototype gets the two in agreement for
+  /// free: `radarDraw` nulls a hidden animal's `_sx` (`index.html:843`) and
+  /// `radarHit` skips any animal whose `_sx` is null (`index.html:710`), so
+  /// "not drawn" and "not hittable" are the same fact because both are
+  /// properties of the last frame. This port has no such frame cache — [hitTest]
+  /// recomputes positions so a tap can never read a stale one — so the agreement
+  /// has to be made explicit here, or a child taps an animal that is not on
+  /// screen and gets a card for an invisible rock.
+  Iterable<RadarOrbit> visible({required bool onlyCloseFlybys}) =>
+      onlyCloseFlybys
+          ? orbits.where((RadarOrbit orbit) => orbit.isCloseFlyby)
+          : orbits;
+
   /// Moves every animal and the Moon on by [dt] seconds
   /// (`index.html:733-734`).
   ///
@@ -216,21 +234,24 @@ class RadarOrbits {
   /// had just computed them anyway. This port keeps the answer a pure function of
   /// the same inputs the painter uses: it costs one cosine per animal on a tap
   /// (not per frame), and it means a tap cannot be answered by a stale frame or
-  /// by a cache the painter forgot to fill. The one behaviour that rides on the
-  /// prototype's cache is `if(a._sx==null) return` — an animal filtered off the
-  /// field is unhittable (`index.html:843`, `710`). Nothing filters yet; the
-  /// toggle-chips item that adds the Close-flybys filter owns making the two
-  /// agree, and it has to, or a child taps a hidden animal.
+  /// by a cache the painter forgot to fill.
+  ///
+  /// **[onlyCloseFlybys] is the filter [visible] owns, and it is required here
+  /// so the painter and the hit test cannot disagree** — an animal the
+  /// Close-flybys chip hides must be untappable too (`index.html:843`, `710`),
+  /// or a child taps a rock that is not on screen. It takes no default: a caller
+  /// that forgets it is exactly that bug, and it does not compile.
   RadarOrbit? hitTest(
     Offset at, {
     required RadarGeometry geometry,
     required double zoom,
     required double viewRot,
+    required bool onlyCloseFlybys,
   }) {
     RadarOrbit? best;
     double bestDistance = double.infinity;
 
-    for (final RadarOrbit orbit in orbits) {
+    for (final RadarOrbit orbit in visible(onlyCloseFlybys: onlyCloseFlybys)) {
       final double distance =
           (positionOf(orbit, geometry: geometry, zoom: zoom, viewRot: viewRot) -
                   at)

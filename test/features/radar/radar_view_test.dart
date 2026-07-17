@@ -7,6 +7,7 @@ import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/data/models/asteroid_feed.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/radar/radar_geometry.dart';
+import 'package:rockimals/features/radar/radar_layers.dart';
 import 'package:rockimals/features/radar/radar_painter.dart';
 import 'package:rockimals/features/radar/radar_view.dart';
 
@@ -388,6 +389,131 @@ void main() {
       await quick.up(timeStamp: const Duration(milliseconds: 349));
       await tester.pump();
       expect(_view(tester).selected, isNotNull);
+    });
+  });
+
+  group('the toggle chips', () {
+    testWidgets('open on the prototype\'s state', (tester) async {
+      // `showHaz:false … the rest true` (`index.html:625`). The five chips are
+      // there and lit as the prototype opens them: Close-flybys off, all else on.
+      await _mount(tester, _sky(<double>[3]));
+
+      for (final String label in <String>[
+        '👋 Close flybys', 'Planets', 'Labels', 'Rings', 'Moon',
+      ]) {
+        expect(find.text(label), findsOneWidget, reason: label);
+      }
+
+      final RadarLayers layers = _view(tester).layers;
+      expect(layers.closeFlybysOnly, isFalse);
+      expect(layers.planets, isTrue);
+      expect(layers.labels, isTrue);
+      expect(layers.rings, isTrue);
+      expect(layers.moon, isTrue);
+    });
+
+    testWidgets('a tap flips one chip and leaves the others', (tester) async {
+      // `Radar[k] = !Radar[k]` (`index.html:672`). Turning off the Rings must not
+      // take the Moon with it.
+      await _mount(tester, _sky(<double>[3]));
+
+      await tester.tap(find.text('Rings'));
+      await tester.pump();
+      expect(_view(tester).layers.rings, isFalse);
+      expect(_view(tester).layers.moon, isTrue);
+
+      // And a second tap turns it back on — the chip is a plain flip.
+      await tester.tap(find.text('Rings'));
+      await tester.pump();
+      expect(_view(tester).layers.rings, isTrue);
+    });
+
+    testWidgets('the Close-flybys chip turns the filter on', (tester) async {
+      await _mount(tester, _sky(<double>[3]));
+      expect(_view(tester).layers.closeFlybysOnly, isFalse);
+
+      await tester.tap(find.text('👋 Close flybys'));
+      await tester.pump();
+      expect(_view(tester).layers.closeFlybysOnly, isTrue);
+    });
+
+    testWidgets('a filtered-out animal cannot be tapped', (tester) async {
+      // The coupling the plan flagged: with no frame cache, the painter and the
+      // hit test must be filtered by the same list or a child taps an animal that
+      // is not on screen (`index.html:843`, `710`). Here the one rock is just
+      // passing (1.5 Moon-distances — not a close flyby, since that is `< 1`), so
+      // switching the filter on hides it, and a tap where it sits must then
+      // select nothing. 1.5 rather than a far-off value keeps the animal
+      // mid-field and clear of the zoom column on the right.
+      await _mount(tester, _sky(<double>[1.5]));
+      final Offset animal = _animalAt(tester);
+
+      // The premise: unfiltered, tapping it selects it.
+      await tester.tapAt(animal);
+      await tester.pump();
+      expect(_view(tester).selected, isNotNull);
+
+      // Deselect, switch the filter on, and tap the same spot: nothing, because
+      // the animal is no longer drawn there.
+      await tester.tapAt(_centre(tester));
+      await tester.pump();
+      await tester.tap(find.text('👋 Close flybys'));
+      await tester.pump();
+      await tester.tapAt(animal);
+      await tester.pump();
+      expect(_view(tester).selected, isNull);
+    });
+
+    testWidgets('no chip anywhere says hazard', (tester) async {
+      // `CLAUDE.md:64` and plan decision 2 — the radar is the one screen every
+      // child opens, and it must never leak NASA's word for a close flyby.
+      await _mount(tester, _sky(<double>[3]));
+      expect(find.textContaining(RegExp('hazard', caseSensitive: false)), findsNothing);
+    });
+  });
+
+  group('play / pause', () {
+    testWidgets('freezes the orbits, and lets them go again', (tester) async {
+      // `Radar.playing` (`index.html:701`, `731`) — pausing is "stop calling
+      // advance", so the animals hold the phase they were at. Observed through
+      // the orbit the painter is drawing rather than a private flag.
+      await _mount(tester, _sky(<double>[3]));
+
+      await tester.pump(const Duration(seconds: 1));
+      final double moving = _view(tester).orbits.orbits.single.phase;
+      expect(moving, greaterThan(0), reason: 'the premise: it was orbiting');
+
+      await tester.tap(find.bySemanticsLabel('Pause the animals'));
+      await tester.pump();
+      final double paused = _view(tester).orbits.orbits.single.phase;
+
+      await tester.pump(const Duration(seconds: 2));
+      expect(
+        _view(tester).orbits.orbits.single.phase,
+        paused,
+        reason: 'a paused sky holds still',
+      );
+
+      // Press play and it moves again.
+      await tester.tap(find.bySemanticsLabel('Play the animals'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(_view(tester).orbits.orbits.single.phase, greaterThan(paused));
+    });
+
+    testWidgets('keeps drawing while paused — the app is not frozen', (tester) async {
+      // The prototype steps the clock and calls `radarDraw` every frame, inside
+      // *or* out of the pause (`index.html:730-735`). So a paused radar still
+      // breathes: Earth's glow reads `ts` directly, and `ts` keeps advancing.
+      await _mount(tester, _sky(<double>[3]));
+      await tester.tap(find.bySemanticsLabel('Pause the animals'));
+      await tester.pump();
+
+      // At rest the glow is mid-breath at 27.5; a quarter period on (471ms) it is
+      // at its 29px peak — even though nothing is orbiting.
+      expect(_painter(tester), _glowRadius(closeTo(27.5, 0.05)));
+      await tester.pump(const Duration(milliseconds: 471));
+      expect(_painter(tester), _glowRadius(closeTo(29, 0.05)));
     });
   });
 }

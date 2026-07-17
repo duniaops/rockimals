@@ -11,7 +11,19 @@ import 'package:rockimals/features/radar/radar_geometry.dart';
 /// prototype's own `(c, x, y, r)` shape: the table names a function per row, so
 /// the row ports across as a plain reference rather than as a `switch` on a
 /// species enum that the prototype does not have.
-typedef PlanetPainter = void Function(Canvas canvas, Offset at, double radius);
+///
+/// **[showLabels] is the one addition the prototype makes implicitly.** Its
+/// painters read `Radar.showLabels` off a global (`index.html:755`); a port with
+/// no globals passes it, so the Labels chip can switch a planet's name off the
+/// same way it does the animals'. It is a named argument so the row still ports
+/// as a plain reference and the flag reads for what it is at every call site.
+typedef PlanetPainter =
+    void Function(
+      Canvas canvas,
+      Offset at,
+      double radius, {
+      required bool showLabels,
+    });
 
 /// One body in the decorative backdrop: one row of `PLANETS`
 /// (`index.html:789-796`), plus the `x` the prototype hangs on that row at
