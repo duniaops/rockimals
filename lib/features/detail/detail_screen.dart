@@ -3,18 +3,19 @@ import 'package:rockimals/core/animals/animal_system.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/features/animals/widgets/flyby_badge.dart';
+import 'package:rockimals/features/detail/size_comparison.dart';
 
 /// The animal detail screen — a port of the prototype's `openDetail`
 /// (`index.html:554-619`), the screen a child lands on from **Meet** on the
 /// radar HUD or from a tap on a Sky / My Animals card.
 ///
-/// **This item builds the header and the stat tiles only** (the "Build the
-/// detail screen header and stat tiles" plan item): the big avatar, the
-/// `"{Name} the {Species}"` header title, the `"a {Species}-sized space rock"`
-/// line, the flyby badge, and the four kid stat tiles. The size-comparison
-/// module, the distance-comparison track, the Follow / Show-on-radar actions,
-/// and the parent-gated grown-up facts panel are each their own later item, so
-/// the body below stops after the tiles with room left for them under it.
+/// So far this screen carries the header (big avatar, the `"{Name} the
+/// {Species}"` header title, the `"a {Species}-sized space rock"` line, the
+/// flyby badge), the four kid stat tiles, and the **size-comparison module**
+/// ([SizeComparison], "How big is it?"). The distance-comparison track, the
+/// Follow / Show-on-radar actions, and the parent-gated grown-up facts panel are
+/// each their own later item, so the body below stops after the size comparison
+/// with room left for them under it.
 ///
 /// Every number reads through the AnimalSystem's own formatters — [sizeLabel],
 /// [distLabel], [powerStars] — so the detail screen cannot phrase a size,
@@ -59,6 +60,10 @@ class DetailScreen extends StatelessWidget {
                   // `.tiles` (`index.html:574-579`) — `margin:12px 0`.
                   const SizedBox(height: 12),
                   _StatTiles(asteroid: asteroid),
+                  // The "How big is it?" size-comparison panel (`.panel`,
+                  // `index.html:581-590`) — `margin:12px 0`.
+                  const SizedBox(height: 12),
+                  SizeComparison(asteroid: asteroid),
                 ],
               ),
             ),
