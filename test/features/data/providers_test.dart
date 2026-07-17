@@ -1,5 +1,13 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+// `ProviderException` is not exported from the package root — the same gap as
+// `Override`, and the second time this port has hit it. Riverpod 3 parks the
+// types you only need in a test under `misc.dart`.
+import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hive/hive.dart';
+import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/data/asteroid_repository.dart';
 import 'package:rockimals/data/fallback_asteroids.dart';
 import 'package:rockimals/data/models/asteroid.dart';
@@ -276,6 +284,68 @@ void main() {
         container.read(asteroidRepositoryProvider),
         isA<AsteroidRepository>(),
       );
+    });
+  });
+
+  group('storeProvider', () {
+    // The store is opened once, at boot, and handed down — so what these pin is
+    // the seam itself: that an override reaches every reader, and that a
+    // missing one is loud. `app_test.dart` owns the boot sequence that supplies
+    // it; `store_test.dart` owns what the store remembers.
+    late Directory tempDir;
+    late Store store;
+
+    setUp(() async {
+      tempDir = await Directory.systemTemp.createTemp('rockimals_store_prov');
+      Hive.init(tempDir.path);
+      store = await Store.open();
+    });
+
+    tearDown(() async {
+      await Hive.deleteFromDisk();
+      await Hive.close();
+      if (tempDir.existsSync()) await tempDir.delete(recursive: true);
+    });
+
+    test('throws until something overrides it with an opened store', () {
+      // Every consumer to come — points, badges, follows, the settings toggles
+      // — reads this synchronously. If a wiring mistake ever left it
+      // unoverridden, the failure must be a crash on the first read and not a
+      // whole app quietly reporting a fresh install to a child who has played
+      // for weeks.
+      final ProviderContainer container = ProviderContainer.test();
+
+      // Riverpod 3 wraps anything a provider throws in a `ProviderException`,
+      // so the raw type never surfaces — the assertion has to reach through to
+      // `.exception`, and the message has to survive the wrapping to be worth
+      // writing. It does: `ProviderException.toString()` prints it.
+      expect(
+        () => container.read(storeProvider),
+        throwsA(
+          isA<ProviderException>().having(
+            (ProviderException e) => e.exception,
+            'exception',
+            isA<UnimplementedError>(),
+          ),
+        ),
+      );
+    });
+
+    test('an override hands the same live store to every reader', () async {
+      // `same`, not `equals`: two stores over one box would each hold their own
+      // Hive handle, and a write through one would be invisible to the other
+      // until a reopen. One instance is what makes a point scored in a game
+      // show up on the profile without a round trip through the disk.
+      final ProviderContainer container = ProviderContainer.test(
+        overrides: [storeProvider.overrideWithValue(store)],
+      );
+
+      expect(container.read(storeProvider), same(store));
+
+      await container.read(storeProvider).setPoints(12);
+
+      expect(container.read(storeProvider).points, 12);
+      expect(store.points, 12);
     });
   });
 }

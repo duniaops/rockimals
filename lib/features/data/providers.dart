@@ -1,8 +1,39 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/data/asteroid_repository.dart';
 import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/data/models/asteroid_feed.dart';
 import 'package:rockimals/data/neows_client.dart';
+
+/// Everything Rockimals remembers about a child, as one live [Store] — points,
+/// badges, follows, the day streak, and the settings toggles.
+///
+/// **This has no default and throws until it is overridden, on purpose.**
+/// Opening the box is asynchronous ([Store.open]), so a provider that opened it
+/// itself could only do so lazily, behind an [AsyncValue] — and then every
+/// consumer would carry a "not loaded yet" branch whose only honest rendering is
+/// zero points and an empty shelf. Shown for even one frame, that is
+/// indistinguishable from lost progress to the one person who cannot be told it
+/// is temporary. So the open finishes *before the first frame* instead:
+/// `bootstrap()` (`lib/main.dart`) awaits it and overrides this with the result,
+/// which is also why that await is written into `runApp`'s argument rather than
+/// left as a line above it.
+///
+/// Reading it without an override is a wiring bug, and it throws so as to stay
+/// one. The alternative — handing back a store on some unopened box — would
+/// answer every read with a default, which is the exact shape of a child's
+/// progress having been wiped, reported by nothing.
+///
+/// Tests override it with a store on a temp directory; see
+/// `test/features/data/providers_test.dart`.
+final Provider<Store> storeProvider = Provider<Store>(
+  (Ref ref) => throw UnimplementedError(
+    'storeProvider was read before it was overridden with an opened Store. '
+    'The app wires it in bootstrap() (lib/main.dart); a test must override it '
+    'with a Store on a temp-directory box.',
+  ),
+  name: 'store',
+);
 
 /// The data layer's composition root, and the seam every test and every future
 /// decorator reaches for.

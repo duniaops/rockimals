@@ -51,6 +51,12 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
 
+  # The documented seam for faking `path_provider` on the host VM, which
+  # `Hive.initFlutter()` calls for the app-documents directory. Without it the
+  # boot sequence can only be tested on a device. Already in the tree as a
+  # transitive dep of hive_flutter; named here because a test imports it.
+  path_provider_platform_interface: ^2.1.2
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
