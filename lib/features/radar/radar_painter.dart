@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
+import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/features/radar/radar_geometry.dart';
 
 /// The radar's base layer: deep space, the distance rings, and Earth at the
@@ -207,15 +208,18 @@ const double _tau = math.pi * 2;
 
 // ── The radar's palette, ported from `index.html:170` and `823-876`.
 //
-// Private and local, as in `app_shell.dart` and `loading_screen.dart`. Note for
-// the plan's "extract the prototype's palette" item, which was waiting on this
-// screen to say what the radar needs: **almost none of these are the twelve CSS
-// variables.** `radarDraw` hard-codes its own `rgba()` literals, and only two
-// are a variable in disguise — `--muted` (`#93a8ca`) at .55 and .85, below. The
-// rest are one-offs that exist nowhere else in the prototype. So the palette to
-// hoist is smaller than `index.html:9-10` suggests, and a radar that read its
-// ring colours from a shared `ColorScheme` would be inventing a relationship
-// the prototype does not have.
+// **Almost none of these are CSS variables, and that is why they are still
+// here.** `radarDraw` hard-codes its own `rgba()` literals: the ring strokes,
+// Earth's glow and its three gradient stops, and the space wrap's two ends exist
+// nowhere else in the prototype and are named by nothing. `Palette` holds what
+// the prototype itself named; a radar reading its ring colours from a shared
+// palette would be inventing a relationship the prototype does not have, so the
+// one-offs below stay local — which is the answer this screen was kept open to
+// give the plan's "extract the palette" item.
+//
+// The two exceptions are the labels, which *are* `--muted` in disguise, at .55
+// and .85. They now derive from `Palette.muted` rather than restating its
+// channels, so the app's most-used colour lives in one place.
 
 /// `#0c2044` — the near end of the space glow (`index.html:170`).
 const Color _spaceNear = Color(0xFF0C2044);
@@ -233,7 +237,12 @@ const Color _moonRingColour = Color.fromRGBO(207, 214, 222, 0.30);
 const Color _outerRingColour = Color.fromRGBO(90, 120, 170, 0.16);
 
 /// `rgba(147,168,202,.55)` — `--muted`, dimmed (`index.html:830`).
-const Color _ringLabelColour = Color.fromRGBO(147, 168, 202, 0.55);
+///
+/// `final` rather than `const` because no const expression can derive one
+/// colour's alpha from another. It costs nothing per frame: a top-level `final`
+/// is computed once, on first access, and the labels it paints are themselves
+/// laid out once and cached (see `_Label`).
+final Color _ringLabelColour = Palette.muted.withValues(alpha: 0.55);
 
 /// `rgba(120,180,255,.12)` (`index.html:873`) — the atmosphere.
 const Color _earthGlowColour = Color.fromRGBO(120, 180, 255, 0.12);
@@ -244,7 +253,7 @@ const Color _earthOcean = Color(0xFF1C6FB0);
 const Color _earthDark = Color(0xFF0C355C);
 
 /// `rgba(147,168,202,.85)` — `--muted` again (`index.html:875`).
-const Color _earthLabelColour = Color.fromRGBO(147, 168, 202, 0.85);
+final Color _earthLabelColour = Palette.muted.withValues(alpha: 0.85);
 
 /// Text on this canvas, laid out once and kept.
 ///

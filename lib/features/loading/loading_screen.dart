@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/data/models/asteroid_feed.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/shell/app_shell.dart';
@@ -69,7 +70,7 @@ class LoadingScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Scaffold(
-      backgroundColor: _background,
+      backgroundColor: Palette.pageBackground,
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -83,7 +84,7 @@ class LoadingScreen extends StatelessWidget {
               // "Loading" is doing real work: it says a real telescope is being
               // asked, which is the premise the whole app rests on.
               'Contacting NASA…',
-              style: TextStyle(color: _muted, fontSize: 13),
+              style: TextStyle(color: Palette.muted, fontSize: 13),
             ),
           ],
         ),
@@ -92,28 +93,23 @@ class LoadingScreen extends StatelessWidget {
   }
 }
 
-// The loading screen's palette, ported from the prototype (`index.html:9-10`,
-// `165-166`). Private and local, matching `app_shell.dart` — the plan item to
-// hoist a shared palette is deliberately waiting for the radar or the animal
-// card, which are the surfaces that can answer how the twelve CSS variables map
-// onto a Flutter `ColorScheme`. This screen is the second holder of private
-// colour consts and does not answer that question either; it only strengthens
-// the case for the item.
-
-/// The page background (`index.html:16`), which `.loading` restates
-/// (`index.html:165`) so that neither the starfield behind it nor the phone
-/// frame shows through. Flat, not the body's radial gradient.
-const Color _background = Color(0xFF070F1F);
-
-/// `--muted` (`index.html:10`).
-const Color _muted = Color(0xFF93A8CA);
+// The loading screen's palette (`index.html:165-166`). The named colours now
+// come from `Palette`; this file used to keep its own copies of the page
+// background, `--muted`, and `--accent`, which is what the plan's "extract the
+// palette" item existed to undo.
+//
+// `Palette.pageBackground` is what `.loading` restates by hand
+// (`index.html:165`) so that neither the starfield behind it nor the phone frame
+// shows through — flat, not the body's radial gradient. It stays set explicitly
+// here rather than left to the theme's `scaffoldBackgroundColor`, because the
+// prototype states it explicitly too, for that reason.
 
 /// `rgba(255,255,255,.15)` — .15 alpha is 38.25, and Chrome rounds it to 38
 /// (`0x26`).
+///
+/// Stays local: a one-off literal, appearing exactly once in the prototype and
+/// named by nothing. `Palette`'s membership test is that the prototype named it.
 const Color _spinnerTrack = Color(0x26FFFFFF);
-
-/// `--accent` (`index.html:9`) — `border-top-color`, the one lit quarter.
-const Color _spinnerHead = Color(0xFFE8571F);
 
 /// `width:40px;height:40px` with the page's global `box-sizing:border-box`
 /// (`index.html:12`), so the 4px border is inside the 40, not added to it.
@@ -189,7 +185,8 @@ class _SpinnerPainter extends CustomPainter {
     // the quarter beneath exactly as `border-top-color` replaces it. Drawing
     // only the other 270° in the track colour would look identical here and
     // stop looking identical the moment the head gains any transparency.
-    stroke.color = _spinnerHead;
+    // `--accent`, i.e. `border-top-color` (`index.html:166`) — the lit quarter.
+    stroke.color = Palette.accent;
     canvas.drawArc(ring, _headStart, _headSweep, false, stroke);
   }
 
@@ -222,13 +219,13 @@ class _BootBroke extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _background,
+      backgroundColor: Palette.pageBackground,
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Center(
           child: Text(
             'loadData() threw, which it promises never to do:\n\n$error',
-            style: const TextStyle(color: _spinnerHead, fontSize: 13),
+            style: const TextStyle(color: Palette.accent, fontSize: 13),
           ),
         ),
       ),

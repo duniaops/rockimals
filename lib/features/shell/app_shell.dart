@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/features/debug/debug_animal_list_screen.dart';
 
 /// The frame every screen in the app lives inside: four tabs and the bottom nav
@@ -88,27 +89,28 @@ class _NavTab {
   final Widget body;
 }
 
-// The nav's palette, ported from the prototype's CSS variables
-// (`index.html:9-10`) and `.nav` rules (`index.html:83-87`). Private and local
-// on purpose: this is the first screen to need the prototype's colours, and
-// hoisting a shared palette off the back of one nav bar would be guessing which
-// of the twelve variables the radar and the cards actually want. There is a
-// plan item to extract it once a second surface asks.
+// The nav's palette (`.nav` rules, `index.html:83-87`). The three that are CSS
+// variables now come from `Palette` — this file used to declare its own copies,
+// which is what the plan's "extract the palette" item existed to undo.
 //
+// The nav uses, in order: `--line2` for its 1px top rule, `--muted` for the idle
+// label, and `--accent2` for the selected one — `.nav button.on` being the
+// *only* thing that marks the selected tab in the prototype. The emoji does not
+// change (a colour glyph ignores the text colour that highlights the label), and
+// there is no pill, underline, or indicator to port.
+
 /// `rgba(10,20,38,.94)` — .94 alpha rounds to 240 (`0xF0`).
+///
+/// **Stays local, and that is the same call `radar_painter.dart` makes about its
+/// ring strokes.** This is not a `:root` variable; it is a bare literal the nav
+/// declares for itself, so `Palette` — whose membership test is "the prototype
+/// named it" — is not its home. It does recur once, at `rgba(10,20,38,.82)` on
+/// the radar's bottom bar (`index.html:187`), which is the one thing that could
+/// change the answer: when the "radar toggle chips and play/pause" item ports
+/// that bar, this becomes a base colour two chrome surfaces share at different
+/// alphas, and *then* it is worth naming. One consumer is not enough to know
+/// whether the shared thing is the colour or the coincidence.
 const Color _navSurface = Color(0xF00A1426);
-
-/// `--line2`, the 1px top rule.
-const Color _navBorder = Color(0xFF1C3457);
-
-/// `--muted`, the idle label.
-const Color _navIdle = Color(0xFF93A8CA);
-
-/// `--accent2`, i.e. `.nav button.on` — the *only* thing that marks the selected
-/// tab in the prototype. The emoji does not change (a colour glyph ignores the
-/// text colour that highlights the label), and there is no pill, underline, or
-/// indicator to port.
-const Color _navSelected = Color(0xFFFF7A45);
 
 class _NavBar extends StatelessWidget {
   const _NavBar({required this.index, required this.onSelect});
@@ -133,7 +135,7 @@ class _NavBar extends StatelessWidget {
           height: 70,
           child: DecoratedBox(
             decoration: const BoxDecoration(
-              border: Border(top: BorderSide(color: _navBorder)),
+              border: Border(top: BorderSide(color: Palette.line2)),
             ),
             child: Row(
               children: <Widget>[
@@ -193,7 +195,7 @@ class _NavButton extends StatelessWidget {
             Text(
               tab.label,
               style: TextStyle(
-                color: selected ? _navSelected : _navIdle,
+                color: selected ? Palette.accent2 : Palette.muted,
                 fontSize: 10.5,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.3,

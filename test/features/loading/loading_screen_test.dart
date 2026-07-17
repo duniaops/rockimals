@@ -34,6 +34,21 @@ void main() {
       expect(find.byType(LoadingScreen), findsOneWidget);
     });
 
+    testWidgets('and says it in --muted, not in body ink', (tester) async {
+      // Added when the palette was hoisted, because a mutation proved the gap:
+      // swapping this line's colour from `--muted` to `--ink` passed the entire
+      // suite. Nothing else pins it, and the two are not interchangeable —
+      // `--muted` is the prototype's secondary text and `--ink` is body copy, so
+      // the difference is whether the first words a child ever reads are a calm
+      // aside or the loudest thing on the screen. It is also the colour most at
+      // risk of being lost by accident: a `Text` with no explicit style inherits
+      // the theme, so deleting one line here would swap it silently.
+      await tester.pumpWidget(_app(Completer<AsteroidFeed>().future));
+
+      final Text line = tester.widget<Text>(find.text('Contacting NASA…'));
+      expect(line.style?.color, _mutedColour);
+    });
+
     testWidgets('keeps the whole app behind it, nav included', (tester) async {
       // The point of the placement, and the half a per-tab spinner would miss.
       // `.loading` covers the entire phone at `z-index:50` (`index.html:165`)
@@ -164,6 +179,12 @@ void main() {
 /// `#070f1f` (`index.html:165`) — restated rather than imported, because a test
 /// that read the same constant the widget reads would pass for any value.
 const Color _backgroundColour = Color(0xFF070F1F);
+
+/// `--muted` `#93a8ca` (`index.html:10`) — restated for the same reason, and it
+/// matters more now that the widget reads it from the shared `Palette`:
+/// importing `Palette.muted` here would assert only that a colour equals itself.
+/// `palette_test.dart` is what pins `Palette.muted` to the prototype's digits.
+const Color _mutedColour = Color(0xFF93A8CA);
 
 /// The spinner's painted ring, found by the size the prototype gives it.
 final Finder _spinner = find.byWidgetPredicate(
