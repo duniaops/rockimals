@@ -154,14 +154,17 @@ class _RadarFieldState extends State<_RadarField>
   /// touches it.
   double _zoom = _restingZoom;
 
-  /// `Radar.selected` (`index.html:640`) — the animal a child has tapped.
+  /// `Radar.selected` (`index.html:640`) — the animal a child has tapped, and
+  /// what the [_SelectedAnimalCard] slides up to name.
   ///
-  /// **Deliberately this widget's own state rather than a provider.** Nothing
-  /// outside the radar reads it yet; the HUD card that will (`index.html:718`,
-  /// its own plan item) is a sibling in the home overlay, so that item lifts this
-  /// where it can see it. Doing that now would be inventing the shape of a screen
-  /// nobody has built — the speculative-helper trap this plan has paid for twice
-  /// (`usingDemoKey`, `isCloseFlyby`).
+  /// **Still this widget's own state, not a provider, and now for a concrete
+  /// reason rather than a deferred one.** The card that reads it is a sibling in
+  /// this same [build], so the selection never has to leave the widget that owns
+  /// the field — the only thing that ever changes it is a tap on the canvas this
+  /// state also owns. A provider would put it where the shell or another tab
+  /// could reach in, which nothing needs to; the Show-on-radar action (task 03)
+  /// crosses tabs the other way, by pushing a *new* selection *into* the radar,
+  /// and will lift this only if and when it has to.
   Asteroid? _selected;
 
   /// Which of the five toggle chips are on (`Radar.showHaz`/`showLabels`/
@@ -361,6 +364,24 @@ class _RadarFieldState extends State<_RadarField>
     _viewRot = 0;
   });
 
+  /// The card's **Meet** button (`openDetail(a)`, `index.html:724`): push the
+  /// animal's detail screen.
+  ///
+  /// **A stub route until task 03 builds `lib/features/detail/detail_screen.dart`.**
+  /// The push is real — the route opens and comes back today, so the button is
+  /// not a dead end for a child on any build the radar is in — and only its
+  /// destination is a placeholder. Task 03 swaps [_MeetStubScreen] for the real
+  /// screen at this one call site; nothing else about the card changes. The
+  /// asteroid is passed in rather than read off [_selected] so a selection that
+  /// changes between the tap and the push cannot open the wrong animal.
+  void _openDetail(Asteroid asteroid) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) => _MeetStubScreen(asteroid: asteroid),
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -433,8 +454,30 @@ class _RadarFieldState extends State<_RadarField>
         // The home overlay: the wordmark and streak, the stat strip, the toggle
         // chips restacked into its flow (`index.html:278-282`), and the hint
         // along the bottom. It reads static providers and does not animate, so
-        // it stays off the canvas's per-frame `RepaintBoundary`.
-        _HomeOverlay(layers: _layers, onToggle: _toggle),
+        // it stays off the canvas's per-frame `RepaintBoundary`. The hint gives
+        // way to the selected-animal card, which takes the same bottom strip —
+        // the prototype hides `#rHint` while the HUD is up (`index.html:719`).
+        _HomeOverlay(
+          layers: _layers,
+          onToggle: _toggle,
+          showHint: _selected == null,
+        ),
+        // The selected-animal card, above the canvas so its Meet/Follow buttons
+        // take their own taps rather than falling through to a deselect — the
+        // same layering the zoom buttons rely on. Keyed on the designation so a
+        // new selection is a new element and re-runs the slide-up, while a Follow
+        // toggle (same animal, same key) rebuilds the card in place.
+        if (_selected != null)
+          Positioned(
+            left: _homeSideGap,
+            right: _homeSideGap,
+            bottom: _hudBottomGap,
+            child: _SelectedAnimalCard(
+              key: ValueKey<String>(_selected!.name),
+              asteroid: _selected!,
+              onMeet: () => _openDetail(_selected!),
+            ),
+          ),
         _ZoomControls(
           playing: _playing,
           onPlayPause: _togglePlay,
@@ -497,10 +540,18 @@ class _RadarChips extends StatelessWidget {
 /// same split [RadarView] keeps between what the sky is doing and what the child
 /// has done to the view.
 class _HomeOverlay extends ConsumerWidget {
-  const _HomeOverlay({required this.layers, required this.onToggle});
+  const _HomeOverlay({
+    required this.layers,
+    required this.onToggle,
+    required this.showHint,
+  });
 
   final RadarLayers layers;
   final ValueChanged<RadarLayer> onToggle;
+
+  /// Whether the drag/pinch/tap hint is shown. Off while the selected-animal
+  /// card is up, which sits in the same bottom strip (`index.html:719`).
+  final bool showHint;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -530,12 +581,13 @@ class _HomeOverlay extends ConsumerWidget {
               ],
             ),
           ),
-          const Positioned(
-            left: 0,
-            right: 0,
-            bottom: _hintBottomGap,
-            child: _RadarHint(),
-          ),
+          if (showHint)
+            const Positioned(
+              left: 0,
+              right: 0,
+              bottom: _hintBottomGap,
+              child: _RadarHint(),
+            ),
         ],
       ),
     );
@@ -805,6 +857,242 @@ class _RadarHint extends StatelessWidget {
   }
 }
 
+/// The selected-animal HUD card (`.rhud` / `radarSelect`, `index.html:181-183`,
+/// `715-726`): the card that slides up from the bottom when a child taps an
+/// animal, naming it and offering **Meet** and **Follow**.
+///
+/// A [ConsumerWidget] because the Follow button both reads and writes the
+/// persisted follow set ([followsProvider]) — the one thing on this card that
+/// changes without a new selection, so its label has to track the set live. The
+/// stats are all pure functions of the [asteroid] and never change under it.
+///
+/// The slide-up is the prototype's `hudup` keyframe (`index.html:180`):
+/// `translateY(8px) → 0` with `opacity 0 → 1` over 200ms. It plays once per
+/// selection because [RadarView] keys the card on the designation, so a new
+/// animal is a new element and re-runs it, while a Follow toggle rebuilds in
+/// place. There is no exit animation, matching the prototype's instant
+/// `display:none` on deselect.
+class _SelectedAnimalCard extends ConsumerWidget {
+  const _SelectedAnimalCard({
+    super.key,
+    required this.asteroid,
+    required this.onMeet,
+  });
+
+  final Asteroid asteroid;
+  final VoidCallback onMeet;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final Critter c = critter(asteroid);
+    final bool following = ref.watch(followsProvider).contains(asteroid.name);
+
+    return TweenAnimationBuilder<double>(
+      // One shared tween instance, not a fresh one per build: a
+      // [TweenAnimationBuilder] restarts whenever its tween changes by `==`, and
+      // `Tween` has no value equality, so building a new one each time would
+      // replay the slide on every Follow toggle. Reused, the slide plays only
+      // when the card is a new element — a new selection (see the key in
+      // [RadarView]).
+      tween: _slideTween,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.ease,
+      builder: (BuildContext context, double t, Widget? child) => Opacity(
+        opacity: t,
+        child: Transform.translate(offset: Offset(0, 8 * (1 - t)), child: child),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: _hudSurface,
+          borderRadius: const BorderRadius.all(Radius.circular(14)),
+          border: Border.all(color: Palette.line),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            // `.rn` — the name row. The flyby badge is pushed to the far end by
+            // `margin-left:auto` (`index.html:721`), which an [Expanded] name
+            // reproduces: it fills the row and left-aligns, so the badge ends at
+            // the right edge whatever the name's own width, and a long name
+            // ellipsises rather than shoving the badge off.
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    '${c.animal.emoji} ${c.name}',
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Palette.ink,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      height: 1,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  flybyTag(asteroid).label,
+                  style: const TextStyle(
+                    color: Palette.muted,
+                    fontSize: 12,
+                    height: 1,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 5),
+            // `.rm` — the five-field stat line (`index.html:722`). Every field
+            // reads through the AnimalSystem's single-source formatters, so the
+            // card cannot phrase a size, distance, or power differently from the
+            // detail screen or the games.
+            Text(
+              '${sizeLabel(asteroid.diaMax)} · ${asteroid.diaMax.round()} m wide'
+              ' · comes ${distLabel(asteroid.missLunar)}'
+              ' · zooms ${asteroid.velKps.toStringAsFixed(1)} km/s'
+              ' · power ⭐ ${powerStars(asteroid)}',
+              style: const TextStyle(
+                color: Palette.muted,
+                fontSize: 12,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 10),
+            // `.ra` — the actions (`index.html:723`). Meet is personalised with
+            // the animal's first name; Follow shows whether it is already in the
+            // watchlist.
+            Row(
+              children: <Widget>[
+                _HudButton(label: 'Meet ${c.first}', onTap: onMeet),
+                const SizedBox(width: 8),
+                _HudButton(
+                  label: following ? '✓ Following' : '⭐ Follow',
+                  ghost: true,
+                  onTap: () =>
+                      ref.read(followsProvider.notifier).toggle(asteroid.name),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A small pill button, filled or [ghost] (`.btn.sm` / `.btn.sm.ghost`,
+/// `index.html:51-56`). Filled is the accent2 → accent vertical gradient on the
+/// dark [Palette.onAccent] glyph; ghost is transparent on [Palette.ink] with a
+/// [Palette.line] border.
+///
+/// **The `.btn` box-shadow is not ported here.** On the card it would throw a
+/// soft orange halo onto the translucent HUD over a live radar — the same
+/// per-frame cost `_zoomButtonSurface` declines the backdrop blur for, on a
+/// surface that is chrome, not a hero CTA. The Play button (its own item) is the
+/// prototype's full-width `.btn`, and is where that shadow belongs.
+class _HudButton extends StatelessWidget {
+  const _HudButton({
+    required this.label,
+    required this.onTap,
+    this.ghost = false,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+  final bool ghost;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: ghost
+              ? null
+              : const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: <Color>[Palette.accent2, Palette.accent],
+                ),
+          borderRadius: const BorderRadius.all(Radius.circular(11)),
+          border: ghost ? Border.all(color: Palette.line) : null,
+        ),
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            borderRadius: const BorderRadius.all(Radius.circular(11)),
+            onTap: onTap,
+            child: Padding(
+              // `padding:9px 16px` (`index.html:55`).
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: ghost ? Palette.ink : Palette.onAccent,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.3,
+                  height: 1,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A placeholder for the animal detail screen until task 03 builds
+/// `lib/features/detail/detail_screen.dart` (`specs/03-meet-animal.md`).
+///
+/// The Meet button pushes this so the route exists and returns today; task 03
+/// replaces the destination in [_RadarFieldState._openDetail]. Kid-toned rather
+/// than "not implemented" (`CLAUDE.md:63`), and it shows the animal so a child
+/// who tapped **Meet Milo** lands on Milo rather than a blank page — but none of
+/// this copy is load-bearing, since the screen is deleted whole by task 03.
+class _MeetStubScreen extends StatelessWidget {
+  const _MeetStubScreen({required this.asteroid});
+
+  final Asteroid asteroid;
+
+  @override
+  Widget build(BuildContext context) {
+    final Critter c = critter(asteroid);
+    return Scaffold(
+      backgroundColor: Palette.pageBackground,
+      appBar: AppBar(
+        backgroundColor: Palette.pageBackground,
+        foregroundColor: Palette.ink,
+        title: Text('Meet ${c.first}'),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Text(c.animal.emoji, style: const TextStyle(fontSize: 72)),
+            const SizedBox(height: 12),
+            Text(
+              c.name,
+              style: const TextStyle(
+                color: Palette.ink,
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${c.first} can’t wait to meet you — coming soon!',
+              style: const TextStyle(color: Palette.muted, fontSize: 14),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// One pill (`.rchip`, `index.html:174-175`).
 ///
 /// Lit when [on]: the accent fill and dark glyph the app uses everywhere for
@@ -1007,6 +1295,25 @@ const double _homeTopGap = 10;
 const double _homeSideGap = 12;
 const double _homeRowGap = 8;
 const double _hintBottomGap = 16;
+
+/// Where the selected-animal card rests from the bottom of the field. The
+/// prototype floats its HUD at `bottom:66px` to clear a `.rbottom` play/pause
+/// bar this port does not have (play/pause moved to the zoom column), so the
+/// card takes the hint's own low strip instead — the hint gives way to it.
+const double _hudBottomGap = 16;
+
+/// `.rhud` fill — `rgba(12,26,50,.95)` (`index.html:181`), a heavier, more
+/// opaque panel than the chips' translucent card because the card carries the
+/// most reading on the screen and sits over a moving field. `.95` alpha rounds
+/// to 242 (`0xF2`). A one-off literal, so it stays local rather than joining
+/// [Palette]. `backdrop-filter:blur(6px)` is dropped for the reason on
+/// [_zoomButtonSurface].
+const Color _hudSurface = Color(0xF20C1A32);
+
+/// The card's slide-up (`hudup`, `index.html:180`): `translateY(8px) → 0` with
+/// `opacity 0 → 1`. Held as one instance so a Follow toggle's rebuild does not
+/// restart it — see the note at its use in [_SelectedAnimalCard].
+final Tween<double> _slideTween = Tween<double>(begin: 0, end: 1);
 
 /// `.hchip` fill — `rgba(19,42,77,.82)` (`index.html:45`), `--card` at the
 /// strip's own alpha, a shade heavier than the toggle chips' .85.

@@ -589,6 +589,11 @@ Future<void> _mount(WidgetTester tester, AsteroidFeed feed) async {
         // it keeps these radar tests off a Hive box, the same way the feed
         // override keeps them off a repository.
         dayStreakProvider.overrideWithValue(0),
+        // Selecting an animal builds the HUD card, which watches the follow set;
+        // an empty stub keeps these tests off the store the same way — the card
+        // itself, and its Follow persistence, are exercised in
+        // selected_animal_card_test.dart against a real box.
+        followsProvider.overrideWith(_NoFollows.new),
       ],
       child: const MaterialApp(home: RadarView()),
     ),
@@ -666,6 +671,13 @@ AsteroidFeed _sky(List<double> missLunar) {
     feedRange: '2026-07-15 → 2026-07-17',
     provenance: FeedProvenance.today,
   );
+}
+
+/// A follow set that stays empty and never touches the store — enough for the
+/// selection tests here, which build the card but never tap Follow.
+class _NoFollows extends FollowsNotifier {
+  @override
+  Set<String> build() => <String>{};
 }
 
 /// Nothing but `missLunar` reaches the radar's base layer, so the rest is
