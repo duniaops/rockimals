@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:rockimals/core/storage/store.dart';
+import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/loading/loading_screen.dart';
 
@@ -59,10 +60,37 @@ class RockimalsApp extends StatelessWidget {
     return MaterialApp(
       title: 'Rockimals',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF5B7CFA),
-          brightness: Brightness.dark,
-        ),
+        // `flutter create` seeded this with `#5B7CFA`, a blue that appears
+        // nowhere in the prototype. The seed is now `--accent`, and the reason
+        // is what `--accent` *is*: the prototype's single interactive colour
+        // (19 uses — every selected chip, every primary button, the play
+        // control, the spinner's lit quarter). "Where the app says this does
+        // something" is exactly what Material derives from a seed, so the two
+        // agree about what they are for.
+        colorScheme:
+            ColorScheme.fromSeed(
+              seedColor: Palette.accent,
+              brightness: Brightness.dark,
+            ).copyWith(
+              // **The seed alone would be a lie, which is why these two are
+              // pinned.** `fromSeed` does not hand back the colour it is given:
+              // it runs the seed through a tonal palette and returns a
+              // harmonised neighbour, so seeding with `--accent` and calling the
+              // result the brand orange would ship an orange that is *not*
+              // `#E8571F`. Pinning `primary` makes the claim true, and
+              // `app_test.dart` asserts the inequality so this cannot be tidied
+              // away as redundant.
+              primary: Palette.accent,
+              // And the prototype already answers the question `onPrimary` asks
+              // — `.rchip.on` and `.rplay` both put `#1a0d05` on the orange
+              // rather than the white or black Material would compute.
+              onPrimary: Palette.onAccent,
+            ),
+        // `body{background:#070f1f}` (`index.html:15`). Not cosmetic
+        // housekeeping: three of the four tabs are bare bodies with no surface
+        // of their own, so until this line the colour behind them was a tonal
+        // value generated from a seed nobody chose.
+        scaffoldBackgroundColor: Palette.pageBackground,
       ),
       // "Contacting NASA…", and then the four-tab frame behind it. The gate is
       // the app's first widget for the same reason the prototype's overlay is

@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:rockimals/core/storage/store.dart';
+import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/data/models/asteroid_feed.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/loading/loading_screen.dart';
@@ -36,6 +37,62 @@ void main() {
     );
 
     expect(find.byType(LoadingGate), findsOneWidget);
+  });
+
+  // The theme is what every Material widget in the app reads when nothing
+  // nearer says otherwise, and until this group it was a `flutter create`
+  // default — a seed blue (`#5B7CFA`) that appears nowhere in the prototype.
+  group('the theme is a decision', () {
+    Future<ThemeData> themeOf(WidgetTester tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            asteroidFeedProvider.overrideWith(
+              (Ref ref) => Completer<AsteroidFeed>().future,
+            ),
+          ],
+          child: const RockimalsApp(),
+        ),
+      );
+      return tester.widget<MaterialApp>(find.byType(MaterialApp)).theme!;
+    }
+
+    testWidgets('the brand orange is the prototype\'s, exactly', (tester) async {
+      final ThemeData theme = await themeOf(tester);
+      expect(theme.colorScheme.primary, Palette.accent);
+      expect(theme.colorScheme.onPrimary, Palette.onAccent);
+      expect(theme.colorScheme.brightness, Brightness.dark);
+    });
+
+    testWidgets('and it is pinned because the seed alone does not give it back', (
+      tester,
+    ) async {
+      // **This is the test that earns the `copyWith` in `main.dart`.** Seeding
+      // with `--accent` reads like it would make `primary` be `--accent`; it
+      // does not. `fromSeed` runs the seed through a Material 3 tonal palette
+      // and returns a harmonised neighbour, so without the override the app
+      // would ship an orange that is *not* `#E8571F` while every comment
+      // claimed otherwise. Asserting the inequality pins the reason, so a
+      // future agent tidying away a `copyWith` that looks redundant finds out
+      // here rather than on a device.
+      final ColorScheme seeded = ColorScheme.fromSeed(
+        seedColor: Palette.accent,
+        brightness: Brightness.dark,
+      );
+      expect(seeded.primary, isNot(Palette.accent));
+
+      final ThemeData theme = await themeOf(tester);
+      expect(theme.colorScheme.primary, Palette.accent);
+    });
+
+    testWidgets('the backdrop is the prototype\'s page background', (
+      tester,
+    ) async {
+      // Three of the four tabs are bare bodies with no surface of their own, so
+      // this colour is on screen today — it is not housekeeping for later.
+      final ThemeData theme = await themeOf(tester);
+      expect(theme.scaffoldBackgroundColor, Palette.pageBackground);
+    });
   });
 
   group('bootstrap', () {
