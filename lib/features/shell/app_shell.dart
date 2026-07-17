@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rockimals/core/theme/palette.dart';
+import 'package:rockimals/features/radar/radar_focus.dart';
 import 'package:rockimals/features/radar/radar_view.dart';
 
 /// The frame every screen in the app lives inside: four tabs and the bottom nav
@@ -24,21 +26,44 @@ import 'package:rockimals/features/radar/radar_view.dart';
 /// drawing just because it is not the visible tab. That item is now the
 /// per-tab [TickerMode] in [build] below — it does the stopping; this
 /// [IndexedStack] only makes sure there is something alive to stop.
-class AppShell extends StatefulWidget {
+class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key});
 
   @override
-  State<AppShell> createState() => _AppShellState();
+  ConsumerState<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<AppShell> {
+class _AppShellState extends ConsumerState<AppShell> {
   /// Radar, matching the prototype's `class="on"` on the first nav button
   /// (`index.html:303`). The radar is the app: it is what a child opens
   /// Rockimals to see, and `specs/02-live-radar.md:4` calls it the home tab.
-  int _index = 0;
+  int _index = _radarTab;
+
+  /// The Radar tab's index — the home tab, and where Show-on-radar lands
+  /// (`switchTab("today")` in `openRadarFocus`, `index.html:657`).
+  static const int _radarTab = 0;
 
   @override
   Widget build(BuildContext context) {
+    // **Show-on-radar's tab half** (`switchTab("today")`, `index.html:657`;
+    // `specs/03-meet-animal.md:23`). The detail screen publishes a focus
+    // request; this brings the Radar tab to the front so the child lands on the
+    // animal they picked. The selecting and re-centring is the radar's own
+    // (it listens to the same request from inside the IndexedStack, so it reacts
+    // even while hidden here) — this only switches the tab.
+    //
+    // `listen`, not `watch`: this reacts to a request without rebuilding the
+    // whole shell on unrelated provider churn, and it fires only on a *change*,
+    // so a held request never re-switches the tab on a later rebuild.
+    ref.listen<RadarFocus?>(radarFocusProvider, (
+      RadarFocus? previous,
+      RadarFocus? next,
+    ) {
+      if (next != null && _index != _radarTab) {
+        setState(() => _index = _radarTab);
+      }
+    });
+
     return Scaffold(
       // **Each tab is wrapped in a `TickerMode` gated on whether it is the shown
       // one — this is the "pause the render loop off-tab" item

@@ -11,6 +11,7 @@ import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/detail/detail_screen.dart';
 import 'package:rockimals/features/radar/planet_backdrop.dart';
 import 'package:rockimals/features/radar/radar_clock.dart';
+import 'package:rockimals/features/radar/radar_focus.dart';
 import 'package:rockimals/features/radar/radar_geometry.dart';
 import 'package:rockimals/features/radar/radar_layers.dart';
 import 'package:rockimals/features/radar/radar_orbits.dart';
@@ -55,17 +56,17 @@ class RadarView extends ConsumerWidget {
 
 /// The canvas, the clock that drives it (`radarLoop()`, `index.html:729`), and
 /// the child's hands on it (`bindRadar()`, `index.html:675-703`).
-class _RadarField extends StatefulWidget {
+class _RadarField extends ConsumerStatefulWidget {
   const _RadarField({required this.maxLd, required this.asteroids});
 
   final double maxLd;
   final List<Asteroid> asteroids;
 
   @override
-  State<_RadarField> createState() => _RadarFieldState();
+  ConsumerState<_RadarField> createState() => _RadarFieldState();
 }
 
-class _RadarFieldState extends State<_RadarField>
+class _RadarFieldState extends ConsumerState<_RadarField>
     with SingleTickerProviderStateMixin {
   /// The frame clock, handed to the painter as its `repaint` [Listenable].
   ///
@@ -365,6 +366,36 @@ class _RadarFieldState extends State<_RadarField>
     _viewRot = 0;
   });
 
+  /// **Show-on-radar's radar half** (`openRadarFocus` → `radarSelect`,
+  /// `index.html:657`; `specs/03-meet-animal.md:23`): a focus request from the
+  /// detail screen selects [asteroid] and puts the field back to its resting
+  /// view, so the animal a child picked lands on screen and selected.
+  ///
+  /// **The view reset is the plan's addition, not the prototype's.**
+  /// `openRadarFocus` only selects; it leaves whatever zoom and rotation the
+  /// child last left the field at, which can have the selection sitting off
+  /// screen. Putting [_zoom] and [_viewRot] back — the ⤢ reset ([_resetView]),
+  /// minus keeping the selection — is what makes "lands with the animal
+  /// visible" true rather than merely likely.
+  ///
+  /// The animal is looked up in the field's own list by designation (the
+  /// asteroid's identity everywhere, plan decision 12) so the painter — which
+  /// highlights by [Asteroid.name] — and the HUD card select the same instance
+  /// the radar is drawing. It falls back to the request's own asteroid if the
+  /// designation is somehow not in the current window, which keeps the card up
+  /// even in that off-nominal case.
+  void _focusOnRadar(Asteroid asteroid) {
+    final Asteroid target = widget.asteroids.firstWhere(
+      (Asteroid a) => a.name == asteroid.name,
+      orElse: () => asteroid,
+    );
+    setState(() {
+      _selected = target;
+      _zoom = _restingZoom;
+      _viewRot = 0;
+    });
+  }
+
   /// The card's **Meet** button (`openDetail(a)`, `index.html:724`): push the
   /// animal's detail screen ([DetailScreen], `features/detail/detail_screen.dart`).
   ///
@@ -413,6 +444,20 @@ class _RadarFieldState extends State<_RadarField>
 
   @override
   Widget build(BuildContext context) {
+    // **Show-on-radar's radar half** (`specs/03-meet-animal.md:23`). The detail
+    // screen publishes a focus request; this selects the animal and re-centres
+    // the field ([_focusOnRadar]). Listened here rather than in [RadarView]
+    // because the field owns [_selected], [_zoom] and [_viewRot]. The field is
+    // always mounted in the shell's IndexedStack, so this fires even while the
+    // radar is not the visible tab — by the time the shell brings the tab
+    // forward the animal is already selected and the view already reset.
+    ref.listen<RadarFocus?>(radarFocusProvider, (
+      RadarFocus? previous,
+      RadarFocus? next,
+    ) {
+      if (next != null) _focusOnRadar(next.asteroid);
+    });
+
     // The canvas and the buttons are siblings, exactly as the prototype's
     // `#radarCv` and `.rzoom` are (`index.html:277-288`) — and that is what
     // keeps them out of each other's way. A `Stack` hit-tests its children

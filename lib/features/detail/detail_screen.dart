@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rockimals/core/animals/animal_system.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/features/animals/widgets/flyby_badge.dart';
+import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/detail/distance_comparison.dart';
 import 'package:rockimals/features/detail/size_comparison.dart';
+import 'package:rockimals/features/radar/radar_focus.dart';
 
 /// The animal detail screen — a port of the prototype's `openDetail`
 /// (`index.html:554-619`), the screen a child lands on from **Meet** on the
@@ -13,11 +16,11 @@ import 'package:rockimals/features/detail/size_comparison.dart';
 /// So far this screen carries the header (big avatar, the `"{Name} the
 /// {Species}"` header title, the `"a {Species}-sized space rock"` line, the
 /// flyby badge), the four kid stat tiles, the **size-comparison module**
-/// ([SizeComparison], "How big is it?"), and the **distance-comparison track**
-/// ([DistanceComparison], "How close does it pass?"). The Follow / Show-on-radar
-/// actions and the parent-gated grown-up facts panel are each their own later
-/// item, so the body below stops after the distance comparison with room left
-/// for them under it.
+/// ([SizeComparison], "How big is it?"), the **distance-comparison track**
+/// ([DistanceComparison], "How close does it pass?"), and the **Follow /
+/// Show-on-radar actions** ([_DetailActions]). The parent-gated grown-up facts
+/// panel is its own later item, so the body below stops after the actions with
+/// room left for it under them.
 ///
 /// Every number reads through the AnimalSystem's own formatters — [sizeLabel],
 /// [distLabel], [powerStars] — so the detail screen cannot phrase a size,
@@ -70,6 +73,11 @@ class DetailScreen extends StatelessWidget {
                   // (`.panel`, `index.html:590-602`) — `margin:12px 0`.
                   const SizedBox(height: 12),
                   DistanceComparison(asteroid: asteroid),
+                  // The Follow / Show-on-radar action row (`index.html:604-607`)
+                  // — `margin:12px 0`. The grown-up-facts panel follows it in a
+                  // later item.
+                  const SizedBox(height: 12),
+                  _DetailActions(asteroid: asteroid),
                 ],
               ),
             ),
@@ -323,6 +331,160 @@ class _StatTiles extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// The Follow / Show-on-radar action row (`index.html:604-607`) — two full-width
+/// `.btn`s side by side.
+///
+/// A [ConsumerWidget] because **Follow** both reads and writes the persisted
+/// follow set ([followsProvider], plan decision 4): its label tracks whether the
+/// animal is already in My Animals, and a tap toggles it, exactly as the radar
+/// HUD's own Follow does (`_SelectedAnimalCard`) — the two share the one provider
+/// so they can never disagree about a follow. Keyed by real designation
+/// (`asteroid.name`), the asteroid's identity everywhere (plan decision 12);
+/// never the derived "Milo the Fox", which would point at a different animal in
+/// a build where the pool changed.
+///
+/// **Show on radar** publishes a [RadarFocus] request and pops back to the shell.
+/// The prototype's `openRadarFocus` (`index.html:657`) does the tab switch and
+/// the selection; here the request is the message and the shell and radar are
+/// its readers ([radarFocusProvider]). [Navigator.popUntil] to the first route
+/// closes the detail (and any card screen that pushed it) so the child lands on
+/// the shell — whichever tab they came in from — and the shell brings the Radar
+/// tab forward.
+class _DetailActions extends ConsumerWidget {
+  const _DetailActions({required this.asteroid});
+
+  final Asteroid asteroid;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // `watch.has(a.name)` (`index.html:567`) — the button's fill and label both
+    // read the shared set, so a follow made on the radar shows here and back.
+    final bool following = ref.watch(followsProvider).contains(asteroid.name);
+
+    // `<div style="display:flex;gap:9px">` (`index.html:604`) — two `width:100%`
+    // `.btn`s in a flex row, i.e. two equal halves; [Expanded] each side.
+    return Row(
+      children: <Widget>[
+        Expanded(
+          // `class="btn ${tracking?'ghost':''}"` (`index.html:605`): the filled
+          // accent button while not following (the invitation to follow), the
+          // ghost once followed. The opposite of the HUD's always-ghost Follow,
+          // and deliberately so — this is the detail's primary action.
+          child: _ActionButton(
+            label: following ? '✓ Following' : '⭐ Follow',
+            semanticLabel: following ? 'Following' : 'Follow',
+            ghost: following,
+            onTap: () =>
+                ref.read(followsProvider.notifier).toggle(asteroid.name),
+          ),
+        ),
+        // `gap:9px` (`index.html:604`).
+        const SizedBox(width: 9),
+        Expanded(
+          // `class="btn ghost"` (`index.html:606`) — always ghost.
+          child: _ActionButton(
+            label: '🛰️ Show on radar',
+            semanticLabel: 'Show on radar',
+            ghost: true,
+            onTap: () {
+              ref.read(radarFocusProvider.notifier).focus(asteroid);
+              Navigator.of(context).popUntil(
+                (Route<dynamic> route) => route.isFirst,
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A full-width `.btn` (`index.html:51-56`) — the filled accent2→accent gradient
+/// on dark [Palette.onAccent] text, or [ghost]: transparent on [Palette.ink]
+/// with a [Palette.line] border.
+///
+/// **The filled variant carries the `.btn` halo; the ghost drops it**
+/// (`.btn.ghost{box-shadow:none}`, `index.html:56`). The halo is cheap here for
+/// the reason it is on the home Play CTA (`_PlayCta` in `radar_view.dart`): this
+/// sits on the static, scrolling detail body, not the radar's per-frame canvas,
+/// so `box-shadow:0 8px 22px rgba(232,87,31,.32)` rasterises once. The visual
+/// glyph is excluded from semantics with a spoken [semanticLabel] in its place,
+/// the same pattern the detail's own `‹ Back` pill follows.
+class _ActionButton extends StatelessWidget {
+  const _ActionButton({
+    required this.label,
+    required this.semanticLabel,
+    required this.onTap,
+    this.ghost = false,
+  });
+
+  final String label;
+  final String semanticLabel;
+  final VoidCallback onTap;
+  final bool ghost;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          // `background:linear-gradient(180deg,var(--accent2),var(--accent))`
+          // (`index.html:52`), dropped for the ghost's transparent fill.
+          gradient: ghost
+              ? null
+              : const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: <Color>[Palette.accent2, Palette.accent],
+                ),
+          // `border-radius:14px` (`index.html:52`).
+          borderRadius: const BorderRadius.all(Radius.circular(14)),
+          // `.btn.ghost{border:1px solid var(--line)}` (`index.html:56`).
+          border: ghost ? Border.all(color: Palette.line) : null,
+          boxShadow: ghost
+              ? null
+              : <BoxShadow>[
+                  // `0 8px 22px rgba(232,87,31,.32)` — `--accent` at .32 (0x52).
+                  BoxShadow(
+                    color: Palette.accent.withValues(alpha: 0.32),
+                    offset: const Offset(0, 8),
+                    blurRadius: 22,
+                  ),
+                ],
+        ),
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            borderRadius: const BorderRadius.all(Radius.circular(14)),
+            onTap: onTap,
+            child: Padding(
+              // `padding:14px` (`index.html:52`).
+              padding: const EdgeInsets.all(14),
+              child: ExcludeSemantics(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    // `.btn{color:#1a0d05}`; `.btn.ghost{color:var(--ink)}`
+                    // (`index.html:51`, `56`).
+                    color: ghost ? Palette.ink : Palette.onAccent,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.3,
+                    height: 1,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rockimals/core/animals/animal_system.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/data/fallback_asteroids.dart';
 import 'package:rockimals/data/models/asteroid.dart';
+import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/detail/detail_screen.dart';
+import 'package:rockimals/features/radar/radar_focus.dart';
 
 /// The animal detail screen header and stat tiles (`openDetail`,
 /// `index.html:554-619`) — the screen **Meet** on the radar HUD opens.
@@ -30,9 +33,24 @@ void main() {
   final Asteroid whale =
       kFallbackAsteroids.firstWhere((Asteroid a) => a.name == '433 Eros');
 
-  Future<void> pump(WidgetTester tester, Asteroid rock) {
+  // The screen now reads the follow set (its Follow button), so it needs a
+  // `ProviderScope`. The follow set is held in memory, seeded to [followed]: a
+  // real `Box.put` inside the widget tester never settles under its fake clock
+  // and hangs the test, so this suite owns the *wiring* — the button reaches the
+  // shared provider and its label tracks the set — while `providers_test.dart`
+  // owns that a toggle reaches the store the app reopens from.
+  Future<void> pump(
+    WidgetTester tester,
+    Asteroid rock, {
+    Set<String> followed = const <String>{},
+  }) {
     return tester.pumpWidget(
-      MaterialApp(home: DetailScreen(asteroid: rock)),
+      ProviderScope(
+        overrides: [
+          followsProvider.overrideWith(() => _MemFollows(followed)),
+        ],
+        child: MaterialApp(home: DetailScreen(asteroid: rock)),
+      ),
     );
   }
 
@@ -141,17 +159,22 @@ void main() {
 
   testWidgets('the ‹ Back pill pops the detail route', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (BuildContext context) => Scaffold(
-            body: Center(
-              child: TextButton(
-                onPressed: () => Navigator.of(context).push<void>(
-                  MaterialPageRoute<void>(
-                    builder: (_) => DetailScreen(asteroid: rabbit),
+      ProviderScope(
+        overrides: [
+          followsProvider.overrideWith(() => _MemFollows(const <String>{})),
+        ],
+        child: MaterialApp(
+          home: Builder(
+            builder: (BuildContext context) => Scaffold(
+              body: Center(
+                child: TextButton(
+                  onPressed: () => Navigator.of(context).push<void>(
+                    MaterialPageRoute<void>(
+                      builder: (_) => DetailScreen(asteroid: rabbit),
+                    ),
                   ),
+                  child: const Text('open'),
                 ),
-                child: const Text('open'),
               ),
             ),
           ),
@@ -168,4 +191,143 @@ void main() {
     expect(find.byType(DetailScreen), findsNothing);
     expect(find.text('open'), findsOneWidget);
   });
+
+  group('Follow', () {
+    testWidgets('toggles membership through the shared provider', (
+      tester,
+    ) async {
+      await pump(tester, rabbit);
+
+      // The action row sits at the foot of the scrolling body, below the fold on
+      // a test surface — scroll it up before tapping, or the tap lands on empty
+      // space above the button.
+      await tester.ensureVisible(find.text('⭐ Follow'));
+
+      // The filled invitation while not following (`class="btn"`, no `ghost`).
+      expect(find.text('⭐ Follow'), findsOneWidget);
+      expect(find.text('✓ Following'), findsNothing);
+
+      // A tap follows: the button reads the shared set, writes through
+      // `followsProvider.notifier`, and rebuilds on the new state.
+      await tester.tap(find.text('⭐ Follow'));
+      await tester.pump();
+      expect(find.text('✓ Following'), findsOneWidget);
+      expect(find.text('⭐ Follow'), findsNothing);
+
+      // And it is a toggle: a second tap unfollows.
+      await tester.tap(find.text('✓ Following'));
+      await tester.pump();
+      expect(find.text('⭐ Follow'), findsOneWidget);
+    });
+
+    testWidgets('opens on the animal\'s current follow state', (tester) async {
+      // A follow made anywhere is the same follow the detail shows — seeded from
+      // the set, so an already-followed animal opens on "✓ Following". This is
+      // what lets the detail, the radar HUD, and My Animals agree without any of
+      // them owning the truth.
+      await pump(tester, rabbit, followed: <String>{rabbit.name});
+
+      expect(find.text('✓ Following'), findsOneWidget);
+      expect(find.text('⭐ Follow'), findsNothing);
+    });
+
+    testWidgets('the Follow button is filled, Show on radar is ghost', (
+      tester,
+    ) async {
+      // `class="btn ${tracking?'ghost':''}"` vs `class="btn ghost"`
+      // (`index.html:605-606`): before following, Follow is the primary filled
+      // action (dark-on-orange text) and Show on radar is the ghost (ink text).
+      await pump(tester, rabbit);
+
+      final Text follow = tester.widget<Text>(find.text('⭐ Follow'));
+      expect(follow.style?.color, Palette.onAccent);
+
+      final Text show = tester.widget<Text>(find.text('🛰️ Show on radar'));
+      expect(show.style?.color, Palette.ink);
+
+      // Once followed, Follow becomes a ghost too (`ghost` added).
+      await tester.ensureVisible(find.text('⭐ Follow'));
+      await tester.tap(find.text('⭐ Follow'));
+      await tester.pump();
+      final Text following = tester.widget<Text>(find.text('✓ Following'));
+      expect(following.style?.color, Palette.ink);
+    });
+  });
+
+  testWidgets('Show on radar publishes a focus request and pops the detail', (
+    tester,
+  ) async {
+    // The button's own contract: it hands the radar a focus request for this
+    // animal and closes the detail. Where that request *lands* — the tab switch
+    // and the selection — is `radar_focus_test.dart`'s, since it needs the shell
+    // and the radar; here the detail is pushed over a bare screen, so this owns
+    // that the message is sent and the detail pops.
+    final ProviderContainer container = ProviderContainer(
+      overrides: [
+        followsProvider.overrideWith(() => _MemFollows(const <String>{})),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: Builder(
+            builder: (BuildContext context) => Scaffold(
+              body: Center(
+                child: TextButton(
+                  onPressed: () => Navigator.of(context).push<void>(
+                    MaterialPageRoute<void>(
+                      builder: (_) => DetailScreen(asteroid: rabbit),
+                    ),
+                  ),
+                  child: const Text('open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.byType(DetailScreen), findsOneWidget);
+    expect(container.read(radarFocusProvider), isNull, reason: 'nothing yet');
+
+    await tester.ensureVisible(find.text('🛰️ Show on radar'));
+    await tester.tap(find.text('🛰️ Show on radar'));
+    await tester.pumpAndSettle();
+
+    // The request was published for this animal, keyed by its designation...
+    expect(container.read(radarFocusProvider)?.asteroid.name, rabbit.name);
+    // ...and the detail popped back to the screen that opened it.
+    expect(find.byType(DetailScreen), findsNothing);
+    expect(find.text('open'), findsOneWidget);
+  });
+}
+
+/// A follow set held in memory, seeded to [_seed]. Overrides [toggle] so the
+/// button's write never touches Hive — a real `Box.put` inside the widget tester
+/// hangs its fake clock (that path is `providers_test.dart`'s). The same helper
+/// `selected_animal_card_test.dart` uses, for the same reason.
+class _MemFollows extends FollowsNotifier {
+  _MemFollows(this._seed);
+
+  final Set<String> _seed;
+
+  @override
+  Set<String> build() => <String>{..._seed};
+
+  @override
+  Future<void> toggle(String designation) async {
+    final Set<String> next = <String>{...state};
+    if (next.contains(designation)) {
+      next.remove(designation);
+    } else {
+      next.add(designation);
+    }
+    state = next;
+  }
 }
