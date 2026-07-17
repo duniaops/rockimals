@@ -164,6 +164,56 @@ final Provider<int> dayStreakProvider = Provider<int>(
   name: 'dayStreak',
 );
 
+/// The animals a child follows, live — the persisted set of designations
+/// (plan decision 4), read as `state` and changed through [toggle].
+///
+/// **A `Notifier`, where [dayStreakProvider] next to it is a plain read, and the
+/// difference is who writes it.** The day streak is set once, by `bootstrap()`,
+/// before the first frame; nothing changes it mid-session, so a plain
+/// [Provider] that reads the stored value is enough. A follow is the opposite:
+/// the radar's Follow button (and, at task 03, the detail screen) both write it
+/// *during* a session and must see the new state the same frame. So this holds
+/// the set in [state], seeds it from the store, and writes every change straight
+/// back — the reactive half the flame's own note said the streak would grow when
+/// a game first wrote it live.
+///
+/// Seeded and keyed by **real designation** (`2011 EW`), the asteroid's identity
+/// everywhere in this app (plan decision 12) — never the derived "Milo the Fox",
+/// which would point at a different animal in a build where the pool changed.
+class FollowsNotifier extends Notifier<Set<String>> {
+  @override
+  Set<String> build() => ref.watch(storeProvider).follows.toSet();
+
+  /// Whether [designation] is currently followed.
+  bool isFollowing(String designation) => state.contains(designation);
+
+  /// Add or remove [designation] and persist the new set (`watch.add`/`delete`,
+  /// `index.html:725`).
+  ///
+  /// A fresh set rather than a mutation of [state]: a `Notifier` only notifies
+  /// when `state` is reassigned to a value that is not `identical` to the old
+  /// one, so mutating the existing set in place would write to Hive and change
+  /// nothing on screen. Insertion order is preserved through the `{...}` copy,
+  /// which is what the store persists (`Store.follows`).
+  Future<void> toggle(String designation) {
+    final Set<String> next = <String>{...state};
+    if (next.contains(designation)) {
+      next.remove(designation);
+    } else {
+      next.add(designation);
+    }
+    state = next;
+    return ref.read(storeProvider).setFollows(next);
+  }
+}
+
+/// The live follow set (plan decision 4). See [FollowsNotifier].
+final NotifierProvider<FollowsNotifier, Set<String>> followsProvider =
+    NotifierProvider<FollowsNotifier, Set<String>>(
+      FollowsNotifier.new,
+      name: 'follows',
+    );
+
 /// One field of the loaded feed, and nothing else — the shape every derived
 /// provider above shares.
 ///

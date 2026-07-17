@@ -396,6 +396,69 @@ void main() {
       expect(store.points, 12);
     });
   });
+
+  group('followsProvider', () {
+    // The reactive follow set (plan decision 4). A `Notifier`, not the plain
+    // read the day streak gets, because the radar's Follow button and (task 03)
+    // the detail screen write it *during* a session — and its whole point is
+    // that the write lands in the store the app reopens from. So this exercises
+    // the real box in plain async, where a `Box.put` actually completes; the
+    // widget wiring is `selected_animal_card_test.dart`'s.
+    late Directory tempDir;
+    late Store store;
+
+    setUp(() async {
+      tempDir = await Directory.systemTemp.createTemp('rockimals_follows_prov');
+      Hive.init(tempDir.path);
+      store = await Store.open();
+    });
+
+    tearDown(() async {
+      await Hive.deleteFromDisk();
+      await Hive.close();
+      if (tempDir.existsSync()) await tempDir.delete(recursive: true);
+    });
+
+    ProviderContainer withStore() => ProviderContainer.test(
+      overrides: [storeProvider.overrideWithValue(store)],
+    );
+
+    test('seeds from the store — empty on a fresh install', () {
+      expect(withStore().read(followsProvider), isEmpty);
+    });
+
+    test('toggle follows and persists the designation; a re-toggle unfollows', () async {
+      final ProviderContainer container = withStore();
+      final FollowsNotifier follows = container.read(followsProvider.notifier);
+
+      await follows.toggle('2011 EW');
+      expect(container.read(followsProvider), contains('2011 EW'));
+      expect(store.follows, contains('2011 EW'), reason: 'the write reached the box');
+
+      await follows.toggle('2011 EW');
+      expect(container.read(followsProvider), isEmpty);
+      expect(store.follows, isEmpty);
+    });
+
+    test('a followed animal survives a restart', () async {
+      await withStore().read(followsProvider.notifier).toggle('433 Eros');
+
+      // Force-quit and relaunch: a new store over the same box (`store_test`'s
+      // restart), then a fresh container reads it back through the provider.
+      await store.close();
+      store = await Store.open();
+
+      expect(store.follows, contains('433 Eros'));
+      expect(withStore().read(followsProvider), contains('433 Eros'));
+    });
+
+    test('keys by designation, never the derived animal name (decision 12)', () async {
+      // The store must hold `2011 EW`, not "Milo the Fox" — a name would point
+      // at a different animal in a build where the pool changed.
+      await withStore().read(followsProvider.notifier).toggle('2011 EW');
+      expect(store.follows, <String>['2011 EW']);
+    });
+  });
 }
 
 ProviderContainer _container(AsteroidRepository repository) {
