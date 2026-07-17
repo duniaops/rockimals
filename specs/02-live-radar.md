@@ -30,9 +30,13 @@ every space animal, with a decorative solar-system backdrop. This is the home ta
   visible.
 
 ### Interactions
-- **Drag** to spin the whole field; **pinch / scroll / +− buttons** to zoom
+- **Drag** to spin the whole field; **pinch / +− buttons** to zoom
   (clamp to a framed range so content never flies off-screen); **tap** an animal
-  to select it (with an easy tap radius).
+  to select it (with an easy tap radius). *(Mouse-wheel/scroll zoom is **out of
+  scope** on the iOS + Android touch target: those devices have no wheel, and
+  pinch plus the ＋− buttons already cover the same need. Revisit if the project
+  ever ships to a device with a pointing device — an Android tablet with a mouse,
+  a Chromebook — or takes the PWA path named in `CLAUDE.md`.)*
 - **Play/pause** control; toggle chips: **Planets, Labels, Rings, Moon**, and an
   advanced **Hazards** filter.
 
@@ -44,7 +48,8 @@ every space animal, with a decorative solar-system backdrop. This is the home ta
 
 ## Acceptance criteria
 - [ ] The radar animates smoothly (~60fps) with animals, Moon, rings, and planets.
-- [ ] Drag spins, pinch/scroll/buttons zoom within a sensible range, tap selects.
+- [ ] Drag spins, pinch/buttons zoom within a sensible range, tap selects.
+      (Wheel/scroll zoom is out of scope on the touch target — see Interactions.)
 - [ ] Every animal is clearly visible on its chip (none look faded); close flybys
       have an orange ring, the selected one a white ring.
 - [ ] Rings read in Moon-distances; no jargon anywhere.
