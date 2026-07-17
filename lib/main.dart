@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:rockimals/core/storage/store.dart';
+import 'package:rockimals/core/streak/day_streak.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/loading/loading_screen.dart';
@@ -44,6 +45,12 @@ Future<void> main() async {
 Future<Widget> bootstrap({List<Override> overrides = const <Override>[]}) async {
   await Hive.initFlutter();
   final Store store = await Store.open();
+
+  // Opening Rockimals is the day's engagement (plan decisions 3/14), so the
+  // consecutive-days-played streak is advanced here, before the first frame —
+  // the same reason the store itself is opened here rather than lazily: the home
+  // flame must be right at first paint, not a frame later.
+  await DayStreak.record(store, DateTime.now());
 
   return ProviderScope(
     // The store first, so a test can still override it with its own.
