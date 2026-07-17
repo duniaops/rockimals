@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+// `Override` is not exported from the package root — Riverpod 3 parks the types
+// you mostly need in a test under `misc.dart`, alongside `ProviderException`.
+import 'package:flutter_riverpod/misc.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/features/data/providers.dart';
+import 'package:rockimals/features/debug/debug_animal_list_screen.dart';
 
 Future<void> main() async {
   // Explicit rather than left to `Hive.initFlutter()`, which calls it too:
@@ -28,14 +32,21 @@ Future<void> main() async {
 /// paint*, and a function that painted as a side effect could not be asked.
 /// `runApp(await bootstrap())` is also the shape that makes the ordering
 /// unmissable: there is no frame for a lazily-opened box to slip into.
-Future<Widget> bootstrap() async {
+///
+/// [overrides] is the seam a test uses to stand something in front of the real
+/// thing, and it exists because the app now *paints a screen that loads the
+/// sky*. Without it, a test of the boot sequence builds a live [Dio] and starts
+/// a real request as a side effect of asking whether the store is open —
+/// leaving the repository's ten-second ceiling pending at teardown, and resting
+/// on `flutter_test` happening to mock `HttpClient` to keep the request off a
+/// real network. The production call passes nothing.
+Future<Widget> bootstrap({List<Override> overrides = const <Override>[]}) async {
   await Hive.initFlutter();
   final Store store = await Store.open();
 
   return ProviderScope(
-    // Left to inference: Riverpod 3 does not export `Override`, so there is no
-    // name to annotate this list with.
-    overrides: [storeProvider.overrideWithValue(store)],
+    // The store first, so a test can still override it with its own.
+    overrides: <Override>[storeProvider.overrideWithValue(store), ...overrides],
     child: const RockimalsApp(),
   );
 }
@@ -53,29 +64,12 @@ class RockimalsApp extends StatelessWidget {
           brightness: Brightness.dark,
         ),
       ),
-      home: const PlaceholderHome(),
-    );
-  }
-}
-
-/// Stands in until the title screen (task 06) and radar (task 02) land.
-/// Replaced wholesale, not built on.
-class PlaceholderHome extends StatelessWidget {
-  const PlaceholderHome({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text('🦊', style: TextStyle(fontSize: 64)),
-            SizedBox(height: 16),
-            Text('ROCKIMALS', style: TextStyle(fontSize: 28, letterSpacing: 4)),
-          ],
-        ),
-      ),
+      // The task-01 throwaway (spec 01 §5), and the app's only screen until the
+      // shell and radar land — at which point a plan item deletes it. It
+      // replaced the scaffold's placeholder rather than joining it: two
+      // stand-ins would be one more than the app has room for, and the
+      // placeholder was never a thing to build on.
+      home: const DebugAnimalListScreen(),
     );
   }
 }

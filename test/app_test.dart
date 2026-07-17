@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -7,17 +8,32 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:rockimals/core/storage/store.dart';
+import 'package:rockimals/data/models/asteroid_feed.dart';
 import 'package:rockimals/features/data/providers.dart';
+import 'package:rockimals/features/debug/debug_animal_list_screen.dart';
 import 'package:rockimals/main.dart';
 
 void main() {
-  // The scaffold's only real claim: the app boots and renders. Mostly a guard
-  // against the counter template creeping back in. Real coverage starts with
-  // the AnimalSystem and data spine.
-  testWidgets('boots to the placeholder home', (tester) async {
-    await tester.pumpWidget(const RockimalsApp());
+  // What `RockimalsApp` opens onto. It was the scaffold's placeholder; it is
+  // now the task-01 debug list (spec 01 §5), and a plan item deletes it once
+  // the shell and radar land. `debug_animal_list_screen_test.dart` owns what
+  // that screen renders — all this pins is that the app opens onto it.
+  testWidgets('opens onto the debug animal list', (tester) async {
+    // Needs a scope now: the screen watches the feed. Overridden with a
+    // never-completing future rather than left to the real repository, which
+    // would build a Dio and a store to answer a question about routing.
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          asteroidFeedProvider.overrideWith(
+            (Ref ref) => Completer<AsteroidFeed>().future,
+          ),
+        ],
+        child: const RockimalsApp(),
+      ),
+    );
 
-    expect(find.text('ROCKIMALS'), findsOneWidget);
+    expect(find.byType(DebugAnimalListScreen), findsOneWidget);
   });
 
   group('bootstrap', () {
@@ -115,7 +131,16 @@ void main() {
   });
 }
 
-/// Runs the real boot sequence, and **must** go through [WidgetTester.runAsync].
+/// Runs the real boot sequence with the sky held back, and **must** go through
+/// [WidgetTester.runAsync].
+///
+/// The feed is overridden with a future that never completes, so these stay
+/// tests of the boot sequence. `RockimalsApp` opens onto the debug list, which
+/// watches the feed — so without this, asking whether the store is open would
+/// build a real Dio, fire a real request, and leave the repository's
+/// ten-second ceiling pending when the tree is disposed. A never-completing
+/// future also holds the screen on its spinner, which is exactly the state a
+/// cold launch is in at the moment these assertions look.
 ///
 /// A `testWidgets` body runs in a fake-async zone where timers and I/O
 /// completions are the test's to pump, so a future that only completes on a real
@@ -125,12 +150,19 @@ void main() {
 /// says on the tin. `runAsync` hands the body back the real event loop for the
 /// duration. Anything else in this file that touches the box — a `setPoints`, a
 /// reopen — needs the same treatment for the same reason.
-Future<Widget> _bootstrap(WidgetTester tester) async =>
-    (await tester.runAsync(bootstrap))!;
+Future<Widget> _bootstrap(WidgetTester tester) async => (await tester.runAsync(
+  () => bootstrap(
+    overrides: <Override>[
+      asteroidFeedProvider.overrideWith(
+        (Ref ref) => Completer<AsteroidFeed>().future,
+      ),
+    ],
+  ),
+))!;
 
 Store _storeOf(WidgetTester tester) {
   return ProviderScope.containerOf(
-    tester.element(find.byType(PlaceholderHome)),
+    tester.element(find.byType(DebugAnimalListScreen)),
   ).read(storeProvider);
 }
 
