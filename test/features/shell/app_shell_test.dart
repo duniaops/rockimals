@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/data/models/asteroid_feed.dart';
 import 'package:rockimals/features/data/providers.dart';
+import 'package:rockimals/features/radar/radar_painter.dart';
 import 'package:rockimals/features/radar/radar_view.dart';
 import 'package:rockimals/features/shell/app_shell.dart';
 
@@ -152,6 +153,63 @@ void main() {
       }
     });
 
+    testWidgets('freezes the radar off-tab and resumes it on return', (
+      tester,
+    ) async {
+      // The "pause the render loop off-tab" item (`specs/02-live-radar.md:29`,
+      // `index.html:729`). An [IndexedStack] keeps the radar mounted and its
+      // ticker firing from behind another tab, so without the per-tab
+      // [TickerMode] the sky would keep drawing sixty frames a second while a
+      // child reads their profile. The Done-when is "zero radar frames while
+      // another tab is shown, and motion resumes on return"; this reads that off
+      // the paint output, the same signal `radar_view_test.dart`'s "keeps
+      // drawing" test uses — Earth's glow breathes and the one animal orbits, so
+      // a running loop changes the circles it draws frame to frame and a stopped
+      // one draws the identical frame forever.
+      await tester.pumpWidget(_app());
+      await tester.pump(); // the feed override resolves; the first radar frame
+
+      // On-tab the loop runs, so the painted circles move.
+      final List<double> onA = _radarCircles(tester);
+      await tester.pump(const Duration(milliseconds: 471));
+      final List<double> onB = _radarCircles(tester);
+      expect(onB, isNot(onA), reason: 'the radar animates while it is shown');
+
+      // Leave the radar for the Sky tab.
+      await tester.tap(find.text('Sky'));
+      await tester.pump(); // switch tabs
+      await tester.pump(const Duration(seconds: 1)); // drain the nav tap ripple
+
+      // Off-tab: the ticker is muted, so a pump draws no new frame — the sky is
+      // exactly where it was left.
+      final List<double> offA = _radarCircles(tester);
+      await tester.pump(const Duration(milliseconds: 471));
+      final List<double> offB = _radarCircles(tester);
+      expect(offB, offA, reason: 'a hidden radar draws no new frames');
+
+      // ...and independently, nothing is asking for the next frame. This is the
+      // "zero frames" half stated a second way: a live radar reschedules a frame
+      // callback every tick, so a false here means the loop has genuinely
+      // stopped, not merely that this particular pump happened to match.
+      expect(
+        tester.binding.hasScheduledFrame,
+        isFalse,
+        reason: 'the muted radar requests no frames off-tab',
+      );
+
+      // Come back to the radar.
+      await tester.tap(find.text('Radar'));
+      await tester.pump();
+
+      // Motion resumes. The [FrameClock] clamp turns the long off-tab gap into
+      // one ordinary step rather than a lurch, but that it moves at all is the
+      // assertion here.
+      final List<double> backA = _radarCircles(tester);
+      await tester.pump(const Duration(milliseconds: 471));
+      final List<double> backB = _radarCircles(tester);
+      expect(backB, isNot(backA), reason: 'motion resumes when shown again');
+    });
+
     testWidgets('marks each tab as a selectable button for a screen reader', (
       tester,
     ) async {
@@ -209,6 +267,35 @@ Finder _bodyOf(String label) => switch (label) {
 
 Color? _labelColour(WidgetTester tester, String label) =>
     tester.widget<Text>(find.text(label)).style?.color;
+
+/// The radii of every circle the radar's canvas draws this frame — Earth, its
+/// breathing glow, the animals, and the planet backdrop's spheres.
+///
+/// **Read with `skipOffstage: false` on purpose: the interesting frames are the
+/// ones where the radar is *not* the visible tab.** An [IndexedStack] keeps the
+/// hidden radar mounted and sized, and the `paints` matcher drives its `paint`
+/// directly rather than waiting for it to be on screen, so this reads the same
+/// output whether the tab is shown or hidden — which is exactly what lets the
+/// test compare a running loop against a paused one. The whole list is captured
+/// (returning `false` keeps the scan going, as `radar_view_test.dart`'s ring
+/// collector does) so an unchanged frame is unchanged in full, not just in the
+/// one circle a matcher happened to name.
+List<double> _radarCircles(WidgetTester tester) {
+  final RenderBox canvas = tester.renderObject<RenderBox>(
+    find.byWidgetPredicate(
+      (Widget w) => w is CustomPaint && w.painter is RadarPainter,
+      skipOffstage: false,
+    ),
+  );
+  final List<double> radii = <double>[];
+  final Matcher collector = (paints
+    ..something((Symbol method, List<dynamic> arguments) {
+      if (method == #drawCircle) radii.add(arguments[1] as double);
+      return false;
+    })) as Matcher;
+  collector.matches(canvas, <dynamic, dynamic>{});
+  return radii;
+}
 
 /// The shell with a sky already in hand. Without an override the Radar tab
 /// builds a live Dio and starts a real request as a side effect of asking which

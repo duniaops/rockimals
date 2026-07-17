@@ -21,8 +21,9 @@ import 'package:rockimals/features/radar/radar_view.dart';
 /// frame — which is also what makes the "pause the render loop off-tab" item
 /// (`specs/02-live-radar.md:29`) *necessary* rather than automatic: an offstage
 /// [IndexedStack] child keeps its tickers running, so the radar will not stop
-/// drawing just because it is not the visible tab. That item does the stopping;
-/// this one only makes sure there is something alive to stop.
+/// drawing just because it is not the visible tab. That item is now the
+/// per-tab [TickerMode] in [build] below — it does the stopping; this
+/// [IndexedStack] only makes sure there is something alive to stop.
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
 
@@ -39,9 +40,33 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // **Each tab is wrapped in a `TickerMode` gated on whether it is the shown
+      // one — this is the "pause the render loop off-tab" item
+      // (`specs/02-live-radar.md:29`), and it lives here because the problem is
+      // the shell's.** An [IndexedStack] keeps every child mounted and its
+      // tickers running (see the class doc), so the radar would go on drawing
+      // sixty frames a second from behind the Sky tab. `SingleTickerProvider`-
+      // backed tickers mute themselves when their `TickerMode` is off, so the
+      // radar's frame clock simply stops being called the moment it is not the
+      // visible tab, and starts again on return — the port of the prototype's
+      // `if(view-today hidden){Radar.running=false;return;}` (`index.html:729`).
+      //
+      // Muting rather than tearing down is what makes the resume smooth: the
+      // ticker keeps its start time across the gap, so the first frame back
+      // reports a large elapsed — which [FrameClock]'s `min(0.05, …)` clamp
+      // absorbs into a single ordinary step, exactly as the prototype relies on
+      // its own never-reset `Radar.last`. Nothing here resets the clock.
+      //
+      // Gating *every* tab, not just the radar, is deliberate: it is the general
+      // rule an [IndexedStack] wants — an offstage tab's animations should not
+      // run — so the games and reactions that land in the other tabs inherit the
+      // same pause for free rather than each re-discovering this.
       body: IndexedStack(
         index: _index,
-        children: <Widget>[for (final _NavTab tab in _tabs) tab.body],
+        children: <Widget>[
+          for (int i = 0; i < _tabs.length; i++)
+            TickerMode(enabled: i == _index, child: _tabs[i].body),
+        ],
       ),
       bottomNavigationBar: _NavBar(
         index: _index,
