@@ -168,6 +168,70 @@ void main() {
     });
   });
 
+  group('paintSun', () {
+    testWidgets('glows, then is a disc — and never a sphere', (tester) async {
+      // `index.html:802-805`. **Two circles where every planet draws three**,
+      // and the missing one is the point: [paintSphere]'s second pass is the
+      // terminator, the shadow that pools on a lit body's far side. The Sun is
+      // what is doing the lighting, so it has no far side — a Sun with a
+      // terminator would be a body lit by some *other* sun, which is the one
+      // thing on this screen there cannot be.
+      await _paint(tester, paintSun);
+
+      expect(
+        _painterOf(tester),
+        paints
+          ..circle(x: 100, y: 100, radius: 46)
+          ..circle(x: 100, y: 100, radius: 20),
+      );
+      expect(
+        _calls(tester).where((_Call c) => c.method == #drawCircle),
+        hasLength(2),
+        reason: 'a glow and a disc — no terminator',
+      );
+    });
+
+    testWidgets('hangs its name 12px under the rim, not the planets\' 11', (tester) async {
+      // `fillText('Sun', sx, sy + sr + 12)` (`index.html:806`) — one pixel lower
+      // than `pLabel`'s 11 (`index.html:757`), because `drawPlanets` writes the
+      // Sun's caption out longhand instead of calling `pLabel`. A pixel is
+      // nothing to look at and everything to port: routing it through the shared
+      // helper would also hand it the planets' cooler grey, and the difference
+      // between the two colours is the only thing marking the Sun as the warm
+      // object in a blue scene.
+      await _paint(tester, paintSun);
+
+      expect(_painterOf(tester), paints..paragraph(offset: _labelOffset('Sun', 132)));
+    });
+
+    testWidgets('burns white off-centre and cools to orange at the rim', (tester) async {
+      // `createRadialGradient(sx-6, sy-6, 4, sx, sy, sr)` with `#fff7db` →
+      // `#ffd166` → `#f2731d` (`index.html:803-804`).
+      //
+      // **The 6px offset is flat, not a fraction of the radius** — the one place
+      // the backdrop breaks its own rule that everything scales — so at r = 20
+      // the white core sits at (94, 94) and the disc is visibly lit from the
+      // upper left, like everything else on this screen.
+      await _paint(tester, paintSun);
+      final _Pixels px = await _pixels(tester);
+
+      // The core: inside the 4px focal circle at (94, 94), so it is flat
+      // `#fff7db` and nothing else.
+      _expectPixel(px, const Offset(94, 94), const Color(0xFFFFF7DB));
+
+      // The rim, just inside the 20px disc on the far side from the core: the
+      // ramp has run all the way to `#f2731d`.
+      final Color rim = px.at(const Offset(112, 112));
+      expect(rim.r, greaterThan(rim.g), reason: 'orange');
+      expect(rim.g, greaterThan(rim.b));
+      expect(rim.b, lessThan(0.35), reason: 'cooled well past the #ffd166 midpoint');
+
+      // And the core really is off-centre: the exact middle of the disc is
+      // already past the white and into the body colour.
+      expect(_luma(px.at(const Offset(94, 94))), greaterThan(_luma(px.at(_at))));
+    });
+  });
+
   group('paintJupiter', () {
     testWidgets('rules five bands across the planet, then the red spot', (tester) async {
       // `index.html:773-775`. The offsets are the prototype's own literals and

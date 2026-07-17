@@ -5,17 +5,19 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/data/models/asteroid.dart';
+import 'package:rockimals/features/radar/planet_backdrop.dart';
+import 'package:rockimals/features/radar/planet_painters.dart';
 import 'package:rockimals/features/radar/radar_geometry.dart';
 import 'package:rockimals/features/radar/radar_labels.dart';
 import 'package:rockimals/features/radar/radar_orbits.dart';
 
-/// The radar: deep space, the distance rings, the Moon, the animals orbiting on
-/// them, and Earth at the centre (`radarDraw`, `index.html:816-877`).
+/// The radar: deep space, the planet backdrop, the distance rings, the Moon,
+/// the animals orbiting on them, and Earth at the centre (`radarDraw`,
+/// `index.html:816-877`).
 ///
-/// The planet backdrop is another item's work. The order here is the
-/// prototype's, and it is the reason Earth is the *last* thing painted
-/// (`index.html:870`): it is the smallest and most important object on the
-/// screen, so nothing is allowed to cover it.
+/// The order here is the prototype's, and it is the reason Earth is the *last*
+/// thing painted (`index.html:870`): it is the smallest and most important
+/// object on the screen, so nothing is allowed to cover it.
 ///
 /// **Repaints are driven by [clock] rather than by rebuilding the widget.**
 /// [CustomPainter.repaint] listens to it directly, so a frame costs one
@@ -24,6 +26,7 @@ class RadarPainter extends CustomPainter {
   RadarPainter({
     required this.clock,
     required this.orbits,
+    required this.backdrop,
     required this.maxLd,
     required this.zoom,
     required this.viewRot,
@@ -39,6 +42,10 @@ class RadarPainter extends CustomPainter {
   /// `Ticker` immediately before [clock] fires, so a frame reads it and does not
   /// move it.
   final RadarOrbits orbits;
+
+  /// The decorative planets and the Sun behind the field. Drifted by the same
+  /// `Ticker` and on the same step as [orbits] — see [PlanetBackdrop.advance].
+  final PlanetBackdrop backdrop;
 
   /// How far out the field reaches, from [RadarGeometry.maxLdFor].
   final double maxLd;
@@ -73,11 +80,13 @@ class RadarPainter extends CustomPainter {
     final double pulse = (math.sin(ts / 300) + 1) / 2;
 
     // The prototype's own order (`index.html:818-877`), and every step of it is
-    // a decision about what may cover what: the rings are scale and go under
-    // everything, the Moon is the unit those rings are read against, the animals
-    // are the subject, and Earth is last because it is the smallest and most
-    // important thing on the screen.
+    // a decision about what may cover what: the backdrop is scenery and is
+    // painted before anything the child can read, the rings are scale and go
+    // under everything else, the Moon is the unit those rings are read against,
+    // the animals are the subject, and Earth is last because it is the smallest
+    // and most important thing on the screen.
     _paintSpace(canvas, size);
+    _paintBackdrop(canvas, geometry, ts);
     _paintRings(canvas, geometry);
     _paintMoon(canvas, geometry);
     _paintAnimals(canvas, geometry, pulse: pulse);
@@ -113,6 +122,40 @@ class RadarPainter extends CustomPainter {
           const <double>[0, 0.72],
         ),
     );
+  }
+
+  /// The Sun and the six planets behind the field (`drawPlanets`,
+  /// `index.html:798-814`).
+  ///
+  /// **The Sun goes down first, and the planets in table order**
+  /// (`index.html:802`, `808`) — so where two bodies overlap, the one further
+  /// down `PLANETS` wins. Nothing depends on it today (the six are spread across
+  /// the field and only meet as they drift past each other), which is exactly
+  /// why it is worth pinning: when they do meet, they should meet the way the
+  /// prototype has them meet.
+  ///
+  /// **`if (Radar.showPlanets)` (`index.html:818`) is not ported**, on the same
+  /// grounds as `_paintMoon`'s missing `!showRings` branch and
+  /// `paintPlanetLabel`'s missing `showLabels` guard: there are no toggle chips
+  /// yet, so the flag would be a constant `true` that nothing can change —
+  /// plan decision 1's dead state. The chip is the toggle-chips item's, and it
+  /// is one line here.
+  void _paintBackdrop(Canvas canvas, RadarGeometry geometry, double ts) {
+    paintSun(
+      canvas,
+      backdrop.sunPosition(geometry: geometry, zoom: zoom, ts: ts),
+      backdrop.sunRadius(zoom: zoom),
+    );
+
+    for (final Planet planet in backdrop.planets) {
+      // `p.draw(ctx, x, y, rr)` (`index.html:812`) — the table's own function
+      // reference, called with the prototype's own three arguments.
+      planet.draw(
+        canvas,
+        backdrop.positionOf(planet, geometry: geometry, zoom: zoom, ts: ts),
+        backdrop.radiusOf(planet, zoom: zoom),
+      );
+    }
   }
 
   /// The dashed Moon-distance rings and their labels (`index.html:823-831`).
@@ -292,7 +335,8 @@ class RadarPainter extends CustomPainter {
       oldDelegate.zoom != zoom ||
       oldDelegate.viewRot != viewRot ||
       oldDelegate.selected?.name != selected?.name ||
-      !identical(oldDelegate.orbits, orbits);
+      !identical(oldDelegate.orbits, orbits) ||
+      !identical(oldDelegate.backdrop, backdrop);
 }
 
 /// A circle stroked as dashes — `setLineDash([on, off])` over

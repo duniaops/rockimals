@@ -4,7 +4,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/rendering.dart';
 import 'package:rockimals/features/radar/radar_labels.dart';
 
-/// The decorative planet backdrop's six bodies (`index.html:741-788`).
+/// The decorative planet backdrop's six planets and its Sun
+/// (`index.html:741-788`, `801-806`).
 ///
 /// **Purely scenery, and that is the whole point of it.** Nothing here is data:
 /// the planets are not where they really are, not to scale, and not in the
@@ -13,13 +14,15 @@ import 'package:rockimals/features/radar/radar_labels.dart';
 /// (`specs/02-live-radar.md:29`). Every real number on the field is Earth, the
 /// Moon, the rings, and the animals; the planets are the wallpaper behind them.
 ///
-/// Placement, drift, bob, the Sun, and the draw loop are the next item's — this
-/// file only knows how to draw one body at a given point and size, which is
-/// exactly the split the prototype makes between its painters and `drawPlanets`
-/// (`index.html:798-814`).
+/// **This file only knows how to draw one body at a given point and size.**
+/// Where the bodies are, how they drift, and how they bob is
+/// `planet_backdrop.dart`'s — which is exactly the split the prototype makes
+/// between its painters and `drawPlanets` (`index.html:798-814`).
 ///
 /// Each painter takes the prototype's own `(c, x, y, r)`, so `PLANETS`' `draw`
-/// column ports across as a plain function reference.
+/// column ports across as a plain function reference (`PlanetPainter`, in
+/// `planet_backdrop.dart`). [paintSun] keeps the same shape for the same
+/// reason, even though the Sun is not in that table.
 
 // ── The three shared helpers (`pSphere`, `pGlow`, `pLabel`).
 
@@ -342,7 +345,51 @@ void _paintRingArc(
   );
 }
 
-// ── The backdrop's palette, ported from `index.html:741-788`.
+// ── The Sun (`index.html:801-806`).
+
+/// The light the whole screen is lit by (`index.html:801-806`).
+///
+/// **Not a [paintSphere], and it is the only body here that is not.** A sphere
+/// is a lit thing: it takes a highlight from the upper left and pools a shadow
+/// at the lower right. The Sun is what is doing the lighting, so it has no
+/// terminator and no dark side — just a hot core ramping out to its rim.
+///
+/// **Its highlight is offset by a flat 6px, not by a fraction of [radius]**
+/// (`createRadialGradient(sx-6, sy-6, 4, sx, sy, sr)`, `index.html:803`), which
+/// is the one place the backdrop breaks its own rule that everything scales.
+/// The effect is that zooming in walks the core towards the centre and the disc
+/// flattens into an even glare, which is more or less what happens when you get
+/// closer to something that big. Ported literally either way — the alternative
+/// is inventing a proportion the prototype does not have.
+void paintSun(Canvas canvas, Offset at, double radius) {
+  paintGlow(canvas, at, radius, colour: _sunGlow, alpha: 0.95);
+
+  canvas.drawCircle(
+    at,
+    radius,
+    Paint()
+      ..shader = ui.Gradient.radial(
+        at,
+        radius,
+        const <Color>[_sunCore, _sunBody, _sunRim],
+        const <double>[0, 0.42, 1],
+        TileMode.clamp,
+        null,
+        at.translate(-6, -6),
+        4,
+      ),
+  );
+
+  // **Not [paintPlanetLabel]**, close as it looks: the Sun's caption is written
+  // out longhand in `drawPlanets` (`index.html:806`) with its own warm colour
+  // and its own 12px drop rather than the planets' 11. Routing it through
+  // `pLabel` would silently restyle it, so the two stay separate — which is
+  // what the prototype is saying by not calling `pLabel` here itself.
+  radarLabel('Sun', size: 9, colour: _sunLabelColour)
+      .paint(canvas, at.dx, at.dy + radius + 12);
+}
+
+// ── The backdrop's palette, ported from `index.html:741-788` and `801-806`.
 //
 // All of it is one-off literals in the prototype — none of these colours is a
 // `:root` variable, and none is reused outside this file — so they stay local,
@@ -423,6 +470,40 @@ const Color _saturnRingInner = Color.fromRGBO(205, 185, 145, 0.55);
 /// ring arcs. They are one object, so a value that drifted between them would
 /// tear the ring apart.
 const double _saturnTilt = -0.38;
+
+/// The Sun (`index.html:802-806`).
+///
+/// **The only warm light on a screen that is otherwise entirely blue**, which is
+/// what buys it: at 4% across the field it is a sliver, and the colour is the
+/// whole reason a child reads that sliver as the Sun rather than as a smudge.
+///
+/// `rgba(255,168,54,.5)` at a 0.95 alpha, so the halo lands at 0.475 — by some
+/// way the strongest glow in the backdrop (Neptune's, the next brightest, is
+/// 0.18). It reaches 2.3× a 44px disc, which is 101px of orange bleeding across
+/// the corner of the field.
+const Color _sunGlow = Color.fromRGBO(255, 168, 54, 0.5);
+
+/// The disc's three stops (`index.html:804`): white-hot core, `#ffd166` body,
+/// and a rim that has cooled to `#f2731d`.
+///
+/// **Deliberately not `Palette.accent`/`accent2`**, which are the same family of
+/// orange. Those are the app's *interactive* colour — the one that means "this
+/// is a thing you can press" (`palette.dart`) — and the Sun is scenery a child
+/// must never try to tap. It is one-off `rgba()` literals in the prototype and
+/// it stays that way here, which is the rule that kept the radar's ring colours
+/// local too.
+const Color _sunCore = Color(0xFFFFF7DB);
+const Color _sunBody = Color(0xFFFFD166);
+const Color _sunRim = Color(0xFFF2731D);
+
+/// `rgba(255,206,140,.8)` (`index.html:806`) — the Sun's own name.
+///
+/// A hair off the close-flyby name colour on the field above
+/// (`rgba(255,206,140,.9)`, `radar_painter.dart`), and the two are unrelated:
+/// same channels, different alpha, different layer. Neither derives from the
+/// other, because the prototype writes both out by hand and they have nothing to
+/// do with each other beyond both being warm text on deep space.
+const Color _sunLabelColour = Color.fromRGBO(255, 206, 140, 0.8);
 
 /// Neptune (`index.html:761`) — the deepest blue in the backdrop, and the
 /// furthest thing out there.

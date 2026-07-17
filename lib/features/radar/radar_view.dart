@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/features/data/providers.dart';
+import 'package:rockimals/features/radar/planet_backdrop.dart';
 import 'package:rockimals/features/radar/radar_clock.dart';
 import 'package:rockimals/features/radar/radar_geometry.dart';
 import 'package:rockimals/features/radar/radar_orbits.dart';
@@ -74,6 +75,15 @@ class _RadarFieldState extends State<_RadarField>
   /// by the painter — never rebuilt, which is the point of it being mutable.
   late final RadarOrbits _orbits = RadarOrbits.seed(widget.asteroids);
 
+  /// The scenery: six planets and the Sun (`PLANETS`, `index.html:789`). Seeded,
+  /// drifted and read exactly as [_orbits] is, and for the same reasons — the
+  /// prototype places them in `homeInit()` alongside the animals' seeds
+  /// (`index.html:646`) and moves them on the same line of the same loop.
+  ///
+  /// It knows nothing about [_viewRot], deliberately: the backdrop is what the
+  /// field turns *in front of*.
+  late final PlanetBackdrop _backdrop = PlanetBackdrop.seed();
+
   /// How far this frame moves the sky — `radarLoop`'s own first line
   /// (`index.html:730`). Distinct from [_clock] above, which publishes the time
   /// itself to the painter: this measures the *step* between two of its values.
@@ -83,10 +93,39 @@ class _RadarFieldState extends State<_RadarField>
   /// The sky is advanced first and the clock published second, so the notify
   /// that triggers the repaint always follows the state that repaint will read.
   /// Swapped, every frame would draw the sky one frame stale.
+  ///
+  /// **One step, spent on both** (`index.html:730-735`) — the animals and the
+  /// backdrop are moved by the same [FrameClock.step], because they are two
+  /// things moving through one frame and not two clocks.
   late final Ticker _ticker = createTicker((Duration elapsed) {
-    _orbits.advance(_frame.step(elapsed));
+    final double dt = _frame.step(elapsed);
+    _orbits.advance(dt);
+
+    // The backdrop drifts in the field's own pixels and wraps at its edge, so
+    // unlike the animals it cannot move until there *is* an edge. This is the
+    // prototype's own lazy answer to the same problem — `if (p.x == null) p.x =
+    // Radar.W * p.xf`, checked at the top of every frame (`index.html:734`).
+    final double? width = _fieldWidth;
+    if (width != null) _backdrop.advance(dt, width: width);
+
     _clock.value = elapsed;
   });
+
+  /// The field's width as it was last laid out, or null before it ever has been.
+  ///
+  /// **Read off the render object rather than through `context.size`, and the
+  /// reason is that this runs in a `Ticker`.** Tickers fire in a frame's
+  /// transient callbacks, which run *before* that frame's build and layout —
+  /// so on the first frame after mount, and on every frame that a rotation or a
+  /// resize has dirtied, `context.size` either has no size to give or throws
+  /// outright for being asked while the box is marked dirty. Reading [RenderBox]
+  /// directly answers with the previous frame's width instead, which is exactly
+  /// the right answer: one frame of staleness in a decorative planet's drift is
+  /// a third of a pixel, and nobody has ever seen it.
+  double? get _fieldWidth {
+    final RenderObject? box = context.findRenderObject();
+    return box is RenderBox && box.hasSize ? box.size.width : null;
+  }
 
   // ── The view transform: what the child has done to the field, as opposed to
   // what the sky is doing on its own. Both are read by the painter and by the
@@ -337,6 +376,7 @@ class _RadarFieldState extends State<_RadarField>
               painter: RadarPainter(
                 clock: _clock,
                 orbits: _orbits,
+                backdrop: _backdrop,
                 maxLd: widget.maxLd,
                 zoom: _zoom,
                 viewRot: _viewRot,
