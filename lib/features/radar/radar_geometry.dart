@@ -124,6 +124,12 @@ class RadarGeometry {
   /// Which of them are actually drawn is [visibleRings]'s answer, not this.
   static const List<int> ringLds = <int>[1, 2, 5, 10, 20, 50];
 
+  /// The radius the Moon is drawn at, before its own 5px disc
+  /// (`index.html:836`) — it rides the 1× ring, because that ring *is* its
+  /// orbit. Zoom scales it exactly as it scales the ring, so the two can never
+  /// come apart.
+  double moonRadius({required double zoom}) => radiusFor(1) * zoom;
+
   /// The floor that keeps the closest animals off Earth (`index.html:630`).
   static const double _innerRadius = 42;
 
@@ -139,8 +145,6 @@ class RadarGeometry {
   static const double _ldCeiling = 60;
   static const double _ldHeadroom = 1.05;
 
-  static double _log10(double x) => math.log(x) / math.ln10;
-
   @override
   bool operator ==(Object other) =>
       other is RadarGeometry && other.size == size && other.maxLd == maxLd;
@@ -152,3 +156,38 @@ class RadarGeometry {
   String toString() =>
       'RadarGeometry(${size.width}×${size.height}, maxLd: $maxLd)';
 }
+
+/// How big an animal is drawn, from the real diameter of the rock it is
+/// (`index.html:846-848`).
+///
+/// **A log scale, floored and capped, and the compression is the point.** The
+/// sky spans four orders of magnitude — a 4 m pebble and a 2.4 km mountain are
+/// in the same frame — so drawing to scale would make most of the day's animals
+/// sub-pixel and one of them the whole screen. The log keeps the ordering
+/// ([emoji] rises with [diaMax] everywhere between the bounds) while the floor
+/// keeps the smallest animal big enough for a child to see and tap, and the cap
+/// stops the largest from swallowing its neighbours. The size on screen is a
+/// *hint*; `sizeLabel` and the size-comparison module are where the real answer
+/// lives.
+///
+/// [emoji] is the animal's font size and [chip] the radius of the navy token
+/// behind it. The intermediate `rad` the prototype clamps to 2.6–9 is not
+/// returned: nothing reads it but the line below it.
+///
+/// **Two of the four clamp bounds are dead, and both are ported anyway.** For
+/// any real diameter `log10(diaMax + 1) >= 0`, so `rad` can never fall below its
+/// own 2.6 floor; and `rad` is capped at 9, so `emoji` peaks at 28.8 and can
+/// never reach its 30 ceiling. Only `rad`'s cap bites (at ~5.8 km — `433 Eros`
+/// is the one rock in the sample sky that reaches it) and only `emoji`'s floor
+/// bites (at ~13 m — it is what keeps a Mouse tappable). They are kept because
+/// they are the prototype's, they cost two compares, and they are real guards on
+/// this function as a unit — the `rr < 7` ring cull's argument exactly. Tests
+/// pin that neither dead bound ever fires, so the next reader does not go
+/// looking for the input that triggers it.
+({double emoji, double chip}) chipSizeFor(double diaMax) {
+  final double rad = (2.6 + _log10(diaMax + 1) * 1.7).clamp(2.6, 9);
+  final double emoji = (rad * 3.2).clamp(15, 30);
+  return (emoji: emoji, chip: emoji * 0.72);
+}
+
+double _log10(double x) => math.log(x) / math.ln10;

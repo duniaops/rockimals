@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rockimals/data/fallback_asteroids.dart';
 import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/features/radar/radar_geometry.dart';
 
@@ -222,6 +223,118 @@ void main() {
       expect(visible, isNot(contains(50)), reason: '167 × 6.5 is way off-screen');
       for (final ring in geometry.visibleRings(zoom: 6.5)) {
         expect(ring.radius, lessThanOrEqualTo(field.longestSide));
+      }
+    });
+  });
+
+  group('chipSizeFor', () {
+    test('matches the prototype for all 14 sample rocks', () {
+      // Captured by slicing `index.html:846-848` out and `eval`-ing it over the
+      // prototype's own `FALLBACK` — not derived by hand. The sizes are what a
+      // child actually sees, and a wrong one is invisible in review: nothing
+      // throws, an animal is just quietly the wrong size.
+      const Map<String, ({double emoji, double chip})> expected =
+          <String, ({double emoji, double chip})>{
+        '2011 EW': (emoji: 21.81904789905254, chip: 15.709714487317827),
+        '2006 QV89': (emoji: 18.032194302458574, chip: 12.983179897770173),
+        '2020 SW': (emoji: 15, chip: 10.799999999999999),
+        '433 Eros': (emoji: 28.8, chip: 20.736),
+        '2004 BL86': (emoji: 23.58930768058237, chip: 16.984301530019305),
+        '2012 DA14': (emoji: 17.093544180555362, chip: 12.30735180999986),
+        '99942 Apophis': (emoji: 22.297394068305852, chip: 16.054123729180212),
+        '2015 TB145': (emoji: 23.58930768058237, chip: 16.984301530019305),
+        '2010 WC9': (emoji: 19.837955848367358, chip: 14.283328210824497),
+        '2001 FO32': (emoji: 24.824011775106012, chip: 17.87328847807633),
+        '2005 YU55': (emoji: 22.481105387053795, chip: 16.18639587867873),
+        '2019 OK': (emoji: 19.837955848367358, chip: 14.283328210824497),
+        '2018 LF16': (emoji: 20.9974509270196, chip: 15.118164667454112),
+        '2013 TX68': (emoji: 17.465952331323194, chip: 12.575485678552699),
+      };
+
+      for (final Asteroid rock in kFallbackAsteroids) {
+        final ({double emoji, double chip}) got = chipSizeFor(rock.diaMax);
+        final ({double emoji, double chip}) want = expected[rock.name]!;
+        expect(got.emoji, closeTo(want.emoji, 1e-9), reason: rock.name);
+        expect(got.chip, closeTo(want.chip, 1e-9), reason: rock.name);
+      }
+    });
+
+    test('keeps the smallest animal big enough to see and to tap', () {
+      // The 15px floor (`index.html:847`) is the reachable one, and `2020 SW` —
+      // a real 4m rock in the sample sky — is the record that reaches it. Drawn
+      // to its logarithm it would be 12px; drawn to true scale next to a 16km
+      // Eros it would be a fraction of a pixel. The floor is what makes it an
+      // animal a child can find.
+      expect(chipSizeFor(4).emoji, 15);
+      expect(chipSizeFor(0).emoji, 15);
+      // And just above it the size starts telling the truth again.
+      expect(chipSizeFor(50).emoji, greaterThan(15));
+    });
+
+    test('never lets one mountain swallow the sky', () {
+      // `rad`'s 9 cap (`index.html:846`) — the other reachable bound. `433 Eros`
+      // is 16.8km and hits it; so does a rock ten times bigger. Without it a
+      // whale would be drawn at 60px and cover its neighbours.
+      expect(chipSizeFor(16800).emoji, 28.8);
+      expect(chipSizeFor(168000).emoji, 28.8);
+    });
+
+    test('the two dead clamp bounds never fire, at any real diameter', () {
+      // Ported from the prototype and provably unreachable, so this pins *why*
+      // rather than leaving the next reader hunting for the input that triggers
+      // them — the `rr < 7` ring cull's situation exactly.
+      //
+      //  * `rad`'s 2.6 floor: `log10(dia+1) >= 0` for any `dia >= 0`, so `rad`
+      //    is already >= 2.6 before the clamp sees it.
+      //  * `emoji`'s 30 ceiling: `rad` caps at 9, so `emoji` peaks at 28.8.
+      for (double dia = 0; dia <= 100000; dia += dia < 100 ? 0.5 : 250) {
+        final double emoji = chipSizeFor(dia).emoji;
+        expect(emoji, greaterThanOrEqualTo(15));
+        expect(
+          emoji,
+          lessThanOrEqualTo(28.8),
+          reason: 'the 30 ceiling is unreachable; dia $dia',
+        );
+      }
+    });
+
+    test('the token is always smaller than the animal standing in it', () {
+      // `chip = em*0.72` (`index.html:848`) — the emoji overhangs its token,
+      // which is what makes the animal read as the subject and the token as
+      // something it is sitting in rather than a plate it is served on.
+      for (final Asteroid rock in kFallbackAsteroids) {
+        final ({double emoji, double chip}) size = chipSizeFor(rock.diaMax);
+        expect(size.chip, lessThan(size.emoji));
+        expect(size.chip, closeTo(size.emoji * 0.72, 1e-12));
+      }
+    });
+
+    test('bigger rocks are never drawn smaller', () {
+      // The ordering is the only honest thing the size on screen claims: it is a
+      // hint, not a scale (the real answer is `sizeLabel` and the size-comparison
+      // module). But a bigger rock drawn *smaller* would be a lie, and a log
+      // scale with two clamps is exactly where one could hide.
+      double last = 0;
+      for (double dia = 0; dia <= 20000; dia += 1) {
+        final double emoji = chipSizeFor(dia).emoji;
+        expect(emoji, greaterThanOrEqualTo(last), reason: 'dia $dia');
+        last = emoji;
+      }
+    });
+  });
+
+  group('moonRadius', () {
+    test('is the 1× ring, at every zoom', () {
+      // The Moon rides its own ring, so the two must scale as one thing. If they
+      // could come apart, the unit every distance on this screen is quoted in
+      // would be sitting somewhere other than where the screen says it is.
+      const RadarGeometry geometry = RadarGeometry(size: Size(390, 700), maxLd: 60);
+      for (final double zoom in <double>[0.35, 1, 2.5, 6.5]) {
+        expect(
+          geometry.moonRadius(zoom: zoom),
+          closeTo(geometry.radiusFor(1) * zoom, 1e-12),
+          reason: 'zoom $zoom',
+        );
       }
     });
   });
