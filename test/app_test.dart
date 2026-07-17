@@ -10,17 +10,18 @@ import 'package:path_provider_platform_interface/path_provider_platform_interfac
 import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/data/models/asteroid_feed.dart';
 import 'package:rockimals/features/data/providers.dart';
-import 'package:rockimals/features/shell/app_shell.dart';
+import 'package:rockimals/features/loading/loading_screen.dart';
 import 'package:rockimals/main.dart';
 
 void main() {
   // What `RockimalsApp` opens onto. It was the scaffold's placeholder, then the
-  // task-01 debug list; it is now the four-tab shell, which still shows that
-  // debug list as its Radar tab until the real radar displaces it.
-  // `app_shell_test.dart` owns which tabs exist and how they switch — all this
-  // pins is that the app opens onto the shell at all.
-  testWidgets('opens onto the app shell', (tester) async {
-    // Needs a scope: the Radar tab watches the feed. Overridden with a
+  // task-01 debug list, then the four-tab shell; it is now the loading gate,
+  // which shows "Contacting NASA…" and puts that shell up once there is a sky.
+  // `loading_screen_test.dart` owns what the gate does and `app_shell_test.dart`
+  // owns which tabs exist — all this pins is that the app opens onto the gate at
+  // all, i.e. that nothing routes around it straight to the shell.
+  testWidgets('opens onto the loading gate', (tester) async {
+    // Needs a scope: the gate watches the feed. Overridden with a
     // never-completing future rather than left to the real repository, which
     // would build a Dio and a store to answer a question about routing.
     await tester.pumpWidget(
@@ -34,7 +35,7 @@ void main() {
       ),
     );
 
-    expect(find.byType(AppShell), findsOneWidget);
+    expect(find.byType(LoadingGate), findsOneWidget);
   });
 
   group('bootstrap', () {
@@ -136,12 +137,14 @@ void main() {
 /// [WidgetTester.runAsync].
 ///
 /// The feed is overridden with a future that never completes, so these stay
-/// tests of the boot sequence. `RockimalsApp` opens onto the shell, whose Radar
-/// tab watches the feed — so without this, asking whether the store is open would
+/// tests of the boot sequence. `RockimalsApp` opens onto the loading gate, which
+/// watches the feed — so without this, asking whether the store is open would
 /// build a real Dio, fire a real request, and leave the repository's
 /// ten-second ceiling pending when the tree is disposed. A never-completing
-/// future also holds the screen on its spinner, which is exactly the state a
-/// cold launch is in at the moment these assertions look.
+/// future also holds the app on "Contacting NASA…", which is exactly the state a
+/// cold launch is in at the moment these assertions look — and the reason they
+/// pin the store rather than anything the shell shows: behind the gate, the
+/// shell does not exist yet.
 ///
 /// A `testWidgets` body runs in a fake-async zone where timers and I/O
 /// completions are the test's to pump, so a future that only completes on a real
@@ -161,9 +164,14 @@ Future<Widget> _bootstrap(WidgetTester tester) async => (await tester.runAsync(
   ),
 ))!;
 
+/// Anchored on [RockimalsApp] rather than on any screen, deliberately: it is the
+/// one widget under the scope that is there in every load state, so this keeps
+/// answering the store's question while the app in front of it changes. It used
+/// to look for the shell, which the loading gate now holds back until the sky
+/// lands — a store test failing on a routing change was the wrong coupling.
 Store _storeOf(WidgetTester tester) {
   return ProviderScope.containerOf(
-    tester.element(find.byType(AppShell)),
+    tester.element(find.byType(RockimalsApp)),
   ).read(storeProvider);
 }
 

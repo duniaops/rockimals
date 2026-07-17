@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/misc.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/features/data/providers.dart';
-import 'package:rockimals/features/shell/app_shell.dart';
+import 'package:rockimals/features/loading/loading_screen.dart';
 
 Future<void> main() async {
   // Explicit rather than left to `Hive.initFlutter()`, which calls it too:
@@ -64,10 +64,11 @@ class RockimalsApp extends StatelessWidget {
           brightness: Brightness.dark,
         ),
       ),
-      // The four-tab frame. Everything the app will ever show is a tab or
-      // something a tab opens — including the task-01 debug screen, which now
-      // sits in the Radar slot until the real radar displaces it.
-      home: const AppShell(),
+      // "Contacting NASA…", and then the four-tab frame behind it. The gate is
+      // the app's first widget for the same reason the prototype's overlay is
+      // its first element (`index.html:271`): the shell is only built once
+      // there is a sky to put in it.
+      home: const LoadingGate(),
     );
   }
 }
