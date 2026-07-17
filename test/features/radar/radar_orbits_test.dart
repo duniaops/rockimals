@@ -337,6 +337,115 @@ void main() {
     });
   });
 
+  group('RadarOrbits.hitTest', () {
+    const RadarGeometry geometry = RadarGeometry(size: Size(390, 700), maxLd: 60);
+    final RadarOrbits orbits = RadarOrbits.seed(kFallbackAsteroids);
+
+    Offset centreOf(RadarOrbit orbit, {double viewRot = 0}) =>
+        orbits.positionOf(orbit, geometry: geometry, zoom: 1, viewRot: viewRot);
+
+    RadarOrbit? hit(Offset at, {double viewRot = 0}) =>
+        orbits.hitTest(at, geometry: geometry, zoom: 1, viewRot: viewRot);
+
+    test('selects the animal a tap lands on', () {
+      final RadarOrbit target = orbits.orbits[4];
+      expect(hit(centreOf(target)), same(target));
+    });
+
+    test('answers nothing for a tap on empty space', () {
+      // Earth's own centre: every animal is held out past the 42px inner floor,
+      // so nothing can be here. This is the tap that clears the selection.
+      expect(hit(geometry.center), isNull);
+    });
+
+    test('reaches 12px past the animal, and stops', () {
+      // The margin is what makes a Mouse tappable by a fingertip much wider than
+      // it (`specs/02-live-radar.md:35`). Probed straight out from Earth so the
+      // step is a clean radial distance, and on `2015 TB145` — 625m, the biggest
+      // chip in the sample sky — because it is far enough from its neighbours
+      // that nothing else can answer instead.
+      final RadarOrbit target = orbits.orbits[7];
+      expect(target.asteroid.name, '2015 TB145');
+      final double reach = target.chipRadius + 12;
+      final Offset out = (centreOf(target) - geometry.center) /
+          (centreOf(target) - geometry.center).distance;
+
+      expect(hit(centreOf(target) + out * (reach - 0.5)), same(target));
+      expect(hit(centreOf(target) + out * (reach + 0.5)), isNull);
+    });
+
+    test('picks the nearest of two animals whose reaches overlap', () {
+      // `if(d<bd && d<max(...))` (`index.html:711`) — nearest *among* those in
+      // reach. A child aiming between two animals that overlap gets the one they
+      // were closer to, rather than whichever the list happened to hold first.
+      //
+      // A bespoke pair rather than two of the sample sky's, because the sample
+      // sky has no overlapping pair to borrow: consecutive animals are flung 61°
+      // apart, so the two closest together on the field are still 133px apart.
+      // These two are both jammed against the 42px inner floor, which is the one
+      // place on this radar where animals really do crowd each other — and the
+      // reason the floor exists at all (`specs/02-live-radar.md:53`).
+      final RadarOrbits crowded = RadarOrbits.seed(<Asteroid>[
+        _rock(missLunar: 0.01),
+        _rock(missLunar: 0.01),
+      ]);
+      final RadarOrbit first = crowded.orbits[0];
+      final RadarOrbit second = crowded.orbits[1];
+      Offset at(RadarOrbit o) =>
+          crowded.positionOf(o, geometry: geometry, zoom: 1, viewRot: 0);
+      RadarOrbit? hitCrowded(Offset p) =>
+          crowded.hitTest(p, geometry: geometry, zoom: 1, viewRot: 0);
+
+      final Offset a = at(first);
+      final Offset b = at(second);
+      final Offset between = Offset.lerp(a, b, 0.5)!;
+
+      expect(
+        (a - b).distance,
+        lessThan(first.chipRadius + 12 + (second.chipRadius + 12)),
+        reason: 'the premise: their reaches must actually overlap',
+      );
+      // Just off the midpoint, either side: both animals are in reach of both
+      // probes, so only "nearest" can separate them.
+      expect(hitCrowded(Offset.lerp(between, a, 0.1)!), same(first));
+      expect(hitCrowded(Offset.lerp(between, b, 0.1)!), same(second));
+    });
+
+    test('follows the animals when the field is spun', () {
+      // The hit test and the painter must agree about where an animal is, or a
+      // child drags the sky round and then taps a ghost. Both ask `positionOf`,
+      // which is the point of it being a pure function of the same three inputs.
+      const double turn = 1.9;
+      final RadarOrbit target = orbits.orbits[4];
+
+      expect(hit(centreOf(target, viewRot: turn), viewRot: turn), same(target));
+      expect(
+        hit(centreOf(target), viewRot: turn),
+        isNot(same(target)),
+        reason: 'where it used to be is not where it is',
+      );
+    });
+
+    test('never needs its own 20px floor — the smallest animal is bigger', () {
+      // `max(20, chipRadius+12)` (`index.html:711`), and the 20 is dead: the
+      // emoji floor of 15 makes the smallest chip 10.8, so the smallest reach
+      // any animal can have is 22.8. Ported anyway, as the prototype's, exactly
+      // like `visibleRings`' 7px cull and two of `chipSizeFor`'s clamp bounds —
+      // and pinned here so the next reader does not go hunting for the animal
+      // small enough to need it.
+      //
+      // Swept over the whole diameter range rather than the sample sky, since
+      // the claim is about the function and not about today's rocks.
+      for (double dia = 0; dia <= 6000; dia += 0.5) {
+        final ({double emoji, double chip}) size = chipSizeFor(dia);
+        expect(
+          size.chip + 12,
+          greaterThan(20),
+          reason: 'a ${dia}m animal would have made the floor bite',
+        );
+      }
+    });
+  });
 }
 
 /// An angle folded into (-π, π], so two bearings either side of due west can be

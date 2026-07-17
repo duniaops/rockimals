@@ -1,9 +1,13 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/data/models/asteroid_feed.dart';
 import 'package:rockimals/features/data/providers.dart';
+import 'package:rockimals/features/radar/radar_geometry.dart';
+import 'package:rockimals/features/radar/radar_painter.dart';
 import 'package:rockimals/features/radar/radar_view.dart';
 
 /// The wiring between the sky and the canvas: which list the radar is scaled
@@ -63,6 +67,378 @@ void main() {
 
     expect(tester.takeException(), isNull);
   });
+
+  group('drag', () {
+    testWidgets('spins the field by the angle the finger travelled', (
+      tester,
+    ) async {
+      // The rotation is the *change* in the finger's bearing from Earth
+      // (`index.html:686-687`), not its distance — so a drag round the field
+      // keeps the animal under the fingertip, and a drag straight at Earth does
+      // nothing at all. Here: due east of Earth round to due south is a clean
+      // quarter turn, whatever route the finger takes to get there.
+      await _mount(tester, _sky(<double>[3]));
+      expect(_view(tester).viewRot, 0);
+
+      final Offset centre = _centre(tester);
+      await tester.dragFrom(centre + const Offset(120, 0), const Offset(-120, 120));
+      await tester.pump();
+
+      expect(_view(tester).viewRot, closeTo(math.pi / 2, 1e-6));
+    });
+
+    testWidgets('accumulates, rather than snapping back between drags', (
+      tester,
+    ) async {
+      // Two quarter-turns is a half-turn. `viewRot += ang - dragAng`
+      // (`index.html:687`) — each drag starts from wherever the last one left
+      // the sky, because letting go is not an event the field knows about.
+      await _mount(tester, _sky(<double>[3]));
+      final Offset centre = _centre(tester);
+
+      await tester.dragFrom(centre + const Offset(120, 0), const Offset(-120, 120));
+      await tester.pump();
+      await tester.dragFrom(centre + const Offset(0, 120), const Offset(-120, -120));
+      await tester.pump();
+
+      expect(_view(tester).viewRot, closeTo(math.pi, 1e-6));
+    });
+
+    testWidgets('leaves the sky alone: it moves the view, not the animals', (
+      tester,
+    ) async {
+      // The drag is a camera, and this is the assertion that says so. If a drag
+      // ever wrote into an animal's own phase, the sky would keep orbiting from
+      // wherever the child let go and the ⤢ button could not put it back by
+      // setting one number to zero.
+      await _mount(tester, _sky(<double>[3]));
+      final double phase = _view(tester).orbits.orbits.single.phase;
+
+      await tester.dragFrom(_centre(tester) + const Offset(120, 0), const Offset(-120, 120));
+      await tester.pump();
+
+      expect(_view(tester).orbits.orbits.single.phase, phase);
+    });
+  });
+
+  group('pinch', () {
+    testWidgets('zooms by how much the fingers spread', (tester) async {
+      // `zoom *= nd/pinchDist` (`index.html:689`) — the field follows the
+      // fingers, so pulling them twice as far apart makes everything twice as
+      // far apart.
+      await _mount(tester, _sky(<double>[3]));
+      expect(_view(tester).zoom, 1);
+
+      await _pinch(tester, from: 100, to: 200);
+
+      expect(_view(tester).zoom, closeTo(2, 1e-6));
+    });
+
+    testWidgets('cannot be flung past the frame, in either direction', (
+      tester,
+    ) async {
+      // `clamp(…, 0.35, 6.5)` (`index.html:689`). The clamp is not tidiness: a
+      // child who pinches the sky down to nothing, or blows it up until every
+      // animal is off the edge, is left holding a screen with nothing on it and
+      // no way to know what to do — `specs/02-live-radar.md:34` asks for a range
+      // the content cannot leave.
+      await _mount(tester, _sky(<double>[3]));
+
+      await _pinch(tester, from: 8, to: 300); // ×37.5
+      expect(_view(tester).zoom, 6.5);
+
+      await _pinch(tester, from: 300, to: 8); // ÷37.5
+      expect(_view(tester).zoom, 0.35);
+    });
+
+    testWidgets('survives two fingers landing on the same spot', (tester) async {
+      // `if(Radar.pinchDist)` (`index.html:689`) skips a zero gap as well as a
+      // null one, and the zero is reachable: two fingertips can be reported at
+      // the same point. Without the guard the first move divides by it, and a
+      // `zoom` of Infinity or NaN is a radar that goes blank and never comes
+      // back — there is no gesture that can undo a NaN.
+      await _mount(tester, _sky(<double>[3]));
+
+      await _pinch(tester, from: 0, to: 200);
+
+      // The first move is skipped as the gap it would have been measured
+      // against, so the zoom is what the *second* move asked for, and it is a
+      // real number.
+      expect(_view(tester).zoom, closeTo(2, 1e-6));
+    });
+
+    testWidgets('a finger lifting while another is still down is not a tap', (
+      tester,
+    ) async {
+      // `Radar.pointers.size===1` at the up (`index.html:691`) — the clause that
+      // stops a two-finger gesture selecting an animal halfway through itself.
+      // A child pinching with one fingertip resting on an animal lifts the other
+      // finger first; that release must not be read as having tapped it.
+      //
+      // **The order here is the whole test, and the obvious arrangement proves
+      // nothing.** The hit is tested at the *last* down position
+      // (`index.html:693`), so the animal has to be the second finger down and
+      // the first one lifted — otherwise the tap is answered at an empty spot,
+      // comes back null, and the test passes just as happily with the clause
+      // deleted. (It did, until a mutation said so.)
+      await _mount(tester, _sky(<double>[3]));
+      final Offset animal = _animalAt(tester);
+
+      // Towards Earth: the animal is out on the right of the field and the zoom
+      // buttons are further right still, so a finger placed that way would land
+      // on a button and never reach the radar at all.
+      final TestGesture resting =
+          await tester.startGesture(animal - const Offset(40, 0));
+      final TestGesture onAnimal = await tester.startGesture(animal);
+
+      await resting.up();
+      await tester.pump();
+      expect(_view(tester).selected, isNull);
+
+      // Lifted past the tap window, so this release cannot select either and the
+      // assertion above stays the only thing being read.
+      await onAnimal.up(timeStamp: const Duration(milliseconds: 400));
+      await tester.pump();
+      expect(_view(tester).selected, isNull);
+    });
+  });
+
+  group('the zoom buttons', () {
+    testWidgets('step in and out by the prototype’s own factors', (tester) async {
+      // ×1.45 and ×0.69 (`index.html:697-698`), which are near-inverses — so a
+      // child who taps ＋ and then − is back where they started rather than
+      // slightly adrift.
+      await _mount(tester, _sky(<double>[3]));
+
+      await tester.tap(find.bySemanticsLabel('Zoom in'));
+      await tester.pump();
+      expect(_view(tester).zoom, closeTo(1.45, 1e-9));
+
+      await tester.tap(find.bySemanticsLabel('Zoom out'));
+      await tester.pump();
+      expect(_view(tester).zoom, closeTo(1.0005, 1e-9));
+    });
+
+    testWidgets('hold the same clamp the fingers do', (tester) async {
+      await _mount(tester, _sky(<double>[3]));
+
+      for (int i = 0; i < 10; i++) {
+        await tester.tap(find.bySemanticsLabel('Zoom in'));
+        await tester.pump();
+      }
+      expect(_view(tester).zoom, 6.5);
+
+      for (int i = 0; i < 20; i++) {
+        await tester.tap(find.bySemanticsLabel('Zoom out'));
+        await tester.pump();
+      }
+      expect(_view(tester).zoom, 0.35);
+    });
+
+    testWidgets('⤢ puts back the rotation as well as the zoom', (tester) async {
+      // `{Radar.zoom=1; Radar.viewRot=0;}` (`index.html:699`) — both, and this
+      // is the whole reason the button is worth having. A child who has spun the
+      // field until they cannot find Earth needs one control that gives them
+      // back the sky they opened the app to; a reset that fixed only the zoom
+      // would leave them exactly as lost.
+      await _mount(tester, _sky(<double>[3]));
+      await tester.dragFrom(_centre(tester) + const Offset(120, 0), const Offset(-120, 120));
+      await _pinch(tester, from: 100, to: 300);
+      await tester.pump();
+      expect(_view(tester).viewRot, isNot(0));
+      expect(_view(tester).zoom, isNot(1));
+
+      await tester.tap(find.bySemanticsLabel('Reset the view'));
+      await tester.pump();
+
+      expect(_view(tester).viewRot, 0);
+      expect(_view(tester).zoom, 1);
+    });
+
+    testWidgets('take their own taps rather than the field underneath', (
+      tester,
+    ) async {
+      // The buttons sit on top of a [Listener] that treats every tap on empty
+      // space as "deselect". If a tap on ＋ reached both, zooming in would
+      // silently throw away the animal the child was looking at.
+      await _mount(tester, _sky(<double>[3]));
+      await tester.tapAt(_animalAt(tester));
+      await tester.pump();
+      expect(_view(tester).selected, isNotNull, reason: 'the premise');
+
+      await tester.tap(find.bySemanticsLabel('Zoom in'));
+      await tester.pump();
+
+      expect(_view(tester).selected, isNotNull);
+    });
+  });
+
+  group('tap', () {
+    testWidgets('selects the animal under it', (tester) async {
+      await _mount(tester, _sky(<double>[3]));
+
+      await tester.tapAt(_animalAt(tester));
+      await tester.pump();
+
+      expect(_view(tester).selected?.name, '2026 LD3.0');
+    });
+
+    testWidgets('finds an animal the field has been spun away from', (
+      tester,
+    ) async {
+      // The hit test and the painter have to agree about where an animal *is*
+      // after a drag, not where it was seeded. They ask the same function, and
+      // this is what says so from the outside.
+      await _mount(tester, _sky(<double>[3]));
+      await tester.dragFrom(_centre(tester) + const Offset(120, 0), const Offset(-120, 120));
+      await tester.pump();
+
+      await tester.tapAt(_animalAt(tester));
+      await tester.pump();
+
+      expect(_view(tester).selected?.name, '2026 LD3.0');
+    });
+
+    testWidgets('on empty space clears the selection', (tester) async {
+      // `else {Radar.selected=null; …}` (`index.html:712`). Tapping nothing is
+      // how a child puts an animal down — the one gesture that closes the card
+      // without hunting for a ✕.
+      await _mount(tester, _sky(<double>[3]));
+      await tester.tapAt(_animalAt(tester));
+      await tester.pump();
+      expect(_view(tester).selected, isNotNull, reason: 'the premise');
+
+      // Earth's own centre: the 42px inner floor means no animal can be here.
+      await tester.tapAt(_centre(tester));
+      await tester.pump();
+
+      expect(_view(tester).selected, isNull);
+    });
+
+    testWidgets('a drag across an animal spins the sky instead of selecting it', (
+      tester,
+    ) async {
+      // `moved < 8` (`index.html:691`). Without it every drag that happened to
+      // start on an animal would also select it, and a child who spins the field
+      // would find the card popping up over and over.
+      await _mount(tester, _sky(<double>[3]));
+
+      // Sideways across the animal, not out through it: the animal sits due east
+      // of Earth, so a drag *along* that line changes the finger's bearing by
+      // nothing and would spin the field by nothing — correctly, and uselessly
+      // for this test.
+      final TestGesture gesture = await tester.startGesture(_animalAt(tester));
+      await gesture.moveBy(const Offset(0, 9));
+      await gesture.up();
+      await tester.pump();
+
+      expect(_view(tester).selected, isNull);
+      expect(_view(tester).viewRot, isNot(0), reason: 'it was a drag, so it spun');
+    });
+
+    testWidgets('a wander that comes back to where it started is still a drag', (
+      tester,
+    ) async {
+      // `moved` sums |dx|+|dy| per move rather than measuring the straight line
+      // home (`index.html:683`), so this 12px round trip is over budget even
+      // though it ends 2px from where it began. That is the prototype's rule and
+      // it is the right one: the hand was dragging.
+      await _mount(tester, _sky(<double>[3]));
+
+      final TestGesture gesture = await tester.startGesture(_animalAt(tester));
+      await gesture.moveBy(const Offset(5, 0));
+      await gesture.moveBy(const Offset(-5, 0));
+      await gesture.moveBy(const Offset(2, 0));
+      await gesture.up();
+      await tester.pump();
+
+      expect(_view(tester).selected, isNull);
+    });
+
+    testWidgets('a 4px nudge still selects — fingers are not styluses', (
+      tester,
+    ) async {
+      // The other side of the same threshold, and the side that matters for a
+      // five-year-old: a tap that slides a little is still a tap.
+      await _mount(tester, _sky(<double>[3]));
+
+      final TestGesture gesture = await tester.startGesture(_animalAt(tester));
+      await gesture.moveBy(const Offset(2, 2));
+      await gesture.up();
+      await tester.pump();
+
+      expect(_view(tester).selected, isNotNull);
+    });
+
+    testWidgets('a finger that rests too long is not a tap', (tester) async {
+      // `< 350ms` (`index.html:691`) — the other half of the rule, and the one
+      // that stops a thinking finger resting on an animal from selecting it on
+      // release.
+      await _mount(tester, _sky(<double>[3]));
+      final Offset animal = _animalAt(tester);
+
+      final TestGesture held = await tester.startGesture(animal);
+      await held.up(timeStamp: const Duration(milliseconds: 351));
+      await tester.pump();
+      expect(_view(tester).selected, isNull);
+
+      // And a hair under the same threshold does select, so the test is pinning
+      // the boundary rather than just the far side of it.
+      final TestGesture quick = await tester.startGesture(animal);
+      await quick.up(timeStamp: const Duration(milliseconds: 349));
+      await tester.pump();
+      expect(_view(tester).selected, isNotNull);
+    });
+  });
+}
+
+/// Earth, and the centre of the field.
+Offset _centre(WidgetTester tester) {
+  final Size size = tester.getSize(_radarCanvas());
+  return Offset(size.width / 2, size.height * 0.46);
+}
+
+/// Where the sole animal of a one-rock sky currently is.
+///
+/// Asked of the same [RadarOrbits] the painter is drawing rather than computed
+/// here, so a test taps the animal a child would see rather than one this file
+/// believes in.
+Offset _animalAt(WidgetTester tester) {
+  final RadarPainter painter = _view(tester);
+  final Size size = tester.getSize(_radarCanvas());
+  return painter.orbits.positionOf(
+    painter.orbits.orbits.single,
+    geometry: RadarGeometry(size: size, maxLd: painter.maxLd),
+    zoom: painter.zoom,
+    viewRot: painter.viewRot,
+  );
+}
+
+/// Two fingers, [from] apart, spread or squeezed to [to] apart, centred on the
+/// field.
+///
+/// Both move, symmetrically, because the prototype measures only the gap between
+/// them (`radarPinch`, `index.html:704`) — a real pinch that also slides is the
+/// same zoom.
+///
+/// **Vertical, and that is not arbitrary.** The zoom buttons run down the right
+/// edge of the field and take their own taps, so a wide horizontal pinch puts a
+/// fingertip on ＋ and the radar never sees it — which looks exactly like a
+/// broken clamp from the outside. A pinch up the middle is clear of them.
+Future<void> _pinch(
+  WidgetTester tester, {
+  required double from,
+  required double to,
+}) async {
+  final Offset centre = _centre(tester);
+  final TestGesture top = await tester.startGesture(centre - Offset(0, from / 2));
+  final TestGesture bottom = await tester.startGesture(centre + Offset(0, from / 2));
+
+  await top.moveTo(centre - Offset(0, to / 2));
+  await bottom.moveTo(centre + Offset(0, to / 2));
+  await top.up();
+  await bottom.up();
+  await tester.pump();
 }
 
 Future<void> _mount(WidgetTester tester, AsteroidFeed feed) async {
@@ -82,8 +458,25 @@ Future<void> _mount(WidgetTester tester, AsteroidFeed feed) async {
   await tester.pump();
 }
 
+/// The radar's own canvas.
+///
+/// **Named by its painter rather than found by position.** This used to be
+/// `find.byType(CustomPaint).last`, which was true right up until the field grew
+/// its zoom buttons: a `Material` paints its own ink through a `CustomPaint`, so
+/// `.last` silently became a button's and every assertion below started reading
+/// an empty canvas.
+Finder _radarCanvas() => find.byWidgetPredicate(
+  (Widget w) => w is CustomPaint && w.painter is RadarPainter,
+);
+
 RenderBox _painter(WidgetTester tester) =>
-    tester.renderObject<RenderBox>(find.byType(CustomPaint).last);
+    tester.renderObject<RenderBox>(_radarCanvas());
+
+/// What the view is currently telling the painter to draw. The painter suite
+/// owns what each of these *looks* like; this suite owns whether a child's
+/// fingers can set them.
+RadarPainter _view(WidgetTester tester) =>
+    tester.widget<CustomPaint>(_radarCanvas()).painter! as RadarPainter;
 
 /// Matches a `drawCircle` whose radius satisfies [radius] — Earth's glow, the
 /// one thing on this layer that moves.

@@ -199,6 +199,63 @@ class RadarOrbits {
             geometry.moonRadius(zoom: zoom);
   }
 
+  /// The animal under a tap at [at], or null for empty space — `radarHit`
+  /// (`index.html:707-713`).
+  ///
+  /// **Nearest wins, but only among animals within their own reach**: an animal
+  /// is a candidate when the tap is inside `max(20, chipRadius + 12)` of it, and
+  /// of the candidates the closest is selected. So a tap that lands between two
+  /// overlapping animals picks one rather than neither, and a tap in open space
+  /// picks nothing.
+  ///
+  /// **The reach is bigger than the animal on purpose.** The 12px of margin is
+  /// what makes a Mouse tappable by a five-year-old with a fingertip much wider
+  /// than the 21px token it is aiming at (`specs/02-live-radar.md:35`, "an easy
+  /// tap radius").
+  ///
+  /// **The 20px floor is dead, and it is ported anyway** — the third time on this
+  /// screen (`RadarGeometry.visibleRings`' 7px cull and two of `chipSizeFor`'s
+  /// four clamp bounds are the others). [RadarOrbit.chipRadius] is `emojiSize *
+  /// 0.72` over an emoji floored at 15, so the smallest reach any animal can have
+  /// is `10.8 + 12 = 22.8` and the `max` never picks its own first argument. It
+  /// costs one compare, it is the prototype's, and a test pins that it never
+  /// fires so the next reader does not go hunting for the animal small enough to
+  /// need it.
+  ///
+  /// **Positions are recomputed here rather than read back from the last frame.**
+  /// The prototype hit-tests against `a._sx/_sy/_sr`, which `radarDraw` writes
+  /// into every asteroid as it paints them (`index.html:850`), because the draw
+  /// had just computed them anyway. This port keeps the answer a pure function of
+  /// the same inputs the painter uses: it costs one cosine per animal on a tap
+  /// (not per frame), and it means a tap cannot be answered by a stale frame or
+  /// by a cache the painter forgot to fill. The one behaviour that rides on the
+  /// prototype's cache is `if(a._sx==null) return` — an animal filtered off the
+  /// field is unhittable (`index.html:843`, `710`). Nothing filters yet; the
+  /// toggle-chips item that adds the Close-flybys filter owns making the two
+  /// agree, and it has to, or a child taps a hidden animal.
+  RadarOrbit? hitTest(
+    Offset at, {
+    required RadarGeometry geometry,
+    required double zoom,
+    required double viewRot,
+  }) {
+    RadarOrbit? best;
+    double bestDistance = double.infinity;
+
+    for (final RadarOrbit orbit in orbits) {
+      final double distance =
+          (positionOf(orbit, geometry: geometry, zoom: zoom, viewRot: viewRot) -
+                  at)
+              .distance;
+      if (distance < bestDistance &&
+          distance < math.max(_minTapRadius, orbit.chipRadius + _tapMargin)) {
+        bestDistance = distance;
+        best = orbit;
+      }
+    }
+
+    return best;
+  }
 
   /// 0.32 rad/s (`index.html:734`) — a lap in ~19.6 seconds.
   ///
@@ -211,4 +268,11 @@ class RadarOrbits {
   /// `min(0.05, …)` (`index.html:730`) — the longest step the sky will take.
   static const double _maxFrame = 0.05;
 
+  /// The smallest reach a tap is ever given (`index.html:711`). Dead — see
+  /// [hitTest].
+  static const double _minTapRadius = 20;
+
+  /// How far outside its own token an animal answers a tap
+  /// (`index.html:711`).
+  static const double _tapMargin = 12;
 }
