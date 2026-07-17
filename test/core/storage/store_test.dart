@@ -276,4 +276,37 @@ void main() {
       expect(store.follows, <String>['2011 EW', '433 Eros']);
     });
   });
+
+  group('the feed cache entry', () {
+    // The store holds this as one opaque string and knows nothing else about it
+    // — `feed_cache_test.dart` owns the format and every rule. What belongs here
+    // is only that the box keeps a string and gives it back after a restart,
+    // which is the disk half the whole cache exists for.
+
+    test('starts absent, which is how a fresh install misses', () {
+      expect(store.cachedFeed, isNull);
+    });
+
+    test('survives a restart', () async {
+      await store.setCachedFeed('{"window":"2026-07-15 → 2026-07-17"}');
+
+      expect((await restart()).cachedFeed, '{"window":"2026-07-15 → 2026-07-17"}');
+    });
+
+    test('is overwritten whole, never merged', () async {
+      // One `put` of one string is what makes the entry atomic: the key, the
+      // timestamp, and the payload cannot be interrupted halfway and leave a new
+      // window label over old asteroids. Nothing here appends.
+      await store.setCachedFeed('first');
+      await store.setCachedFeed('second');
+
+      expect((await restart()).cachedFeed, 'second');
+    });
+
+    test('a wrongly-typed entry reads as absent rather than throwing', () async {
+      await Hive.box<Object>(Store.boxName).put('aw_feedcache', 42);
+
+      expect(store.cachedFeed, isNull);
+    });
+  });
 }

@@ -1,22 +1,32 @@
-/// The app's one persistent store: everything Rockimals remembers about a child
-/// between launches, and nothing else.
+/// The app's one persistent store: everything Rockimals remembers between
+/// launches.
 ///
 /// A port of the prototype's `localStorage` layer (`index.html:954-955,
 /// 956-999`) onto Hive, plus the four fields the prototype never had a home for
 /// (follows, the day streak, and the two accessibility toggles — plan decisions
-/// 3, 4 and 7).
+/// 3, 4 and 7), plus [cachedFeed].
 ///
 /// **This is a field store, deliberately.** It reads and writes values; it owns
 /// no rules. "Points never decrease" (spec 05), "the streak counts consecutive
 /// days played" (decision 3), and "a badge is earned once its condition holds"
 /// all belong to the features that own those behaviours — the store would only
-/// be a second place for them to disagree.
+/// be a second place for them to disagree. [cachedFeed] is held to the same
+/// line: the store keeps the string, and `CachingFeedSource` owns every rule
+/// about what is in it and when it has gone off.
 ///
 /// **Nothing here is personal data** and nothing may become so: `CLAUDE.md:60`
 /// forbids collecting anything that identifies a child. Every field below is a
-/// score, a toggle, or an asteroid designation the child chose to follow. There
-/// is no name, no device id, no timestamp finer than a calendar day, and no
-/// network path out of this box.
+/// score, a toggle, an asteroid designation the child chose to follow, or — in
+/// [cachedFeed]'s case — a copy of what NASA published to the whole world.
+/// There is no name, no device id, no timestamp finer than a calendar day, and
+/// no network path out of this box.
+///
+/// One thing worth saying out loud, because the class summary used to promise
+/// otherwise: [cachedFeed] is **not** about a child at all. It is a disposable
+/// copy of a public feed, and it is the one field here that could be deleted
+/// without taking anything away from them. It lives in this box regardless,
+/// because a second box would mean a second open on the launch path and a
+/// second thing that can fail there — see [boxName].
 library;
 
 import 'package:hive/hive.dart';
@@ -76,6 +86,7 @@ class Store {
   static const String _lastPlayedDateKey = 'aw_lastplayed';
   static const String _reducedMotionKey = 'aw_motion';
   static const String _littleKidsModeKey = 'aw_littlekids';
+  static const String _cachedFeedKey = 'aw_feedcache';
 
   // --- Rewards ---------------------------------------------------------------
 
@@ -242,6 +253,32 @@ class Store {
 
   Future<void> setLittleKidsMode(bool value) =>
       _box.put(_littleKidsModeKey, value);
+
+  // --- The feed cache (plan decision 13) -------------------------------------
+
+  /// The last window NASA answered, as one opaque string, or null when nothing
+  /// has been cached yet — what lets an offline launch show a real sky instead
+  /// of the sample set.
+  ///
+  /// **Opaque on purpose, and this is the field-store line being held.** The
+  /// store does not know that this is JSON, that it holds asteroids, or when it
+  /// goes off; `CachingFeedSource` (`lib/data/feed_cache.dart`) owns the format
+  /// and every rule about it. Typing this field would put the cache's shape in
+  /// two places, and the store is the one that could not tell you when they had
+  /// drifted apart.
+  ///
+  /// **One field rather than the obvious three** (a window key, a timestamp, a
+  /// payload), and that is not tidiness — it is the only shape that cannot tear.
+  /// Hive has no transaction across separate `put`s, so three fields can be
+  /// interrupted after two: a launch that died between writing the key and
+  /// writing the payload would leave the *new* window key labelling the *old*
+  /// asteroids, and the next launch would serve a stale sky believing it was
+  /// today's, with nothing throwing and nothing to notice. One `put` of one
+  /// string is atomic, so the entry is either wholly the old one or wholly the
+  /// new one.
+  String? get cachedFeed => _read<String>(_cachedFeedKey);
+
+  Future<void> setCachedFeed(String value) => _box.put(_cachedFeedKey, value);
 
   // --- Lifecycle -------------------------------------------------------------
 
