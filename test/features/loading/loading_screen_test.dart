@@ -276,7 +276,12 @@ Widget _app(Future<AsteroidFeed> feed, {bool capture = false}) {
   return ProviderScope(
     // The override list is left to inference: Riverpod 3 does not export the
     // `Override` type, so there is no name to annotate it with.
-    overrides: [asteroidFeedProvider.overrideWith((Ref ref) => feed)],
+    overrides: [
+      asteroidFeedProvider.overrideWith((Ref ref) => feed),
+      // Once the gate lands on the shell, the radar's home overlay reads the day
+      // streak; standing a number in front of it keeps this suite off a Hive box.
+      dayStreakProvider.overrideWithValue(0),
+    ],
     child: MaterialApp(
       home: capture ? const RepaintBoundary(child: gate) : gate,
     ),

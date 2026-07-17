@@ -3,8 +3,10 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rockimals/core/animals/animal_system.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/data/models/asteroid.dart';
+import 'package:rockimals/data/models/asteroid_feed.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/radar/planet_backdrop.dart';
 import 'package:rockimals/features/radar/radar_clock.dart';
@@ -428,7 +430,11 @@ class _RadarFieldState extends State<_RadarField>
             ),
           ),
         ),
-        _RadarChips(layers: _layers, onToggle: _toggle),
+        // The home overlay: the wordmark and streak, the stat strip, the toggle
+        // chips restacked into its flow (`index.html:278-282`), and the hint
+        // along the bottom. It reads static providers and does not animate, so
+        // it stays off the canvas's per-frame `RepaintBoundary`.
+        _HomeOverlay(layers: _layers, onToggle: _toggle),
         _ZoomControls(
           playing: _playing,
           onPlayPause: _togglePlay,
@@ -441,14 +447,14 @@ class _RadarFieldState extends State<_RadarField>
   }
 }
 
-/// The row of toggle chips across the top-left of the field (`.rchips` /
-/// `radarChips()`, `index.html:281`, `669-672`).
+/// The row of toggle chips (`.rchips` / `radarChips()`, `index.html:281`,
+/// `669-672`).
 ///
-/// **Laid over the top-left corner with room kept for the zoom column on the
-/// right** — `top:10px; left:10px; right:56px` (`index.html:173`), so a chip and
-/// a ＋ never land on the same pixel. When the home overlay lands (its own item)
-/// the prototype restacks these into its flow (`#view-today .rchips`,
-/// `index.html:198`); until then this is where they live.
+/// **Now the third row of the home overlay's top column**, below the wordmark
+/// and the stat strip, which is where the prototype restacks them for the home
+/// view (`#view-today .rchips{position:static}`, `index.html:198`). Until the
+/// overlay landed they were a positioned top-left overlay of their own; that
+/// position was always a placeholder for this one.
 ///
 /// A [Wrap] rather than a [Row] because five chips plus their padding can be
 /// wider than a narrow phone, and the prototype's `flex-wrap:wrap`
@@ -461,21 +467,339 @@ class _RadarChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Positioned(
-      top: 10,
-      left: 10,
-      right: 56,
-      child: Wrap(
-        spacing: _chipGap,
-        runSpacing: _chipGap,
+    return Wrap(
+      spacing: _chipGap,
+      runSpacing: _chipGap,
+      children: <Widget>[
+        for (final RadarLayer layer in RadarLayer.values)
+          _RadarChip(
+            label: layer.label,
+            on: layers.isOn(layer),
+            onTap: () => onToggle(layer),
+          ),
+      ],
+    );
+  }
+}
+
+/// The home overlay laid over the radar (`.homeTop` + `.rhint2`,
+/// `index.html:278-287`): the brand row, the stat strip, and the toggle chips
+/// stacked down the top-left, with the drag/pinch/tap hint along the bottom.
+///
+/// A [ConsumerWidget] because the strip and the flame are data — today's
+/// animals, the closest approach, the close-flyby count, and the day streak.
+/// It reads them behind the loading gate, so [AsyncValue.requireValue] is safe
+/// for the same reason [RadarView] uses it: nothing builds this until there is a
+/// sky (see the class doc on [RadarView]).
+///
+/// It carries the chips' [layers] and [onToggle] through rather than reading
+/// them, because those are the field's own mutable state, not the feed's — the
+/// same split [RadarView] keeps between what the sky is doing and what the child
+/// has done to the view.
+class _HomeOverlay extends ConsumerWidget {
+  const _HomeOverlay({required this.layers, required this.onToggle});
+
+  final RadarLayers layers;
+  final ValueChanged<RadarLayer> onToggle;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final List<Asteroid> today = ref.watch(todayListProvider).requireValue;
+    final FeedProvenance provenance = ref.watch(provenanceProvider).requireValue;
+    final int streak = ref.watch(dayStreakProvider);
+
+    return SafeArea(
+      // The bottom inset is the nav bar's, and the Scaffold above already keeps
+      // the radar body clear of it; taking it again here would float the hint a
+      // whole nav-bar's height off the bottom.
+      bottom: false,
+      child: Stack(
         children: <Widget>[
-          for (final RadarLayer layer in RadarLayer.values)
-            _RadarChip(
-              label: layer.label,
-              on: layers.isOn(layer),
-              onTap: () => onToggle(layer),
+          Positioned(
+            top: _homeTopGap,
+            left: _homeSideGap,
+            right: _homeSideGap,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                _BrandRow(streak: streak),
+                const SizedBox(height: _homeRowGap),
+                _StatStrip(today: today, provenance: provenance),
+                const SizedBox(height: _homeRowGap),
+                _RadarChips(layers: layers, onToggle: onToggle),
+              ],
             ),
+          ),
+          const Positioned(
+            left: 0,
+            right: 0,
+            bottom: _hintBottomGap,
+            child: _RadarHint(),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+/// The brand row: the sun dot, the **ROCKIMALS** wordmark (plan decision 5 — not
+/// the prototype's `ASTEROID WATCH`, `index.html:279`), and the streak pill
+/// pushed to the far end.
+class _BrandRow extends StatelessWidget {
+  const _BrandRow({required this.streak});
+
+  final int streak;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        const _BrandDot(),
+        const SizedBox(width: 9),
+        const Text(
+          'ROCKIMALS',
+          style: TextStyle(
+            // `.brandrow b` — 14px, `letter-spacing:1px`, bold, on the body
+            // `--ink` (`index.html:41`, `9`).
+            color: Palette.ink,
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1,
+            height: 1,
+          ),
+        ),
+        const Spacer(),
+        _StreakPill(streak: streak),
+      ],
+    );
+  }
+}
+
+/// The little sun beside the wordmark (`.dot`, `index.html:40`) — a 24px orange
+/// orb with the prototype's off-centre radial gradient and a soft glow. Purely
+/// decorative, so its colours stay local literals rather than joining [Palette]
+/// (the same membership test the palette's own doc sets out).
+class _BrandDot extends StatelessWidget {
+  const _BrandDot();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 24,
+      height: 24,
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        // `radial-gradient(circle at 32% 30%, #ffd9a8, #b5651d 55%, #6b3a12)`.
+        gradient: RadialGradient(
+          center: Alignment(-0.36, -0.4),
+          radius: 0.9,
+          colors: <Color>[Color(0xFFFFD9A8), Color(0xFFB5651D), Color(0xFF6B3A12)],
+          stops: <double>[0, 0.55, 1],
+        ),
+        // `box-shadow:0 0 16px rgba(232,87,31,.6)` — `--accent` at .6 (0x99).
+        boxShadow: <BoxShadow>[
+          BoxShadow(color: Color(0x99E8571F), blurRadius: 16),
+        ],
+      ),
+    );
+  }
+}
+
+/// The streak flame (`.streakpill` / `#homeStreak`, `index.html:42`, `279`).
+///
+/// Shows the persisted consecutive-days-played count (plan decision 3), which is
+/// **not** the prototype's demo `streak`: that seeded at 3 and counted Challenge
+/// reveals. A fresh install's first launch reads `🔥 1`, its store default of 0
+/// having been advanced by the launch itself ([DayStreak]).
+class _StreakPill extends StatelessWidget {
+  const _StreakPill({required this.streak});
+
+  final int streak;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: streak == 1 ? '1 day streak' : '$streak day streak',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        decoration: BoxDecoration(
+          color: Palette.card,
+          borderRadius: const BorderRadius.all(Radius.circular(20)),
+          border: Border.all(color: Palette.line),
+        ),
+        child: ExcludeSemantics(
+          child: Text(
+            '🔥 $streak',
+            style: const TextStyle(
+              color: Palette.accent2,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              height: 1,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The slim stat strip (`.homeStrip` / `updateHomeOverlay`, `index.html:190`,
+/// `450-458`): three chips over `todayList` — the one `todayList`-based surface
+/// on this screen (plan decision 9) — for the animals visiting, the closest
+/// approach, and the close-flyby count.
+class _StatStrip extends StatelessWidget {
+  const _StatStrip({required this.today, required this.provenance});
+
+  final List<Asteroid> today;
+  final FeedProvenance provenance;
+
+  @override
+  Widget build(BuildContext context) {
+    // `[...todayList].sort(...)[0]` (`index.html:452`) — the nearest approach in
+    // today's sky. `<=` keeps the earlier rock on a tie, matching a stable sort
+    // taking `[0]`. `todayList` is never empty behind the gate: the fallback
+    // seeds seven and the live path pads to at least one.
+    final Asteroid closest = today.reduce(
+      (Asteroid a, Asteroid b) => a.missLunar <= b.missLunar ? a : b,
+    );
+    // `todayList.filter(a=>a.hazardous||a.missLunar<1)` (`index.html:453`) —
+    // read through `flybyTag` so the count and the chips agree on what "close"
+    // means (plan decision 2).
+    final int flybys =
+        today.where((Asteroid a) => flybyTag(a) == FlybyTag.closeFlyby).length;
+
+    return Wrap(
+      spacing: 7,
+      runSpacing: 7,
+      children: <Widget>[
+        _HomeChip(
+          spoken: '${today.length} animals visiting ${_spokenWhen(provenance)}',
+          child: _chipText(
+            '🐾 ',
+            '${today.length}',
+            ' visiting ${_visitingSuffix(provenance)}',
+            warn: false,
+          ),
+        ),
+        _HomeChip(
+          spoken: 'Closest comes ${distLabel(closest.missLunar)}',
+          child: _chipText('📏 closest ', distLabel(closest.missLunar), '',
+              warn: false),
+        ),
+        _HomeChip(
+          // The `warn` treatment when the count is non-zero (`index.html:456`) —
+          // still a gentle "👋 close flyby", never a hazard (`CLAUDE.md:64`).
+          warn: flybys > 0,
+          spoken: '$flybys close ${flybys == 1 ? 'flyby' : 'flybys'}',
+          child: _chipText(
+            '👋 ',
+            '$flybys',
+            ' close flyby${flybys == 1 ? '' : 's'}',
+            warn: flybys > 0,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// The `${usingFallback?'(sample)':'today'}` ternary (`index.html:454`) grown to
+/// the three [FeedProvenance] cases (the strip-copy plan item). A `switch` with
+/// no default, so a fourth sky could not slip through untranslated.
+///
+/// `earlier` says **"recently"** — a friendlier form than a raw date, honest for
+/// a window `AsteroidRepository` bounds to a few days old, and free of the raw
+/// designation the strip-copy item asks to keep off this surface.
+String _visitingSuffix(FeedProvenance provenance) => switch (provenance) {
+  FeedProvenance.today => 'today',
+  FeedProvenance.earlier => 'recently',
+  FeedProvenance.sample => '(sample)',
+};
+
+/// The same three cases said for a screen reader, where the visual `(sample)`
+/// parentheses would be read aloud as punctuation.
+String _spokenWhen(FeedProvenance provenance) => switch (provenance) {
+  FeedProvenance.today => 'today',
+  FeedProvenance.earlier => 'recently',
+  FeedProvenance.sample => 'in the sample sky',
+};
+
+/// One strip chip's text (`.hchip`, `index.html:44-45`): a muted base with its
+/// number in white, or — when [warn] — the base in the soft red the prototype
+/// uses for a non-zero close-flyby count, the number still white.
+Widget _chipText(String prefix, String strong, String suffix,
+    {required bool warn}) {
+  return Text.rich(
+    TextSpan(
+      style: TextStyle(
+        color: warn ? _homeChipWarnInk : _homeChipInk,
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        height: 1,
+      ),
+      children: <InlineSpan>[
+        TextSpan(text: prefix),
+        // `.hchip b{color:#fff}` — the number stays white even inside a warn
+        // chip, so the count reads first.
+        TextSpan(text: strong, style: const TextStyle(color: _homeChipStrong)),
+        TextSpan(text: suffix),
+      ],
+    ),
+  );
+}
+
+/// One pill of the stat strip (`.hchip`, `index.html:45`) — the translucent card
+/// chrome the toggle chips and zoom buttons share, at the strip's own .82 alpha,
+/// with the soft-red border when [warn].
+///
+/// [spoken] carries the chip's meaning in words so a screen reader is not left
+/// sounding out `🐾` and `👋`; the visual glyphs are excluded from semantics,
+/// the pattern the nav, the toggle chips, and the zoom buttons all follow.
+class _HomeChip extends StatelessWidget {
+  const _HomeChip({
+    required this.child,
+    required this.spoken,
+    this.warn = false,
+  });
+
+  final Widget child;
+  final String spoken;
+  final bool warn;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: spoken,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: _homeStripSurface,
+          borderRadius: const BorderRadius.all(Radius.circular(14)),
+          border: Border.all(color: warn ? _homeChipWarnBorder : Palette.line),
+        ),
+        child: ExcludeSemantics(child: child),
+      ),
+    );
+  }
+}
+
+/// The drag/pinch/tap hint along the bottom (`.rhint2` / `#rHint`,
+/// `index.html:196`, `287`).
+///
+/// **"tap an animal", softened from the prototype's "tap a rock"** — the whole
+/// point of Rockimals is that the rocks are animals (`CLAUDE.md`). Non-
+/// interactive, matching the prototype's `pointer-events:none`, so an animal
+/// drifting under it stays tappable.
+class _RadarHint extends StatelessWidget {
+  const _RadarHint();
+
+  @override
+  Widget build(BuildContext context) {
+    return const IgnorePointer(
+      child: Text(
+        'rings = distance vs the 🌙 Moon · drag · pinch · tap an animal',
+        textAlign: TextAlign.center,
+        style: TextStyle(color: Palette.muted, fontSize: 10.5, height: 1.2),
       ),
     );
   }
@@ -673,6 +997,33 @@ final Color _chipSurface = Palette.card.withValues(alpha: 0.85);
 
 /// `gap:6px` between chips (`index.html:173`).
 const double _chipGap = 6;
+
+/// The home overlay's own metrics (`.homeTop` / `.homeStrip` / `.rhint2`,
+/// `index.html:190-196`). `_homeTopGap` is small because the enclosing
+/// [SafeArea] already clears the status bar the prototype's fixed frame did not
+/// have; `_hintBottomGap` sits the hint just off the bottom, where the Play CTA
+/// (its own item) will later go beneath it.
+const double _homeTopGap = 10;
+const double _homeSideGap = 12;
+const double _homeRowGap = 8;
+const double _hintBottomGap = 16;
+
+/// `.hchip` fill — `rgba(19,42,77,.82)` (`index.html:45`), `--card` at the
+/// strip's own alpha, a shade heavier than the toggle chips' .85.
+final Color _homeStripSurface = Palette.card.withValues(alpha: 0.82);
+
+/// `.hchip.warn` border — `rgba(240,82,82,.4)` (`index.html:47`), `--bad` at .4.
+final Color _homeChipWarnBorder = Palette.bad.withValues(alpha: 0.4);
+
+/// `.hchip` text — `#cddcf5` (`index.html:45`). A one-off literal, so it stays
+/// local rather than joining [Palette].
+const Color _homeChipInk = Color(0xFFCDDCF5);
+
+/// `.hchip.warn` text — `#ff9a9a` (`index.html:47`).
+const Color _homeChipWarnInk = Color(0xFFFF9A9A);
+
+/// `.hchip b` — `#fff` (`index.html:46`), the number that reads first.
+const Color _homeChipStrong = Color(0xFFFFFFFF);
 
 /// `Radar.zoom = 1` (`index.html:625`, `640`) — where the field rests before
 /// anyone touches it, and what ⤢ puts it back to.

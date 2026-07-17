@@ -228,7 +228,13 @@ Widget _app() {
   return ProviderScope(
     // The override list is left to inference: Riverpod 3 does not export the
     // `Override` type, so there is no name to annotate it with.
-    overrides: [asteroidFeedProvider.overrideWith((Ref ref) => _sky)],
+    overrides: [
+      asteroidFeedProvider.overrideWith((Ref ref) => _sky),
+      // The radar tab's home overlay reads the day streak; a value in front of
+      // it keeps the shell suite off a Hive box, as the feed override keeps it
+      // off a repository.
+      dayStreakProvider.overrideWithValue(0),
+    ],
     child: const MaterialApp(home: AppShell()),
   );
 }

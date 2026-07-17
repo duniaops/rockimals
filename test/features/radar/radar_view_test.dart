@@ -551,12 +551,20 @@ Offset _animalAt(WidgetTester tester) {
 /// edge of the field and take their own taps, so a wide horizontal pinch puts a
 /// fingertip on ＋ and the radar never sees it — which looks exactly like a
 /// broken clamp from the outside. A pinch up the middle is clear of them.
+///
+/// **Centred low on the field, not on Earth**, so the upper fingertip of a wide
+/// pinch clears the home overlay's top column — the wordmark, strip, and toggle
+/// chips, which take their own taps the same way the zoom buttons do. The zoom
+/// is a function of the gap alone (`radarPinch`, `index.html:704`), so where on
+/// the field it happens is immaterial; only that both fingertips reach the
+/// canvas.
 Future<void> _pinch(
   WidgetTester tester, {
   required double from,
   required double to,
 }) async {
-  final Offset centre = _centre(tester);
+  final Size size = tester.getSize(_radarCanvas());
+  final Offset centre = Offset(size.width / 2, size.height * 0.62);
   final TestGesture top = await tester.startGesture(centre - Offset(0, from / 2));
   final TestGesture bottom = await tester.startGesture(centre + Offset(0, from / 2));
 
@@ -575,7 +583,13 @@ Future<void> _mount(WidgetTester tester, AsteroidFeed feed) async {
 
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [asteroidFeedProvider.overrideWith((Ref ref) => feed)],
+      overrides: [
+        asteroidFeedProvider.overrideWith((Ref ref) => feed),
+        // The home overlay reads the day streak; standing a number in front of
+        // it keeps these radar tests off a Hive box, the same way the feed
+        // override keeps them off a repository.
+        dayStreakProvider.overrideWithValue(0),
+      ],
       child: const MaterialApp(home: RadarView()),
     ),
   );

@@ -139,6 +139,31 @@ final Provider<AsyncValue<bool>> usingFallbackProvider = _fieldOf(
   name: 'usingFallback',
 );
 
+/// Which of the three skies this is — the home strip reads it to say whether the
+/// animals are visiting `today`, are from an `earlier` cached window, or are the
+/// `sample` set ([FeedProvenance]).
+///
+/// This is the first surface [usingFallbackProvider]'s note anticipated: a bool
+/// cannot tell `earlier` (real NASA rocks from a day or two ago) from `today`,
+/// and the strip must not print "visiting today" over a two-day-old sky
+/// (`CLAUDE.md:60`). So it reads the enum, not the bool.
+final Provider<AsyncValue<FeedProvenance>> provenanceProvider = _fieldOf(
+  (AsteroidFeed feed) => feed.provenance,
+  name: 'provenance',
+);
+
+/// The consecutive-days-played streak for the home flame (plan decision 3).
+///
+/// A plain read of the value `bootstrap()` recorded on launch (`DayStreak`), so
+/// it is stable across the session and correct at first paint. Its own provider
+/// rather than an inline `store.dayStreak` for one reason: a widget test can
+/// stand a number in front of the flame without opening a Hive box, exactly as
+/// the radar suites override the feed rather than build a repository.
+final Provider<int> dayStreakProvider = Provider<int>(
+  (Ref ref) => ref.watch(storeProvider).dayStreak,
+  name: 'dayStreak',
+);
+
 /// One field of the loaded feed, and nothing else — the shape every derived
 /// provider above shares.
 ///
