@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:rockimals/core/theme/palette.dart';
-import 'package:rockimals/features/debug/debug_animal_list_screen.dart';
+import 'package:rockimals/features/radar/radar_view.dart';
 
 /// The frame every screen in the app lives inside: four tabs and the bottom nav
 /// that switches them (`index.html:302-307`).
@@ -60,14 +60,7 @@ class _AppShellState extends State<AppShell> {
 /// (`specs/03-meet-animal.md:23`) and the list itself is titled "My Animals"
 /// (`specs/05-rewards-collection.md:36`) — this is only the nav label.
 const List<_NavTab> _tabs = <_NavTab>[
-  // The task-01 throwaway sits in the Radar slot rather than a stub, because it
-  // is the only thing in the app that proves NASA → repository → providers →
-  // AnimalSystem reaches a screen, and there is a plan item to delete it once
-  // the real radar lands. A stub here would strand it: unreachable, still in
-  // the tree, still on the ledger as "remove later" — i.e. removed from the app
-  // without the item that is supposed to remove it. The radar's own item
-  // replaces this entry.
-  _NavTab(emoji: '🛰️', label: 'Radar', body: DebugAnimalListScreen()),
+  _NavTab(emoji: '🛰️', label: 'Radar', body: RadarView()),
   _NavTab(emoji: '🌌', label: 'Sky', body: _TabStub(emoji: '🌌', title: 'Sky')),
   _NavTab(
     emoji: '⭐',

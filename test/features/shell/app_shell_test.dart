@@ -1,11 +1,10 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/data/models/asteroid_feed.dart';
 import 'package:rockimals/features/data/providers.dart';
-import 'package:rockimals/features/debug/debug_animal_list_screen.dart';
+import 'package:rockimals/features/radar/radar_view.dart';
 import 'package:rockimals/features/shell/app_shell.dart';
 
 /// The frame the whole app is seen through, so what these pin is the three
@@ -108,24 +107,26 @@ void main() {
       // or a half-finished game in it.
       //
       // The Radar tab is the probe because it is the only tab whose body is not
-      // a stub. When the radar displaces the debug screen, this should switch
-      // to the radar's widget rather than be deleted — the property is the
-      // shell's, not that screen's.
+      // a stub. It was the debug list when this was written and is now the
+      // radar, exactly as this comment then asked for — the property being
+      // pinned is the shell's, not any one screen's.
+      //
+      // It also matters more here than it did there. The radar seeds every
+      // animal's orbit once, at mount (`RadarOrbits.seed`), so a shell that
+      // rebuilt the tab would restart the sky from its phase-0 seeds on every
+      // return to it — the whole field snapping back to where it was at launch.
       await tester.pumpWidget(_app());
-      expect(find.byType(DebugAnimalListScreen), findsOneWidget);
+      expect(find.byType(RadarView), findsOneWidget);
 
       await tester.tap(find.text('Sky'));
       await tester.pump();
 
       // Gone from the screen...
-      expect(find.byType(DebugAnimalListScreen), findsNothing);
+      expect(find.byType(RadarView), findsNothing);
       // ...but not from the tree. Both lines are needed: the first alone passes
       // for a shell that destroys the tab, and the second alone passes for one
       // that never hid it.
-      expect(
-        find.byType(DebugAnimalListScreen, skipOffstage: false),
-        findsOneWidget,
-      );
+      expect(find.byType(RadarView, skipOffstage: false), findsOneWidget);
     });
 
     testWidgets('labels the four tabs the way the prototype does', (
@@ -195,11 +196,11 @@ const Color _selected = Color(0xFFFF7A45);
 const Color _idle = Color(0xFF93A8CA);
 
 /// A probe for each tab's *body*, keyed by its nav label — something only that
-/// tab puts on screen. Every one of these is transitional: the debug screen and
-/// all three stubs are deleted by the tasks that own their tabs, and each should
-/// be repointed at the real screen rather than dropped.
+/// tab puts on screen. The three stubs are transitional and are deleted by the
+/// tasks that own their tabs; each should be repointed at the real screen rather
+/// than dropped, as the Radar row was when the radar displaced the debug list.
 Finder _bodyOf(String label) => switch (label) {
-  'Radar' => find.byType(DebugAnimalListScreen),
+  'Radar' => find.byType(RadarView),
   'Sky' => find.text('Sky is coming soon'),
   'Watchlist' => find.text('My Animals is coming soon'),
   'Profile' => find.text('My Space Zoo is coming soon'),
@@ -209,20 +210,48 @@ Finder _bodyOf(String label) => switch (label) {
 Color? _labelColour(WidgetTester tester, String label) =>
     tester.widget<Text>(find.text(label)).style?.color;
 
-/// The shell with the sky held back. The Radar tab watches the feed, so without
-/// the override this builds a live Dio and starts a real request as a side
-/// effect of asking which tab is selected — and leaves the repository's
-/// ten-second ceiling pending at teardown. A never-completing future also holds
-/// that tab on its spinner, which is the state a cold launch is in anyway.
+/// The shell with a sky already in hand. Without an override the Radar tab
+/// builds a live Dio and starts a real request as a side effect of asking which
+/// tab is selected, and leaves the repository's ten-second ceiling pending at
+/// teardown.
+///
+/// **The sky is resolved rather than a never-completing future, and the change
+/// is forced rather than cosmetic.** This helper used to hold the feed in
+/// flight, which was free when the Radar tab was the debug list — that screen
+/// renders a spinner from `.when`. [RadarView] instead reads `requireValue`,
+/// which throws on an [AsyncLoading], and it is entitled to: the loading gate
+/// builds the shell only once there is a sky, so "the shell exists" and "the
+/// feed resolved" are the same fact in the app. A pending future here would
+/// therefore test a state the app cannot be in, and would fail for a reason
+/// that says nothing about the nav.
 Widget _app() {
   return ProviderScope(
     // The override list is left to inference: Riverpod 3 does not export the
     // `Override` type, so there is no name to annotate it with.
-    overrides: [
-      asteroidFeedProvider.overrideWith(
-        (Ref ref) => Completer<AsteroidFeed>().future,
-      ),
-    ],
+    overrides: [asteroidFeedProvider.overrideWith((Ref ref) => _sky)],
     child: const MaterialApp(home: AppShell()),
   );
 }
+
+/// One rock, because nothing here reads the sky — it exists so the Radar tab
+/// has something to build against. `radar_view_test.dart` owns what the radar
+/// does with a feed; this file only needs the tab not to be empty.
+final AsteroidFeed _sky = AsteroidFeed(
+  asteroids: <Asteroid>[_rock],
+  todayList: <Asteroid>[_rock],
+  feedRange: '2026-07-15 → 2026-07-17',
+  provenance: FeedProvenance.today,
+);
+
+const Asteroid _rock = Asteroid(
+  name: '2026 AB',
+  diaMax: 100,
+  diaMin: 50,
+  hazardous: false,
+  missLunar: 3,
+  missKm: 1153200,
+  velKps: 12,
+  mag: 22,
+  jpl: 'https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html',
+  date: '2026-07-17',
+);

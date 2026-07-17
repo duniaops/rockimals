@@ -20,12 +20,13 @@ import 'package:rockimals/features/radar/radar_painter.dart';
 ///
 /// [asteroidsProvider] is read with `requireValue` because this only ever
 /// builds behind the loading gate, which is the licence that gate exists to
-/// grant (`lib/features/loading/loading_screen.dart`).
-///
-/// Not yet mounted in the Radar tab: that tab still holds the task-01 debug
-/// list, which is the only thing proving the data spine reaches a screen. Now
-/// that the animals are on it the radar is worth the tab, and the plan's next
-/// item is the one that swaps them.
+/// grant (`lib/features/loading/loading_screen.dart`). That licence is now
+/// load-bearing rather than theoretical: this is the Radar tab's body, so
+/// anything that mounts `AppShell` with the sky still in flight builds this
+/// widget into a `requireValue` on an `AsyncLoading`. In the app that cannot
+/// happen — the gate builds the shell only once there is a sky — and in a test
+/// it means the feed override has to be a *resolved* one, not the
+/// never-completing future that stands in for a cold launch elsewhere.
 class RadarView extends ConsumerWidget {
   const RadarView({super.key});
 
