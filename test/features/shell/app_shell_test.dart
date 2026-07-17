@@ -47,9 +47,10 @@ void main() {
       await tester.pumpWidget(_app());
 
       // Every tab, not a sample: this is the whole of the item's behaviour, and
-      // there are only four. The nav labels are unique strings in the tree —
-      // the stubs read "Sky is coming soon", never a bare "Sky" — so these
-      // finders hit the buttons and not the bodies.
+      // there are only four. The nav labels are unique strings in the tree — no
+      // body renders a bare "Sky"/"Watchlist"/"Profile" (the Sky tab's title is
+      // "The Sky", the stubs read "… is coming soon") — so these finders hit the
+      // buttons and not the bodies.
       for (final String label in <String>[
         'Sky',
         'Watchlist',
@@ -254,12 +255,15 @@ const Color _selected = Color(0xFFFF7A45);
 const Color _idle = Color(0xFF93A8CA);
 
 /// A probe for each tab's *body*, keyed by its nav label — something only that
-/// tab puts on screen. The three stubs are transitional and are deleted by the
-/// tasks that own their tabs; each should be repointed at the real screen rather
-/// than dropped, as the Radar row was when the radar displaced the debug list.
+/// tab puts on screen. The two remaining stubs are transitional and are deleted
+/// by the tasks that own their tabs; each should be repointed at the real screen
+/// rather than dropped, as the Radar row was when the radar displaced the debug
+/// list and the Sky row was when the Sky tab landed. Note the Sky probe is
+/// "The Sky" (its `.h-title`), which `find.text` matches exactly and so never
+/// collides with the bare "Sky" nav label.
 Finder _bodyOf(String label) => switch (label) {
   'Radar' => find.byType(RadarView),
-  'Sky' => find.text('Sky is coming soon'),
+  'Sky' => find.text('The Sky'),
   'Watchlist' => find.text('My Animals is coming soon'),
   'Profile' => find.text('My Space Zoo is coming soon'),
   _ => throw ArgumentError.value(label, 'label', 'not a tab'),

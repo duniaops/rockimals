@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/features/radar/radar_focus.dart';
 import 'package:rockimals/features/radar/radar_view.dart';
+import 'package:rockimals/features/sky/sky_screen.dart';
 
 /// The frame every screen in the app lives inside: four tabs and the bottom nav
 /// that switches them (`index.html:302-307`).
@@ -111,7 +112,7 @@ class _AppShellState extends ConsumerState<AppShell> {
 /// (`specs/05-rewards-collection.md:36`) — this is only the nav label.
 const List<_NavTab> _tabs = <_NavTab>[
   _NavTab(emoji: '🛰️', label: 'Radar', body: RadarView()),
-  _NavTab(emoji: '🌌', label: 'Sky', body: _TabStub(emoji: '🌌', title: 'Sky')),
+  _NavTab(emoji: '🌌', label: 'Sky', body: SkyScreen()),
   _NavTab(
     emoji: '⭐',
     label: 'Watchlist',
