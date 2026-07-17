@@ -6,6 +6,7 @@ import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/features/animals/widgets/flyby_badge.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/detail/distance_comparison.dart';
+import 'package:rockimals/features/detail/grown_up_facts.dart';
 import 'package:rockimals/features/detail/size_comparison.dart';
 import 'package:rockimals/features/radar/radar_focus.dart';
 
@@ -17,10 +18,10 @@ import 'package:rockimals/features/radar/radar_focus.dart';
 /// {Species}"` header title, the `"a {Species}-sized space rock"` line, the
 /// flyby badge), the four kid stat tiles, the **size-comparison module**
 /// ([SizeComparison], "How big is it?"), the **distance-comparison track**
-/// ([DistanceComparison], "How close does it pass?"), and the **Follow /
-/// Show-on-radar actions** ([_DetailActions]). The parent-gated grown-up facts
-/// panel is its own later item, so the body below stops after the actions with
-/// room left for it under them.
+/// ([DistanceComparison], "How close does it pass?"), the **Follow /
+/// Show-on-radar actions** ([_DetailActions]), and the **parent-gated grown-up
+/// facts panel** ([GrownUpFacts]) — the only place the real NASA designation and
+/// the external NASA/JPL link appear, behind a simple "ask a grown-up" gate.
 ///
 /// Every number reads through the AnimalSystem's own formatters — [sizeLabel],
 /// [distLabel], [powerStars] — so the detail screen cannot phrase a size,
@@ -78,6 +79,11 @@ class DetailScreen extends StatelessWidget {
                   // later item.
                   const SizedBox(height: 12),
                   _DetailActions(asteroid: asteroid),
+                  // The parent-gated grown-up facts panel (`.panel`,
+                  // `index.html:608-612`) — the ONLY place the real designation
+                  // and the external NASA/JPL link appear (`CLAUDE.md:71`).
+                  const SizedBox(height: 12),
+                  GrownUpFacts(asteroid: asteroid),
                 ],
               ),
             ),
