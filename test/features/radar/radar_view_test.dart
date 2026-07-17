@@ -35,8 +35,8 @@ void main() {
     await _mount(tester, _skyWhereTodayIsCloser());
 
     expect(
-      _painter(tester),
-      paintsExactlyCountTimes(#drawPath, 5),
+      _ringPaths(tester),
+      hasLength(5),
       reason: 'maxLd 42 reaches 1×, 2×, 5×, 10× and 20×',
     );
   });
@@ -471,6 +471,27 @@ Finder _radarCanvas() => find.byWidgetPredicate(
 
 RenderBox _painter(WidgetTester tester) =>
     tester.renderObject<RenderBox>(_radarCanvas());
+
+/// The distance rings: the paths the painter drew **around Earth**.
+///
+/// **The centre filter is what makes this the rings and not "the paths".** The
+/// planet backdrop draws underneath the field and Saturn's three ring arcs are
+/// `drawPath`s too, so a raw `drawPath` count answers 8 where the legend has 5.
+/// A distance ring is a circle centred on Earth; Saturn is 460px from there.
+List<Path> _ringPaths(WidgetTester tester) {
+  final Offset centre = _centre(tester);
+  final List<Path> paths = <Path>[];
+  final Matcher collector = (paints
+    ..something((Symbol method, List<dynamic> arguments) {
+      if (method == #drawPath) {
+        final Path path = arguments[0] as Path;
+        if ((path.getBounds().center - centre).distance < 1) paths.add(path);
+      }
+      return false;
+    })) as Matcher;
+  collector.matches(_painter(tester), <dynamic, dynamic>{});
+  return paths;
+}
 
 /// What the view is currently telling the painter to draw. The painter suite
 /// owns what each of these *looks* like; this suite owns whether a child's

@@ -7,6 +7,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rockimals/data/models/asteroid.dart';
+import 'package:rockimals/features/radar/planet_backdrop.dart';
 import 'package:rockimals/features/radar/radar_clock.dart';
 import 'package:rockimals/features/radar/radar_geometry.dart';
 import 'package:rockimals/features/radar/radar_labels.dart';
@@ -108,24 +109,71 @@ void main() {
   });
 
   group('RadarPainter', () {
-    testWidgets('draws space, then the rings, then the Moon, then Earth on top',
+    testWidgets(
+        'draws space, then the backdrop, then the rings, then the Moon, then Earth on top',
         (tester) async {
       // `index.html:818-877` — the prototype's order, and every step of it is a
-      // decision about what may cover what. Earth is last because it is the
+      // decision about what may cover what. The scenery goes down before
+      // anything a child has to read, and Earth is last because it is the
       // smallest and most important object on the screen, so nothing is allowed
       // to cover it. The order *is* the assertion.
-      await _radar(tester);
+      //
+      // **Asserted on the recorded call sequence rather than with a `paints`
+      // pattern, and the backdrop is exactly why.** `paints` walks forward to
+      // the next call of the method named and then matches its arguments
+      // strictly, so it can only describe a canvas on which nothing else draws
+      // in between — which stopped being true the moment scenery landed
+      // underneath (every planet draws circles; Saturn strokes paths). The old
+      // pattern passed because the layer happened to be alone on the frame.
+      // Indices say the same thing without needing it to be.
+      final PlanetBackdrop backdrop = PlanetBackdrop.seed();
+      await _radar(tester, backdrop: backdrop);
+
+      final List<({Symbol method, List<dynamic> args})> calls = _calls(tester);
+      int at(bool Function(({Symbol method, List<dynamic> args}) call) test, String what) {
+        final int i = calls.indexWhere(test);
+        expect(i, isNonNegative, reason: 'no $what on the frame');
+        return i;
+      }
+
+      bool circleAt(({Symbol method, List<dynamic> args}) call, Offset where, double r) =>
+          call.method == #drawCircle &&
+          ((call.args[0] as Offset) - where).distance < 0.01 &&
+          ((call.args[1] as double) - r).abs() < 0.01;
+
+      const RadarGeometry geometry = RadarGeometry(size: _size, maxLd: 60);
+      // Neptune is the last row of `PLANETS` (`index.html:795`) and so the last
+      // thing the backdrop paints — if *it* is behind the rings, all of the
+      // scenery is. Its glow: 2.3 × a 12px disc.
+      final Offset neptune = backdrop.positionOf(
+        backdrop.planets.last,
+        geometry: geometry,
+        zoom: 1,
+        ts: 0,
+      );
+
+      final int space = at((c) => c.method == #drawRect, 'space');
+      final int sun = at(
+        (c) => circleAt(c, backdrop.sunPosition(geometry: geometry, zoom: 1, ts: 0), 44 * 2.3),
+        "the Sun's glow",
+      );
+      final int scenery = at((c) => circleAt(c, neptune, 12 * 2.3), "Neptune's glow");
+      final int rings = at(
+        (c) =>
+            c.method == #drawPath &&
+            (((c.args[0] as Path).getBounds().center) - _centre).distance < 1,
+        'a distance ring',
+      );
+      // The Moon, out on the 1× ring rather than at the centre — it is the only
+      // thing on the field that is neither scale nor planet.
+      final int moon = at((c) => c.method == #drawCircle && c.args[1] == 5.0, 'the Moon');
+      final int glow = at((c) => circleAt(c, _centre, 27.5), "Earth's glow");
+      final int earth = at((c) => circleAt(c, _centre, 15), 'Earth');
 
       expect(
-        _painterOf(tester),
-        paints
-          ..rect()
-          ..path()
-          // The Moon, out on the 1× ring rather than at the centre — it is the
-          // only thing on this layer that is neither scale nor planet.
-          ..circle(radius: 5)
-          ..circle(x: _centre.dx, y: _centre.dy, radius: 27.5)
-          ..circle(x: _centre.dx, y: _centre.dy, radius: 15),
+        <int>[space, sun, scenery, rings, moon, glow, earth],
+        orderedEquals(<int>[space, sun, scenery, rings, moon, glow, earth]..sort()),
+        reason: 'space, the Sun, the last planet, the rings, the Moon, then Earth',
       );
     });
 
@@ -146,20 +194,20 @@ void main() {
     });
 
     testWidgets('paints the rings the sky reaches and no others', (tester) async {
-      // One `drawPath` per visible ring — nothing else on this layer draws a
-      // path — so the count is the legend's honesty. A sky that only reaches
-      // 8.4 Moon-distances must not be drawn with a 50× ring on it.
+      // One path around Earth per visible ring, so the count is the legend's
+      // honesty: a sky that only reaches 8.4 Moon-distances must not be drawn
+      // with a 50× ring on it.
       await _radar(tester, maxLd: 8.4);
       expect(
-        _painterOf(tester),
-        paintsExactlyCountTimes(#drawPath, 3),
+        _ringPaths(tester),
+        hasLength(3),
         reason: 'maxLd 8.4 reaches 1×, 2× and 5×',
       );
 
       // The default field reaches 60, where every ring the prototype offers
       // exists.
       await _radar(tester);
-      expect(_painterOf(tester), paintsExactlyCountTimes(#drawPath, 6));
+      expect(_ringPaths(tester), hasLength(6));
     });
 
     testWidgets('strokes the rings dashed, the Moon\'s more solidly than the rest',
@@ -301,6 +349,7 @@ Future<void> _radar(
   double viewRot = 0,
   List<Asteroid> sky = const <Asteroid>[],
   Asteroid? selected,
+  PlanetBackdrop? backdrop,
 }) async {
   tester.view
     ..physicalSize = _size
@@ -321,6 +370,7 @@ Future<void> _radar(
         viewRot: viewRot,
         asteroids: sky,
         selected: selected,
+        backdrop: backdrop,
       ),
     ),
   );
@@ -361,6 +411,23 @@ List<({Offset at, double radius, Paint paint})> _chipAt(
   for (final ({Offset at, double radius, Paint paint}) c in _circles(tester))
     if ((c.at - at).distance < 0.01) c,
 ];
+
+/// Where the painter puts [rock] on the first frame — the same question the
+/// painter asks [RadarOrbits], asked the same way, so a test can find an
+/// animal's own marks without counting every circle on the canvas.
+///
+/// Safe to re-seed rather than reach into the painter's orbits: the seed is a
+/// pure function of the sky and its order (`RadarOrbit.seed`), and at rest the
+/// phase has not been advanced.
+Offset _animalAt(Asteroid rock) {
+  final RadarOrbits orbits = RadarOrbits.seed(<Asteroid>[rock]);
+  return orbits.positionOf(
+    orbits.orbits.single,
+    geometry: const RadarGeometry(size: _size, maxLd: 60),
+    zoom: 1,
+    viewRot: 0,
+  );
+}
 
 /// The selection halo — the only 2.5px stroke on the whole field, which is what
 /// lets it be found without knowing where the animal has orbited to.
@@ -404,12 +471,20 @@ void _animalTests() {
       // and `specs/02-live-radar.md:28` is explicit that no animal may ever look
       // faded. The token is what gives every animal the same lit background
       // whatever its size, so the size difference stays a size difference.
-      await _radar(tester, sky: <Asteroid>[_rock(name: '2020 AA', ld: 5)]);
+      final Asteroid rock = _rock(name: '2020 AA', ld: 5);
+      await _radar(tester, sky: <Asteroid>[rock]);
 
-      final List<({Offset at, double radius, Paint paint})> circles = _circles(tester);
-      // The Moon, the token, the ring, then Earth's glow and Earth.
-      final ({Offset at, double radius, Paint paint}) token = circles[1];
-      final ({Offset at, double radius, Paint paint}) ring = circles[2];
+      // **Found by where the animal is, not by counting circles from the start
+      // of the frame.** This used to read `circles[1]` and `circles[2]` on the
+      // grounds that the Moon was the only circle before them — which the planet
+      // backdrop ended, since the Sun alone puts two circles on the canvas first.
+      // Asking for the circles *at the animal* is what the test meant all along,
+      // and it cannot be knocked over by anything drawn elsewhere.
+      final List<({Offset at, double radius, Paint paint})> chip =
+          _chipAt(tester, _animalAt(rock));
+      expect(chip, hasLength(2), reason: 'an unselected animal is a token and a ring');
+      final ({Offset at, double radius, Paint paint}) token = chip[0];
+      final ({Offset at, double radius, Paint paint}) ring = chip[1];
 
       expect(token.at, ring.at, reason: 'the ring is around the token');
       expect(token.radius, closeTo(ring.radius, 1e-9));
@@ -699,9 +774,21 @@ void _animalTests() {
         afterFirstFrame,
         reason: 'thirty more frames must not lay out a single label again',
       );
-      // And the sky really was drawn: 60 tokens + 60 rings, plus the Moon and
-      // Earth's two circles.
-      expect(_circles(tester), hasLength(60 * 2 + 3));
+      // And the sky really was drawn — one ring per animal, found by the 2px
+      // stroke that is theirs alone on this canvas (the halo is 2.5, the
+      // distance rings 1, and the backdrop strokes only Saturn's, as paths).
+      // **Not by counting every circle on the frame, which is what this used to
+      // do**: the backdrop now puts twenty of its own underneath, and — worse —
+      // these animals have been orbiting for thirty frames, so there is no
+      // position left to look them up by. What identifies an animal is what it
+      // is drawn *like*, which does not move.
+      expect(
+        _circles(tester).where(
+          (({Offset at, double radius, Paint paint}) c) =>
+              c.paint.style == PaintingStyle.stroke && c.paint.strokeWidth == 2,
+        ),
+        hasLength(60),
+      );
     });
 
     testWidgets('draws the Moon on its ring, in the flesh', (tester) async {
@@ -812,6 +899,7 @@ class _Ticking extends StatefulWidget {
     this.viewRot = 0,
     this.asteroids = const <Asteroid>[],
     this.selected,
+    this.backdrop,
   });
 
   final double maxLd;
@@ -823,6 +911,8 @@ class _Ticking extends StatefulWidget {
   final Asteroid? selected;
   final double viewRot;
 
+  final PlanetBackdrop? backdrop;
+
   @override
   State<_Ticking> createState() => _TickingState();
 }
@@ -830,6 +920,8 @@ class _Ticking extends StatefulWidget {
 class _TickingState extends State<_Ticking> with SingleTickerProviderStateMixin {
   final ValueNotifier<Duration> _clock = ValueNotifier<Duration>(Duration.zero);
   late final RadarOrbits _orbits = RadarOrbits.seed(widget.asteroids);
+
+  late final PlanetBackdrop _backdrop = widget.backdrop ?? PlanetBackdrop.seed();
 
   /// The app's own wiring (`radar_view.dart`): one step per frame, measured once.
   final FrameClock _frame = FrameClock();
@@ -857,6 +949,7 @@ class _TickingState extends State<_Ticking> with SingleTickerProviderStateMixin 
     painter: RadarPainter(
       clock: _clock,
       orbits: _orbits,
+      backdrop: _backdrop,
       maxLd: widget.maxLd,
       zoom: widget.zoom,
       viewRot: widget.viewRot,
@@ -869,7 +962,15 @@ class _TickingState extends State<_Ticking> with SingleTickerProviderStateMixin 
 RenderBox _painterOf(WidgetTester tester) =>
     tester.renderObject<RenderBox>(find.byType(CustomPaint).last);
 
-/// Every `drawPath` the painter recorded, outward — one per ring.
+/// The rings, outward — the paths the painter drew **around Earth**.
+///
+/// **The centre filter is not decoration, it is the whole definition.** This
+/// used to collect every `drawPath` on the frame, on the stated grounds that
+/// nothing else on the layer drew one; the planet backdrop landing underneath
+/// ended that, because Saturn's three ring arcs are `drawPath`s too. A ring is
+/// not "a path" — it is a circle centred on Earth, which is what a distance ring
+/// *is*, and Saturn's arcs are 460px away from that. So the filter says the
+/// thing the old count was only assuming.
 List<Path> _ringPaths(WidgetTester tester) {
   final List<Path> paths = <Path>[];
   // `something` is the only supported way to see the call list; it wants a
@@ -878,7 +979,10 @@ List<Path> _ringPaths(WidgetTester tester) {
   // rather than from `expect`.
   final Matcher collector = (paints
     ..something((Symbol method, List<dynamic> arguments) {
-      if (method == #drawPath) paths.add(arguments[0] as Path);
+      if (method == #drawPath) {
+        final Path path = arguments[0] as Path;
+        if ((path.getBounds().center - _centre).distance < 1) paths.add(path);
+      }
       return false;
     })) as Matcher;
   collector.matches(_painterOf(tester), <dynamic, dynamic>{});
@@ -908,6 +1012,19 @@ PaintPattern _drawsCircle({required Matcher radius}) =>
       final Offset centre = arguments[0] as Offset;
       return centre == _centre && radius.matches(arguments[1], <dynamic, dynamic>{});
     });
+
+/// Every canvas call the painter recorded, in order.
+List<({Symbol method, List<dynamic> args})> _calls(WidgetTester tester) {
+  final List<({Symbol method, List<dynamic> args})> calls =
+      <({Symbol method, List<dynamic> args})>[];
+  final Matcher collector = (paints
+    ..something((Symbol method, List<dynamic> arguments) {
+      calls.add((method: method, args: arguments));
+      return false;
+    })) as Matcher;
+  collector.matches(_painterOf(tester), <dynamic, dynamic>{});
+  return calls;
+}
 
 /// The rendered frame, read back from the engine — a real rasterisation through
 /// `flutter_tester`, the same painting pipeline a phone runs. `toImage` must go
