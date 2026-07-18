@@ -12,6 +12,8 @@ import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/loading/loading_screen.dart';
 import 'package:rockimals/features/shell/app_shell.dart';
 
+import '../../support/memory_store.dart';
+
 /// The gate is a *routing* decision — which of two things the app is — so what
 /// these pin is the two halves of the item's Done-when: it shows on a cold
 /// launch, and it goes away when there is a sky, whichever kind of sky that is.
@@ -281,6 +283,11 @@ Widget _app(Future<AsteroidFeed> feed, {bool capture = false}) {
       // Once the gate lands on the shell, the radar's home overlay reads the day
       // streak; standing a number in front of it keeps this suite off a Hive box.
       dayStreakProvider.overrideWithValue(0),
+      // ...and the Watchlist tab behind it reads the follow set, which is
+      // seeded from the store. An in-memory one keeps this suite off a box for
+      // the same reason: what the gate does is the question here, not what a
+      // child follows.
+      storeProvider.overrideWithValue(MemoryStore()),
     ],
     child: MaterialApp(
       home: capture ? const RepaintBoundary(child: gate) : gate,

@@ -8,6 +8,8 @@ import 'package:rockimals/features/radar/radar_painter.dart';
 import 'package:rockimals/features/radar/radar_view.dart';
 import 'package:rockimals/features/shell/app_shell.dart';
 
+import '../../support/memory_store.dart';
+
 /// The frame the whole app is seen through, so what these pin is the three
 /// things a child would notice immediately if they broke: the app opens on the
 /// radar, every tab is reachable, and the one you are on is the one that looks
@@ -48,9 +50,9 @@ void main() {
 
       // Every tab, not a sample: this is the whole of the item's behaviour, and
       // there are only four. The nav labels are unique strings in the tree — no
-      // body renders a bare "Sky"/"Watchlist"/"Profile" (the Sky tab's title is
-      // "The Sky", the stubs read "… is coming soon") — so these finders hit the
-      // buttons and not the bodies.
+      // body renders a bare "Sky"/"Watchlist"/"Profile" (the tab titles are
+      // "The Sky" and "My Animals", the last stub reads "… is coming soon") —
+      // so these finders hit the buttons and not the bodies.
       for (final String label in <String>[
         'Sky',
         'Watchlist',
@@ -255,16 +257,17 @@ const Color _selected = Color(0xFFFF7A45);
 const Color _idle = Color(0xFF93A8CA);
 
 /// A probe for each tab's *body*, keyed by its nav label — something only that
-/// tab puts on screen. The two remaining stubs are transitional and are deleted
-/// by the tasks that own their tabs; each should be repointed at the real screen
-/// rather than dropped, as the Radar row was when the radar displaced the debug
-/// list and the Sky row was when the Sky tab landed. Note the Sky probe is
-/// "The Sky" (its `.h-title`), which `find.text` matches exactly and so never
-/// collides with the bare "Sky" nav label.
+/// tab puts on screen. The one remaining stub is transitional and is deleted by
+/// the task that owns its tab; it should be repointed at the real screen rather
+/// than dropped, as the Radar row was when the radar displaced the debug list,
+/// the Sky row was when the Sky tab landed, and the Watchlist row was when My
+/// Animals did. Note each probe is a tab's `.h-title` — "The Sky", "My Animals"
+/// — which `find.text` matches exactly and so never collides with the bare
+/// "Sky" / "Watchlist" nav labels beside them.
 Finder _bodyOf(String label) => switch (label) {
   'Radar' => find.byType(RadarView),
   'Sky' => find.text('The Sky'),
-  'Watchlist' => find.text('My Animals is coming soon'),
+  'Watchlist' => find.text('My Animals'),
   'Profile' => find.text('My Space Zoo is coming soon'),
   _ => throw ArgumentError.value(label, 'label', 'not a tab'),
 };
@@ -325,6 +328,11 @@ Widget _app() {
       // it keeps the shell suite off a Hive box, as the feed override keeps it
       // off a repository.
       dayStreakProvider.overrideWithValue(0),
+      // The Watchlist tab reads the follow set, which is seeded from the store.
+      // An in-memory one keeps this suite off a Hive box for the same reason —
+      // what the follow set *contains* is `watchlist_screen_test.dart`'s
+      // question, not the nav's.
+      storeProvider.overrideWithValue(MemoryStore()),
     ],
     child: const MaterialApp(home: AppShell()),
   );

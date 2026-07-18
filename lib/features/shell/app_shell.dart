@@ -4,6 +4,7 @@ import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/features/radar/radar_focus.dart';
 import 'package:rockimals/features/radar/radar_view.dart';
 import 'package:rockimals/features/sky/sky_screen.dart';
+import 'package:rockimals/features/watchlist/watchlist_screen.dart';
 
 /// The frame every screen in the app lives inside: four tabs and the bottom nav
 /// that switches them (`index.html:302-307`).
@@ -113,11 +114,7 @@ class _AppShellState extends ConsumerState<AppShell> {
 const List<_NavTab> _tabs = <_NavTab>[
   _NavTab(emoji: '🛰️', label: 'Radar', body: RadarView()),
   _NavTab(emoji: '🌌', label: 'Sky', body: SkyScreen()),
-  _NavTab(
-    emoji: '⭐',
-    label: 'Watchlist',
-    body: _TabStub(emoji: '⭐', title: 'My Animals'),
-  ),
+  _NavTab(emoji: '⭐', label: 'Watchlist', body: WatchlistScreen()),
   _NavTab(
     emoji: '👤',
     label: 'Profile',
