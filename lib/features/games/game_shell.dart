@@ -78,6 +78,26 @@ class GameActions {
   /// actually a best?" test, because it also has to update what is on screen.
   Future<void> setBestCloser(int streak) => _store.setBestCloser(streak);
 
+  /// The best Animal Match score out of 8 (`bestSize`, `aw_size`,
+  /// `index.html:956`). Read when the game starts, so a run that never beats it
+  /// can still report it on the end screen.
+  int get bestSize => _store.bestSize;
+
+  /// Persist a new Animal Match best (`gSet("aw_size", …)`,
+  /// `index.html:1091`). As with [setBestDuel] the caller owns the "is this
+  /// actually a best?" test, because it also has to update what is on screen.
+  Future<void> setBestSize(int score) => _store.setBestSize(score);
+
+  /// Count one flawless 8/8 run of Animal Match (`prog.perfect++`,
+  /// `index.html:1092`) — the Perfect Match badge's condition (`prog.perfect>0`,
+  /// `index.html:983`).
+  ///
+  /// **Unlike the bests, the increment lives here rather than at the call site**
+  /// — it is a read-modify-write with no display half, the same shape as
+  /// [markPlayed], and a game that had to fetch the tally only to add one to it
+  /// would be handling a number it never shows.
+  Future<void> notePerfectRun() => _store.setPerfect(_store.perfect + 1);
+
   /// Record a run of correct answers against the profile's all-time best
   /// (`noteStreak`, `index.html:998`).
   ///

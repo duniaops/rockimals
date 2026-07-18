@@ -513,6 +513,15 @@ class _RecordingActions implements GameActions {
   Future<void> setBestDuel(int streak) async => bestDuel = streak;
 
   @override
+  int bestSize = 0;
+
+  @override
+  Future<void> setBestSize(int score) async => bestSize = score;
+
+  @override
+  Future<void> notePerfectRun() async {}
+
+  @override
   Future<void> noteStreak(int streak) async => streakNotes.add(streak);
 }
 

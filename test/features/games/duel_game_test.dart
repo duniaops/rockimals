@@ -417,6 +417,15 @@ class _RecordingActions implements GameActions {
 
   @override
   Future<void> setBestCloser(int streak) async {}
+
+  @override
+  int bestSize = 0;
+
+  @override
+  Future<void> setBestSize(int score) async => bestSize = score;
+
+  @override
+  Future<void> notePerfectRun() async {}
 }
 
 /// The sound toggle with the store taken out — the hub reads it on build.

@@ -434,5 +434,14 @@ class _RecordingActions implements GameActions {
   Future<void> setBestCloser(int streak) async {}
 
   @override
+  int bestSize = 0;
+
+  @override
+  Future<void> setBestSize(int score) async => bestSize = score;
+
+  @override
+  Future<void> notePerfectRun() async {}
+
+  @override
   Future<void> noteStreak(int streak) async {}
 }
