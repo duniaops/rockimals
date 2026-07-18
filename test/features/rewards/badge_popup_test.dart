@@ -19,9 +19,11 @@ import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/games/games_providers.dart';
 import 'package:rockimals/features/rewards/badge_controller.dart';
 import 'package:rockimals/features/rewards/badge_popup.dart';
+import 'package:rockimals/features/settings/calm_motion.dart';
 
 import '../../support/memory_store.dart';
 import '../../support/recording_sound_engine.dart';
+import '../../support/stub_settings.dart';
 
 void main() {
   late MemoryStore store;
@@ -34,15 +36,22 @@ void main() {
 
   /// The app, mounted the way `main.dart` mounts it: the popup host wraps the
   /// `Navigator` through `MaterialApp.builder`, not a screen.
+  ///
+  /// [calmMotion] is the child's 🐢 Calm motion choice; null — the default — is
+  /// the fresh-install state, which resolves against a `MediaQuery` that is not
+  /// asking, so every test outside the Calm motion group gets the endless hop
+  /// the prototype has.
   Future<ProviderContainer> pumpApp(
     WidgetTester tester, {
     Widget home = const _Home(),
+    bool? calmMotion,
   }) async {
     final ProviderContainer container = ProviderContainer(
       overrides: [
         storeProvider.overrideWithValue(store),
         soundEngineProvider.overrideWithValue(engine),
         soundOnProvider.overrideWith(() => StubSoundOn(true)),
+        reducedMotionProvider.overrideWith(() => StubCalmMotion(calmMotion)),
       ],
     );
     addTearDown(container.dispose);
@@ -258,6 +267,129 @@ void main() {
     // being drained, not to the widget being painted.
     await tester.pump(const Duration(seconds: 1));
     expect(engine.played, hasLength(1));
+  });
+
+  /// 🐢 Calm motion's badge-popup half — **the surface the setting most exists
+  /// for**, since this hop is the only animation in the app that never ends of
+  /// its own accord. The radar's half is in `radar_view_test.dart`, the
+  /// reactions' in `reaction_test.dart`, the spinner's in
+  /// `loading_screen_test.dart`.
+  group('🐢 Calm motion', () {
+    testWidgets('settles the emoji instead of hopping it forever', (
+      WidgetTester tester,
+    ) async {
+      final ProviderContainer container = await pumpApp(
+        tester,
+        calmMotion: true,
+      );
+
+      store.points = 50;
+      container.read(badgesProvider.notifier).check();
+      await settle(tester);
+
+      // The same two samples the full-motion test above takes — the peak of the
+      // hop and the landing — read here as one position, because there is no
+      // hop.
+      final Offset atRest = tester.getCenter(find.text('🐭'));
+      await tester.pump(kBadgeHopDuration * 0.22);
+      expect(tester.getCenter(find.text('🐭')), atRest);
+      await tester.pump(kBadgeHopDuration * 0.23);
+      expect(tester.getCenter(find.text('🐭')), atRest);
+
+      // **Settled at rest, not stopped wherever the controller happened to
+      // be.** `kHopLift` puts the emoji 24px up at the peak, so a controller
+      // merely `stop()`-ped mid-hop would sit visibly high and tilted — a frozen
+      // bug's silhouette rather than a calm one. This is the assertion that
+      // catches it: a full hop period on, it has not moved from where a
+      // never-started controller puts it.
+      await tester.pump(kBadgeHopDuration);
+      expect(tester.getCenter(find.text('🐭')), atRest);
+    });
+
+    testWidgets('and so the popup can settle at all', (
+      WidgetTester tester,
+    ) async {
+      // The mechanical proof of "forever" ending, and worth its own test
+      // because it is the property the position samples above can only imply:
+      // with the hop stopped there is no permanently scheduled animation left,
+      // so `pumpAndSettle` — which the note on `settle()` above explains cannot
+      // be used over a hopping popup, and which would time out against one —
+      // now returns. If this ever hangs, something under the popup is animating
+      // endlessly that Calm motion did not reach.
+      final ProviderContainer container = await pumpApp(
+        tester,
+        calmMotion: true,
+      );
+
+      store.points = 50;
+      container.read(badgesProvider.notifier).check();
+      await tester.pumpAndSettle();
+
+      expect(find.text('New badge! Mouse Scout'), findsOneWidget);
+    });
+
+    testWidgets('still celebrates — the scrim, the pop and the fanfare stay', (
+      WidgetTester tester,
+    ) async {
+      // **The other half of the setting, and the one a "reduced motion means no
+      // motion" reading would quietly destroy.** A child who turned Calm motion
+      // on asked for the endless jiggling to stop; they did not ask to stop
+      // being congratulated. The card still springs (it plays once, in 300ms,
+      // and is what makes a prize read as an event), the scrim still fades, the
+      // copy is unchanged and the cheer still plays.
+      final ProviderContainer container = await pumpApp(
+        tester,
+        calmMotion: true,
+      );
+
+      store.points = 50;
+      container.read(badgesProvider.notifier).check();
+      await tester.pump();
+      await tester.pump(kBadgePopupDuration * 0.5);
+
+      expect(
+        _cardScale(tester),
+        isNot(closeTo(1, 1e-6)),
+        reason: 'the card is still mid-spring halfway through its pop',
+      );
+
+      await tester.pumpAndSettle();
+      expect(find.text('New badge! Mouse Scout'), findsOneWidget);
+      expect(find.text('Earn 50 points'), findsOneWidget);
+      expect(find.text('tap to keep playing'), findsOneWidget);
+      expect(find.byType(BackdropFilter), findsOneWidget);
+      expect(engine.played, <SoundCue>[SoundCue.cheer]);
+    });
+
+    testWidgets('takes hold under a popup that is already open', (
+      WidgetTester tester,
+    ) async {
+      // "No restart required" (`specs/08-settings-about.md:75`) is not reachable
+      // by a child here — Settings is not tappable behind the scrim — but the
+      // *mechanism* is, and it is the fragile part: the setting can only be read
+      // in a build, while an `AnimationController` may not be driven from one.
+      // `didUpdateWidget` is where that is resolved, and this is the only test
+      // that exercises it on this surface. Without it the popup would be correct
+      // only for the value of the setting at the moment it happened to mount.
+      final ProviderContainer container = await pumpApp(tester);
+
+      store.points = 50;
+      container.read(badgesProvider.notifier).check();
+      await settle(tester);
+
+      // Hopping, as the full-motion test pins.
+      final Offset low = tester.getCenter(find.text('🐭'));
+      await tester.pump(kBadgeHopDuration * 0.22);
+      expect(tester.getCenter(find.text('🐭')).dy, lessThan(low.dy));
+
+      await container.read(reducedMotionProvider.notifier).choose(true);
+      await tester.pump();
+
+      // Back on the ground on the very next frame, and staying there.
+      expect(tester.getCenter(find.text('🐭')), low);
+      await tester.pump(kBadgeHopDuration * 0.22);
+      expect(tester.getCenter(find.text('🐭')), low);
+    });
   });
 }
 

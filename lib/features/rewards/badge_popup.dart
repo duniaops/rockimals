@@ -22,6 +22,7 @@ import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/features/rewards/badge_controller.dart';
 import 'package:rockimals/features/rewards/badges.dart';
 import 'package:rockimals/features/rewards/reaction.dart';
+import 'package:rockimals/features/settings/calm_motion.dart';
 
 /// `transition:transform .3s` on the card (`index.html:249`) — the longer of the
 /// two, so it is the whole animation's length and the fade is an interval
@@ -115,6 +116,14 @@ class _BadgePopupHostState extends ConsumerState<BadgePopupHost>
 
   @override
   Widget build(BuildContext context) {
+    // Resolved here and handed down rather than read where it is used, because
+    // the only widget below this with a `ref` *and* a `BuildContext` under a
+    // `MediaQuery` is this one — everything between here and the emoji is
+    // stateless furniture. Reading it in this build is also what makes the
+    // setting live: both halves become dependencies of this element, so a flip
+    // of either rebuilds the card and `_HoppingEmoji.didUpdateWidget` sees it.
+    final bool calm = calmMotionOf(context, ref);
+
     ref.listen<AnimalBadge?>(
       badgesProvider.select((BadgeState state) => state.celebrating),
       (AnimalBadge? _, AnimalBadge? next) {
@@ -146,6 +155,7 @@ class _BadgePopupHostState extends ConsumerState<BadgePopupHost>
               return _BadgeCelebration(
                 badge: badge,
                 t: _controller.value,
+                calm: calm,
                 onDismiss: () => ref.read(badgesProvider.notifier).dismiss(),
               );
             },
@@ -161,11 +171,22 @@ class _BadgeCelebration extends StatelessWidget {
   const _BadgeCelebration({
     required this.badge,
     required this.t,
+    required this.calm,
     required this.onDismiss,
   });
 
   final AnimalBadge badge;
   final double t;
+
+  /// Whether 🐢 Calm motion is on — see [_HoppingEmoji], the one thing under
+  /// here it reaches.
+  ///
+  /// **The scrim's fade and the card's overshoot are deliberately not calmed.**
+  /// Both play once and are over in 300ms, and the overshoot is what makes the
+  /// popup read as an event rather than a panel appearing. Calm motion exists
+  /// for movement that keeps going or travels across the screen; a card that
+  /// springs to its own size in a third of a second is neither.
+  final bool calm;
   final VoidCallback onDismiss;
 
   /// `transition:opacity .25s` with CSS's default `ease` timing, over an
@@ -221,7 +242,7 @@ class _BadgeCelebration extends StatelessWidget {
                   child: Transform.scale(
                     scale: _cardScale.transform(t),
                     child: ExcludeSemantics(
-                      child: _BadgeCard(badge: badge),
+                      child: _BadgeCard(badge: badge, calm: calm),
                     ),
                   ),
                 ),
@@ -236,9 +257,10 @@ class _BadgeCelebration extends StatelessWidget {
 
 /// `.bcard` and its three lines of copy (`index.html:332-337`).
 class _BadgeCard extends StatelessWidget {
-  const _BadgeCard({required this.badge});
+  const _BadgeCard({required this.badge, required this.calm});
 
   final AnimalBadge badge;
+  final bool calm;
 
   @override
   Widget build(BuildContext context) {
@@ -264,7 +286,7 @@ class _BadgeCard extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            _HoppingEmoji(emoji: badge.emoji),
+            _HoppingEmoji(emoji: badge.emoji, calm: calm),
             // `h3{margin:10px 0 3px}` (`index.html:253`).
             const SizedBox(height: 10),
             Text(
@@ -311,10 +333,22 @@ class _BadgeCard extends StatelessWidget {
 /// means the badge's celebration and an animal's cheer are literally the same
 /// motion, which is the visual rhyme the prototype has and a second copy of the
 /// keyframes would let drift.
+///
+/// **This is the app's only endless animation, and so the one 🐢 Calm motion
+/// most exists to stop.** Everything else that moves either ends (a reaction, a
+/// slide) or is the radar, which has its own drift factor. Under Calm motion
+/// the emoji settles at rest and the badge is still fully celebrated — the
+/// scrim, the card's pop, the copy and the fanfare all still play. What goes is
+/// the one thing that would otherwise not stop until the child taps.
+///
+/// It also, incidentally, makes the popup settleable: with the hop stopped
+/// there is no permanently scheduled animation, so `pumpAndSettle` works over a
+/// calm popup where the suite otherwise has to spell every wait out by hand.
 class _HoppingEmoji extends StatefulWidget {
-  const _HoppingEmoji({required this.emoji});
+  const _HoppingEmoji({required this.emoji, required this.calm});
 
   final String emoji;
+  final bool calm;
 
   @override
   State<_HoppingEmoji> createState() => _HoppingEmojiState();
@@ -325,7 +359,33 @@ class _HoppingEmojiState extends State<_HoppingEmoji>
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: kBadgeHopDuration,
-  )..repeat();
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    if (!widget.calm) _controller.repeat();
+  }
+
+  /// The same shape `title_screen.dart`'s `_Bob` uses, for the same two reasons:
+  /// the setting can only be read in a build, and driving a controller from the
+  /// build of a widget its listeners are mounted under is how a "setState during
+  /// build" assertion happens. Taking the answer as a parameter moves the
+  /// mutation to `didUpdateWidget`, a frame earlier, where it is legal.
+  @override
+  void didUpdateWidget(_HoppingEmoji oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.calm == oldWidget.calm) return;
+    if (widget.calm) {
+      _controller.stop();
+      // Settled at rest rather than stopped wherever the flip landed — an emoji
+      // frozen mid-hop, lifted and tilted, is a bug's silhouette rather than a
+      // calm one.
+      _controller.value = 0;
+    } else {
+      _controller.repeat();
+    }
+  }
 
   @override
   void dispose() {
