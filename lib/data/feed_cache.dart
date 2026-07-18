@@ -5,8 +5,8 @@ import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/data/models/feed_window.dart';
 import 'package:rockimals/data/neows_client.dart';
 
-/// Keeps the last window NASA answered on the disk, so that a launch which
-/// cannot reach NASA can still show a real sky.
+/// Keeps the windows NASA answered on the disk, so that a launch which cannot
+/// reach NASA can still show a real sky.
 ///
 /// A decorator over any [AsteroidFeedSource], and an addition to the prototype
 /// rather than a port of it (`specs/01-foundation.md:30-32`) — `index.html` has
@@ -48,6 +48,25 @@ class CachingFeedSource implements AsteroidFeedSource {
 
   final Duration _ttl;
 
+  /// How many windows the disk holds at once (`specs/06-title-polish-safety.md:38`,
+  /// "cache feeds by date").
+  ///
+  /// **It is more than one because the app now asks for two windows a day.** The
+  /// repository fetches today's window on launch and then quietly prefetches the
+  /// one tomorrow's launch will ask for
+  /// ([AsteroidRepository.prefetchTomorrow]). With a single slot the second of
+  /// those would evict the first, and a child who relaunched an hour later with
+  /// no signal would be handed the sample set while today's real sky sat on the
+  /// disk — the prefetch would have paid for tomorrow by breaking today.
+  ///
+  /// Four, because that is two days of asking: a device that has been offline
+  /// since yesterday still holds both of yesterday's windows while today's two
+  /// arrive. The spec's "past days forever" is deliberately not taken literally
+  /// — only the newest window that is not in the future is ever servable
+  /// ([_bestServable]), so an entry older than that is disk spent on a sky
+  /// nothing would ever choose to show.
+  static const int _maxEntries = 4;
+
   /// Six hours, and the number is doing less than it looks.
   ///
   /// The window key already self-invalidates every UTC day — a new day asks for
@@ -71,10 +90,10 @@ class CachingFeedSource implements AsteroidFeedSource {
   ///  * **Fresh hit** — an entry for *exactly this* window, saved within the
   ///    TTL. Answer from the disk and touch no network.
   ///  * **Miss or stale** — go to NASA, and store whatever comes back.
-  ///  * **NASA cannot be reached** — answer with whatever entry is on the disk,
-  ///    **whichever window it is for**, and say which window that is. Real rocks
-  ///    beat invented ones, and it is the reason this class is on the disk
-  ///    rather than in memory.
+  ///  * **NASA cannot be reached** — answer with the best window on the disk
+  ///    ([_bestServable]) and say which window that is. Real rocks beat invented
+  ///    ones, and it is the reason this class is on the disk rather than in
+  ///    memory.
   ///
   /// **A hit still demands an exact window match; only the failure path is
   /// generous.** The two are different questions. A hit is "may I skip asking?",
@@ -94,29 +113,72 @@ class CachingFeedSource implements AsteroidFeedSource {
     required String startDate,
     required String endDate,
   }) async {
-    final _CacheEntry? cached = _read();
-    final bool isThisWindow =
-        cached != null &&
-        cached.feed.startDate == startDate &&
-        cached.feed.endDate == endDate;
+    final List<_CacheEntry> cached = _read();
+    final _CacheEntry? exact = _entryFor(cached, startDate, endDate);
 
-    if (cached != null && isThisWindow && _isFresh(cached)) return cached.feed;
+    if (exact != null && _isFresh(exact)) return exact.feed;
 
     try {
       final FeedWindow fetched = await _source.fetchFeed(
         startDate: startDate,
         endDate: endDate,
       );
-      await _save(fetched);
+      await _save(fetched, cached);
       return fetched;
     } catch (_) {
       // Bare, and it rethrows rather than deciding anything: what a dead network
       // means is the repository's call (the sample set), and it has already been
       // made one layer up. All this adds is the one better answer available
       // here — that NASA said something recently, and it is still on the disk.
-      if (cached != null) return cached.feed;
+      final _CacheEntry? servable = _bestServable(cached, endDate);
+      if (servable != null) return servable.feed;
       rethrow;
     }
+  }
+
+  /// The entry for exactly this window, or null.
+  static _CacheEntry? _entryFor(
+    List<_CacheEntry> entries,
+    String startDate,
+    String endDate,
+  ) {
+    for (final _CacheEntry entry in entries) {
+      if (entry.feed.startDate == startDate && entry.feed.endDate == endDate) {
+        return entry;
+      }
+    }
+    return null;
+  }
+
+  /// The best answer on the disk when NASA cannot be reached: the **newest
+  /// window that does not end after the one being asked for**.
+  ///
+  /// **The "does not end after" half is what makes the prefetch safe**, and it
+  /// is the one rule this method exists for. Once tomorrow's window is on the
+  /// disk, "newest wins" would hand it to a load that asked for today's — and
+  /// the repository refuses a window dated in the future
+  /// (`AsteroidRepository._isTooOld` admits only today and the three days
+  /// before it), so a child relaunching offline this afternoon would get the
+  /// sample set *because* the app had prefetched for them. Comparing against the
+  /// requested end date keeps the prefetched entry invisible until the day it is
+  /// for, when it becomes the exact match instead.
+  ///
+  /// Newest by [FeedWindow.endDate] rather than by [_CacheEntry.savedAt],
+  /// because the question is which sky is most recent, not which request was.
+  /// The dates are `YYYY-MM-DD`, so comparing them as strings is comparing them
+  /// as days — no parsing, and none of the timezone surface parsing would add.
+  static _CacheEntry? _bestServable(
+    List<_CacheEntry> entries,
+    String requestedEndDate,
+  ) {
+    _CacheEntry? best;
+    for (final _CacheEntry entry in entries) {
+      if (entry.feed.endDate.compareTo(requestedEndDate) > 0) continue;
+      if (best == null || entry.feed.endDate.compareTo(best.feed.endDate) > 0) {
+        best = entry;
+      }
+    }
+    return best;
   }
 
   /// An entry saved in the *future* is not fresh, it is unexplained.
@@ -146,17 +208,38 @@ class CachingFeedSource implements AsteroidFeedSource {
   /// would drop into the catch above and answer with a *stale* sky — or with the
   /// sample set — while the real one sat in a local variable, which would be an
   /// absurd way to lose it.
-  Future<void> _save(FeedWindow feed) async {
+  /// Writes [feed] into [existing] and puts the whole shelf back as one string.
+  ///
+  /// One entry per window: a re-fetch of a window already held **replaces** it
+  /// rather than joining it, so a child who opens the app all day does not fill
+  /// the shelf with copies of one sky. The newest [_maxEntries] survive, judged
+  /// by `savedAt` — the shelf is bounded by how recently each entry was
+  /// *fetched*, while what is servable off it is judged by which days it
+  /// describes ([_bestServable]); the two questions stay separate here as they
+  /// do everywhere else in this class.
+  Future<void> _save(FeedWindow feed, List<_CacheEntry> existing) async {
     try {
+      final DateTime savedAt = _now().toUtc();
+      final List<_CacheEntry> next = <_CacheEntry>[
+        _CacheEntry(savedAt: savedAt, feed: feed),
+        for (final _CacheEntry entry in existing)
+          if (entry.feed.startDate != feed.startDate ||
+              entry.feed.endDate != feed.endDate)
+            entry,
+      ]..sort((_CacheEntry a, _CacheEntry b) => b.savedAt.compareTo(a.savedAt));
+
       await _store.setCachedFeed(
-        jsonEncode(<String, Object?>{
-          _startDateField: feed.startDate,
-          _endDateField: feed.endDate,
-          _savedAtField: _now().toUtc().toIso8601String(),
-          _asteroidsField: feed.asteroids
-              .map((Asteroid a) => a.toJson())
-              .toList(growable: false),
-        }),
+        jsonEncode(<Object?>[
+          for (final _CacheEntry entry in next.take(_maxEntries))
+            <String, Object?>{
+              _startDateField: entry.feed.startDate,
+              _endDateField: entry.feed.endDate,
+              _savedAtField: entry.savedAt.toIso8601String(),
+              _asteroidsField: entry.feed.asteroids
+                  .map((Asteroid a) => a.toJson())
+                  .toList(growable: false),
+            },
+        ]),
       );
     } catch (_) {
       // Deliberately nothing. See above: the sky is already in the caller's
@@ -164,7 +247,7 @@ class CachingFeedSource implements AsteroidFeedSource {
     }
   }
 
-  /// Reads the entry, or null for *anything* that is not a whole one.
+  /// Reads the shelf, skipping *anything* that is not a whole entry.
   ///
   /// Every failure is a miss rather than a throw: a truncated string, a field
   /// that changed type between two builds of Rockimals, a `savedAt` that is not
@@ -173,23 +256,50 @@ class CachingFeedSource implements AsteroidFeedSource {
   /// network is right there. It mirrors [Store]'s own read-side defensiveness
   /// for the same reason.
   ///
+  /// **A corrupt entry costs only itself.** The guard is per entry rather than
+  /// around the whole list, so one record that will not parse cannot throw away
+  /// the other window sitting beside it — which is the window a child with no
+  /// signal would otherwise have been shown. An unreadable *shelf* is still an
+  /// empty one.
+  ///
   /// **The store read is inside the guard, not above it**, which is not
   /// housekeeping: a box that throws on read would otherwise throw straight out
   /// of [fetchFeed], and the repository — which cannot see what failed — would
   /// answer with the sample set. A broken cache would take the network down with
   /// it and hand a child invented rocks on a perfectly good connection.
-  _CacheEntry? _read() {
+  ///
+  /// **The one-entry format this replaced is not read, and needs no migration**:
+  /// no build of Rockimals has shipped (the bundle ID is still `com.example`),
+  /// so the only blobs in the old shape are on developers' own devices, where
+  /// the cost of not reading one is a single request on one launch.
+  List<_CacheEntry> _read() {
+    final List<_CacheEntry> entries = <_CacheEntry>[];
     try {
       final String? raw = _store.cachedFeed;
-      if (raw == null) return null;
+      if (raw == null) return entries;
 
       final Object? decoded = jsonDecode(raw);
-      if (decoded is! Map<String, Object?>) return null;
+      if (decoded is! List<Object?>) return entries;
 
-      final Object? startDate = decoded[_startDateField];
-      final Object? endDate = decoded[_endDateField];
-      final Object? savedAt = decoded[_savedAtField];
-      final Object? asteroids = decoded[_asteroidsField];
+      for (final Object? item in decoded) {
+        final _CacheEntry? entry = _entryFrom(item);
+        if (entry != null) entries.add(entry);
+      }
+    } catch (_) {
+      // See above — an unreadable shelf is an empty one.
+    }
+    return entries;
+  }
+
+  /// One stored entry, or null if it is not a whole one.
+  static _CacheEntry? _entryFrom(Object? item) {
+    try {
+      if (item is! Map<String, Object?>) return null;
+
+      final Object? startDate = item[_startDateField];
+      final Object? endDate = item[_endDateField];
+      final Object? savedAt = item[_savedAtField];
+      final Object? asteroids = item[_asteroidsField];
       if (savedAt is! String || asteroids is! List<Object?>) return null;
       if (startDate is! String || endDate is! String) return null;
       if (!_isDateKey(startDate) || !_isDateKey(endDate)) return null;

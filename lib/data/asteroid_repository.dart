@@ -88,8 +88,7 @@ class AsteroidRepository {
   /// the distinction.
   Future<AsteroidFeed> loadData() async {
     final DateTime end = _now().toUtc();
-    final DateTime start = end.subtract(_windowLength);
-    final String startKey = _formatFeedDate(start);
+    final String startKey = _formatFeedDate(end.subtract(_windowLength));
     final String endKey = _formatFeedDate(end);
 
     try {
@@ -136,6 +135,47 @@ class AsteroidRepository {
       // FormatException from one corrupt record — or the TimeoutException the
       // ceiling above throws — crash the app instead.
       return AsteroidFeed.fallback();
+    }
+  }
+
+  /// Fetches the window **tomorrow's launch will ask for**, so that a child who
+  /// opens the app tomorrow somewhere with no signal still gets real rocks
+  /// (`specs/06-title-polish-safety.md:38`).
+  ///
+  /// **This shows nobody anything.** It returns no sky and its answer is
+  /// discarded; the only thing it does is put a window on the disk, through the
+  /// same `CachingFeedSource` every load already goes through. That is why it is
+  /// safe to fire and forget, and why it belongs here rather than in the cache:
+  /// *which* window tomorrow will ask for is this class's arithmetic (it owns
+  /// [_windowLength] and the clock), while storing one is the cache's job.
+  ///
+  /// **Tomorrow's window, not tomorrow's day.** The window asked for is
+  /// `[tomorrow - 2, tomorrow]`, byte-identical to what [loadData] will build
+  /// once the date rolls over, because the cache only counts an entry as a hit
+  /// on an exact window match. Asking for the single day would store a window
+  /// nothing ever asks for again.
+  ///
+  /// It reaches into the future by one day, which NeoWs answers — the feed lists
+  /// predicted approaches as readily as past ones. If it did not, this would
+  /// throw and be swallowed, and the app would be exactly the app it was before
+  /// this method existed.
+  ///
+  /// **Never throws, never delays a child.** Everything here is best-effort: the
+  /// sky is already on the screen by the time this runs, so a dead network, a
+  /// rate-limited key, or a full disk must all cost nothing. It keeps the same
+  /// [_loadCeiling] as a real load so that a captive portal cannot leave a
+  /// request pending for the life of the process.
+  Future<void> prefetchTomorrow() async {
+    final DateTime end = _now().toUtc().add(const Duration(days: 1));
+    try {
+      await _source
+          .fetchFeed(
+            startDate: _formatFeedDate(end.subtract(_windowLength)),
+            endDate: _formatFeedDate(end),
+          )
+          .timeout(_loadCeiling);
+    } catch (_) {
+      // Deliberately nothing — see above. Tomorrow's launch will ask for itself.
     }
   }
 

@@ -309,6 +309,121 @@ void main() {
     });
   });
 
+  /// The shelf holds more than one window because the app now asks for two a
+  /// day: today's on launch, and tomorrow's prefetched behind it
+  /// (`AsteroidRepository.prefetchTomorrow`). Every test here is about the two
+  /// of them sharing a disk without spoiling each other.
+  group('more than one window', () {
+    /// Tomorrow's window, as `prefetchTomorrow` builds it: `[tomorrow - 2,
+    /// tomorrow]` against the suite's 2026-07-17 clock.
+    const String tomorrowStart = '2026-07-16';
+    const String tomorrowEnd = '2026-07-18';
+
+    test('keeps today after tomorrow has been prefetched', () async {
+      // The regression the whole multi-entry format exists to prevent. With one
+      // slot, the prefetch below evicts today's window, and the offline
+      // relaunch after it falls all the way through to the fourteen sample
+      // rocks — the app would have bought tomorrow by breaking today.
+      await fetchRocks();
+      await fetch(start: tomorrowStart, end: tomorrowEnd);
+      await restart();
+      source = _FakeSource.dead();
+
+      final FeedWindow served = await fetch();
+
+      expect(served.endDate, '2026-07-17');
+      expect(served.asteroids.map((Asteroid a) => a.name), <String>[
+        '2011 EW',
+        '2020 SW',
+      ]);
+    });
+
+    test('never serves a window from the future to a load that asked for today',
+        () async {
+      // The rule `_bestServable` is built around. "Newest wins" would hand
+      // tomorrow's prefetched window to today's offline load, and the
+      // repository refuses a window dated in the future — so the child would
+      // get sample rocks *because* the app had prefetched for them. Here only
+      // tomorrow is on the disk, so a today request must find nothing rather
+      // than reach forward.
+      await fetch(start: tomorrowStart, end: tomorrowEnd);
+      await restart();
+      source = _FakeSource.dead();
+
+      await expectLater(fetch(), throwsA(isA<_DeadNetwork>()));
+    });
+
+    test('serves the prefetched window on the day it is for, without asking',
+        () async {
+      // The payoff: tomorrow arrives, the repository asks for the window the
+      // prefetch stored, and an exact match answers it. Stale by then (a day is
+      // well past the six-hour TTL), so it costs one attempted request — which
+      // is the point at which a dead network stops mattering.
+      await fetch(start: tomorrowStart, end: tomorrowEnd);
+      await restart();
+      clock = clock.add(const Duration(days: 1));
+      source = _FakeSource.dead();
+
+      final FeedWindow served = await fetch(
+        start: tomorrowStart,
+        end: tomorrowEnd,
+      );
+
+      expect(served.endDate, tomorrowEnd);
+      expect(served.asteroids, isNotEmpty);
+    });
+
+    test('a fresh prefetched window is a hit, so the day it is for is free',
+        () async {
+      // Same day, inside the TTL: the exact-match hit still applies to a window
+      // that arrived by prefetch rather than by load. Nothing about an entry
+      // records which call stored it, and nothing should.
+      await fetch(start: tomorrowStart, end: tomorrowEnd);
+      await restart();
+      final int before = source.fetchCount;
+
+      await fetch(start: tomorrowStart, end: tomorrowEnd);
+
+      expect(source.fetchCount, before);
+    });
+
+    test('keeps the four newest windows and drops the oldest', () async {
+      // Bounded on purpose: only the newest servable window is ever shown, so
+      // an entry below that is disk spent on a sky nothing would choose. Five
+      // windows go in, one day apart; the first must be gone.
+      String key(int day) =>
+          '2026-07-${(15 + day).toString().padLeft(2, '0')}';
+
+      for (int day = 0; day < 5; day++) {
+        clock = DateTime.utc(2026, 7, 17, 12).add(Duration(days: day));
+        await fetch(start: key(day), end: key(day + 2));
+      }
+      await restart();
+      source = _FakeSource.dead();
+
+      // The oldest window is no longer on the shelf, so a request for it finds
+      // nothing it may serve — everything else is dated after it.
+      clock = DateTime.utc(2026, 7, 17, 12);
+      await expectLater(fetch(), throwsA(isA<_DeadNetwork>()));
+    });
+
+    test('one corrupt entry does not take the other window with it', () async {
+      // Per-entry guarding. The alternative — one bad record voiding the shelf —
+      // would throw away a perfectly good sky sitting beside it, which is the
+      // sky a child with no signal is about to be shown.
+      await store.setCachedFeed(
+        _shelf(<Object?>[
+          'not an entry at all',
+          _entryMap(asteroids: <Object?>[_asteroid('2020 SW').toJson()]),
+        ]),
+      );
+      await restart();
+      source = _FakeSource.dead();
+
+      expect((await fetchRocks()).single.name, '2020 SW');
+    });
+  });
+
   group('a box that cannot be trusted', () {
     test('garbage in the entry is a miss, not a crash', () async {
       await store.setCachedFeed('this is not json{{{');
@@ -458,17 +573,42 @@ void main() {
 /// missing field, not for the corruption each was written to pin. They asserted
 /// nothing and said so in green. Building from one shared default is what stops
 /// that happening the next time the shape moves.
+///
+/// **It happened again, and this is the shape that caught it.** The shelf became
+/// a JSON *list* of entries when the prefetch landed, and for one green run every
+/// corruption test above was passing because a bare object no longer decodes at
+/// all — not because of the field it had broken. The wrapping lives in this one
+/// helper for that reason: the next shape change breaks this function loudly
+/// rather than every test quietly.
 String _entry({
   String startDate = '2026-07-15',
   String endDate = '2026-07-17',
   String? savedAt,
   List<Object?>? asteroids,
-}) => jsonEncode(<String, Object?>{
+}) => _shelf(<Object?>[
+  _entryMap(
+    startDate: startDate,
+    endDate: endDate,
+    savedAt: savedAt,
+    asteroids: asteroids,
+  ),
+]);
+
+/// One entry, unencoded, for the tests that put more than one on the shelf.
+Map<String, Object?> _entryMap({
+  String startDate = '2026-07-15',
+  String endDate = '2026-07-17',
+  String? savedAt,
+  List<Object?>? asteroids,
+}) => <String, Object?>{
   'startDate': startDate,
   'endDate': endDate,
   'savedAt': savedAt ?? DateTime.utc(2026, 7, 17, 12).toIso8601String(),
   'asteroids': asteroids ?? <Object?>[_asteroid('2011 EW').toJson()],
-});
+};
+
+/// The stored shape: a JSON list of entries.
+String _shelf(List<Object?> entries) => jsonEncode(entries);
 
 Asteroid _asteroid(String name, {bool hazardous = false}) => Asteroid(
   name: name,

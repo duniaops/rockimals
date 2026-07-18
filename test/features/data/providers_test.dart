@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -98,6 +99,41 @@ void main() {
         expect(repository.loadCount, 2);
       },
     );
+
+    test('warms tomorrow onto the disk once the sky is in hand', () async {
+      // `specs/06-title-polish-safety.md:38`. The provider is where this is
+      // triggered because it is the one place that knows a load has *finished*
+      // — the repository would have to fire it mid-load, before the child has
+      // anything to look at.
+      final _FakeRepository repository = _FakeRepository(_liveFeed());
+      final ProviderContainer container = _container(repository);
+
+      await container.read(asteroidFeedProvider.future);
+
+      expect(repository.prefetchCount, 1);
+    });
+
+    test('does not prefetch over a network that just failed', () async {
+      // The sample set is the one signal available up here that the network is
+      // gone. Prefetching into it would spend the whole ten-second ceiling again
+      // for an answer that cannot come.
+      final _FakeRepository repository = _FakeRepository(AsteroidFeed.fallback());
+      final ProviderContainer container = _container(repository);
+
+      await container.read(asteroidFeedProvider.future);
+
+      expect(repository.prefetchCount, 0);
+    });
+
+    test('resolves the sky without waiting for the prefetch', () async {
+      // Unawaited on purpose: a child must not watch "Contacting NASA…" for a
+      // second request that is for tomorrow. A prefetch that never completes
+      // must leave the feed resolved anyway.
+      final _FakeRepository repository = _HangingPrefetch(_liveFeed());
+      final ProviderContainer container = _container(repository);
+
+      await expectLater(container.read(asteroidFeedProvider.future), completes);
+    });
   });
 
   group('the derived field providers', () {
@@ -514,6 +550,7 @@ class _FakeRepository extends AsteroidRepository {
 
   AsteroidFeed? next;
   int loadCount = 0;
+  int prefetchCount = 0;
 
   @override
   Future<AsteroidFeed> loadData() async {
@@ -522,6 +559,21 @@ class _FakeRepository extends AsteroidRepository {
     if (feed == null) throw _LoadFailure();
     return feed;
   }
+
+  /// Counted rather than performed. The real one reaches for a source; what the
+  /// provider is responsible for is only *whether* it is called.
+  @override
+  Future<void> prefetchTomorrow() async => prefetchCount++;
+}
+
+/// A repository whose prefetch never finishes — the captive portal, staged, so
+/// that "the feed resolves anyway" is a claim about the provider rather than
+/// about how fast the fake happens to be.
+class _HangingPrefetch extends _FakeRepository {
+  _HangingPrefetch(super.feed);
+
+  @override
+  Future<void> prefetchTomorrow() => Completer<void>().future;
 }
 
 /// The staged bug: `loadData()` breaking its never-throws promise.

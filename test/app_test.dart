@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
@@ -9,9 +11,14 @@ import 'package:hive/hive.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/core/theme/palette.dart';
+import 'package:rockimals/data/asteroid_repository.dart';
+import 'package:rockimals/data/feed_cache.dart';
 import 'package:rockimals/data/models/asteroid_feed.dart';
+import 'package:rockimals/data/neows_client.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/loading/loading_screen.dart';
+import 'package:rockimals/features/radar/radar_view.dart';
+import 'package:rockimals/features/shell/app_shell.dart';
 import 'package:rockimals/features/title/title_screen.dart';
 import 'package:rockimals/main.dart';
 
@@ -211,6 +218,118 @@ void main() {
       );
     });
   });
+
+  /// `specs/06-title-polish-safety.md:47` — "fully usable offline". Every layer
+  /// of that promise is already tested on its own (`asteroid_repository_test`
+  /// owns the fallback, `feed_cache_test` the cached sky), so what is left, and
+  /// what only a test at this level can ask, is whether they add up to a child
+  /// getting from a cold launch to a playable radar with the aeroplane switch on.
+  ///
+  /// **The whole real stack runs here** — repository, cache, client, retry,
+  /// parser — stubbed only at Dio's socket, which is the one thing an aeroplane
+  /// actually takes away.
+  group('airplane mode', () {
+    testWidgets('a cold launch with no network reaches a radar full of animals',
+        (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: <Override>[
+            storeProvider.overrideWithValue(MemoryStore()),
+            asteroidRepositoryProvider.overrideWith(_offlineRepository),
+          ],
+          child: const RockimalsApp(),
+        ),
+      );
+
+      // Tap Play, as a child does, rather than routing past the title.
+      //
+      // Pumped by hand rather than settled: the radar's loop schedules a frame
+      // forever by design, so `pumpAndSettle` on this screen waits for a quiet
+      // frame that never comes. One pump starts the route, one spends its
+      // transition, one lands the resolved feed.
+      await tester.tap(find.byType(TitleScreen));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
+
+      // The gate itself stays — it is the widget that *renders* the shell, not
+      // one the shell replaces. What must be gone is the spinner behind it.
+      expect(find.byType(LoadingScreen), findsNothing,
+          reason: 'the gate must not strand a child on "Contacting NASA…"');
+      expect(find.byType(AppShell), findsOneWidget);
+
+      // A sky, and specifically the bundled one — the fourteen sample rocks the
+      // repository substitutes when NASA cannot be reached.
+      final ProviderContainer container = ProviderScope.containerOf(
+        tester.element(find.byType(RockimalsApp)),
+      );
+      final AsteroidFeed feed = container.read(asteroidFeedProvider).requireValue;
+      expect(feed.usingFallback, isTrue);
+      expect(feed.asteroids, hasLength(14));
+
+      // And it is *playing*: the radar's loop is running, which is the
+      // difference between a screen that opened offline and one that works
+      // offline. Earth's glow is the thing on this screen that only moves if
+      // frames are being drawn (`radar_view_test.dart` pins the radii).
+      expect(find.byType(RadarView), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 471));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('and never leaves a prefetch pending behind it', (tester) async {
+      // The prefetch fires only when the sky is a real one, so an offline launch
+      // must not start one at all. If it ever did, this test would fail at
+      // teardown with a pending timer rather than anywhere near the cause —
+      // which is why it is asserted here rather than left to be discovered.
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: <Override>[
+            storeProvider.overrideWithValue(MemoryStore()),
+            asteroidRepositoryProvider.overrideWith(_offlineRepository),
+          ],
+          child: const RockimalsApp(),
+        ),
+      );
+      await tester.tap(find.byType(TitleScreen));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+    });
+  });
+}
+
+/// The app's real data stack over a socket that refuses every connection — the
+/// composition `asteroidRepositoryProvider` builds, with one adapter swapped.
+///
+/// The retry interceptor's sleeps are stubbed out: they are real durations
+/// (400ms, then 800ms) that `neows_client_test.dart` already owns, and leaving
+/// them in would only make this test wait out a schedule it is not asking about.
+AsteroidRepository _offlineRepository(Ref ref) {
+  final Dio dio = Dio()..httpClientAdapter = _RefusedAdapter();
+  return AsteroidRepository(
+    CachingFeedSource(
+      NeoWsClient(dio: dio, sleep: (Duration _) async {}),
+      ref.watch(storeProvider),
+    ),
+  );
+}
+
+/// Airplane mode, as Dio sees it.
+class _RefusedAdapter implements HttpClientAdapter {
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async => throw DioException.connectionError(
+    requestOptions: options,
+    reason: 'airplane mode',
+  );
+
+  @override
+  void close({bool force = false}) {}
 }
 
 /// Runs the real boot sequence with the sky held back, and **must** go through

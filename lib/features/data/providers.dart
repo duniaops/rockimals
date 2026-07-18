@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/data/asteroid_repository.dart';
@@ -80,11 +82,26 @@ final Provider<AsteroidRepository> asteroidRepositoryProvider =
 /// for the UI to render. Nothing is caught here to paper over it: swallowing it
 /// would hide the bug and leave a child on a spinner forever.
 final FutureProvider<AsteroidFeed> asteroidFeedProvider =
-    FutureProvider<AsteroidFeed>(
-      (Ref ref) => ref.watch(asteroidRepositoryProvider).loadData(),
-      name: 'asteroidFeed',
-      retry: _neverRetry,
-    );
+    FutureProvider<AsteroidFeed>((Ref ref) async {
+      final AsteroidRepository repository = ref.watch(
+        asteroidRepositoryProvider,
+      );
+      final AsteroidFeed feed = await repository.loadData();
+
+      // Tomorrow's sky, warmed onto the disk for tomorrow's launch
+      // (`specs/06-title-polish-safety.md:38`). **Unawaited on purpose** — the
+      // child's sky is in hand and returning it must not wait on a second
+      // request; `prefetchTomorrow` never throws, so nothing here can turn a
+      // resolved feed into an error.
+      //
+      // **Skipped on the sample set**, which is the one signal available up here
+      // that the network just failed. Prefetching over a dead connection would
+      // spend the ceiling again for an answer that cannot come, and on a live
+      // connection it costs one request a day against a key a household shares.
+      if (!feed.usingFallback) unawaited(repository.prefetchTomorrow());
+
+      return feed;
+    }, name: 'asteroidFeed', retry: _neverRetry);
 
 /// Riverpod 3 retries a failed provider **by default** — ten attempts on a
 /// 200ms→6400ms backoff (`ProviderContainer.defaultRetry`), roughly 25 seconds

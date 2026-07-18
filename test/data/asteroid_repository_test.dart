@@ -435,6 +435,86 @@ void main() {
       expect(feed.asteroids.length, 14);
     });
   });
+
+  /// The prefetch shows nobody anything — it exists so that *tomorrow's* launch
+  /// has a real sky on the disk when there is no signal
+  /// (`specs/06-title-polish-safety.md:38`). So these tests are about which
+  /// window it asks for and about it never costing the child anything.
+  group('AsteroidRepository.prefetchTomorrow', () {
+    test('asks for exactly the window tomorrow will ask for', () async {
+      // The whole value of the prefetch turns on this being byte-identical to
+      // what `loadData` will build once the date rolls over: the cache counts an
+      // entry as a hit only on an exact window match, so a window that is one
+      // day wide, or shifted, would be stored and then never asked for again.
+      final _FakeSource source = _FakeSource.returning(
+        _pool(12, date: '2026-07-17'),
+      );
+
+      await _repository(source, at: DateTime.utc(2026, 7, 16)).prefetchTomorrow();
+
+      expect(source.lastStart, '2026-07-15');
+      expect(source.lastEnd, '2026-07-17');
+    });
+
+    test('is the window the next day builds for itself', () async {
+      // Says the sentence above as a test rather than as a comment: tomorrow's
+      // real load, run against tomorrow's clock, must land on the same pair.
+      final _FakeSource prefetch = _FakeSource.returning(
+        _pool(12, date: '2026-07-17'),
+      );
+      final _FakeSource tomorrow = _FakeSource.returning(
+        _pool(12, date: '2026-07-17'),
+      );
+
+      await _repository(prefetch, at: DateTime.utc(2026, 7, 16)).prefetchTomorrow();
+      await _repository(tomorrow, at: DateTime.utc(2026, 7, 17)).loadData();
+
+      expect(prefetch.lastStart, tomorrow.lastStart);
+      expect(prefetch.lastEnd, tomorrow.lastEnd);
+    });
+
+    test('zero-pads across a month boundary', () async {
+      // The same trap `loadData` has its own test for, and one the prefetch
+      // reaches a day earlier: on the 31st, tomorrow is next month.
+      final _FakeSource source = _FakeSource.returning(
+        _pool(12, date: '2026-07-31'),
+      );
+
+      await _repository(source, at: DateTime.utc(2026, 7, 31)).prefetchTomorrow();
+
+      expect(source.lastStart, '2026-07-30');
+      expect(source.lastEnd, '2026-08-01');
+    });
+
+    test('swallows a dead network — the child is already looking at a sky',
+        () async {
+      // It runs behind a resolved feed, so there is nothing left for a failure
+      // here to spoil. Throwing would turn a loaded app into an unhandled
+      // asynchronous error, because the caller deliberately does not await it.
+      await expectLater(
+        _repository(
+          _FakeSource.failing(const SocketException('offline')),
+          at: DateTime.utc(2026, 7, 16),
+        ).prefetchTomorrow(),
+        completes,
+      );
+    });
+
+    test('gives up on a source that never answers, rather than hanging forever',
+        () async {
+      // The captive portal, again. Without the ceiling this future stays pending
+      // for the life of the process — harmless to look at, but it holds the
+      // request and everything under it alive on a screen a child left minutes
+      // ago.
+      final AsteroidRepository repository = AsteroidRepository(
+        _FakeSource.hanging(),
+        now: () => DateTime.utc(2026, 7, 16),
+        loadCeiling: const Duration(milliseconds: 10),
+      );
+
+      await expectLater(repository.prefetchTomorrow(), completes);
+    });
+  });
 }
 
 /// The real client over the real capture, with the clock pinned to the day the
