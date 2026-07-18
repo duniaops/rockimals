@@ -107,47 +107,12 @@ void main() {
       });
     });
 
-    group('launching a game', () {
-      testWidgets('a card opens its game placeholder', (tester) async {
-        await pumpHub(tester);
-
-        await tester.tap(find.text('Animal Match'));
-        await tester.pumpAndSettle();
-
-        // Three of the four games have landed (Today's Challenge, Power Duel,
-        // Closer or Farther) and are covered by their own suites; the rest still
-        // route to the kid-toned placeholder that names the game — proof the
-        // route is wired, which each remaining game item swaps for the real
-        // game. This test must always point at a card that is *still* a
-        // placeholder, so **the Animal Match item retires it** rather than
-        // repointing it: nothing will be left to point at.
-        expect(
-          find.text('This game is on its way — coming soon!'),
-          findsOneWidget,
-        );
-      });
-
-      testWidgets('Back returns to the hub', (tester) async {
-        await pumpHub(tester);
-
-        await tester.tap(find.text('Animal Match'));
-        await tester.pumpAndSettle();
-        expect(
-          find.text('This game is on its way — coming soon!'),
-          findsOneWidget,
-        );
-
-        await tester.tap(find.bySemanticsLabel('Back'));
-        await tester.pumpAndSettle();
-
-        // Back on the hub: the placeholder is gone and the cards are up again.
-        expect(
-          find.text('This game is on its way — coming soon!'),
-          findsNothing,
-        );
-        expect(find.text("Today's Challenge"), findsOneWidget);
-      });
-    });
+    // **The "launching a game" group is gone, on purpose.** Both of its tests
+    // asserted the kid-toned "coming soon" placeholder, and Animal Match — the
+    // last card still routed to it — has landed, so the placeholder and its
+    // branch are deleted. Each game's own suite now proves its card reaches it
+    // (`match_game_test.dart` also carries the Back-to-the-hub leg), which is
+    // strictly more than a placeholder could show.
   });
 
   // The promise the item names — "the sound toggle persists across a restart" —
