@@ -9,6 +9,7 @@ import 'package:rockimals/features/games/duel_game.dart';
 import 'package:rockimals/features/games/game_shell.dart';
 import 'package:rockimals/features/games/games_hub.dart';
 import 'package:rockimals/features/games/games_providers.dart';
+import 'package:rockimals/features/rewards/reaction.dart';
 
 /// Power Duel end to end (`specs/04`, game 2). The deal and the winner test are
 /// pinned in `duel_pairing_test.dart`; this suite is the screen — answering,
@@ -28,8 +29,12 @@ import 'package:rockimals/features/games/games_providers.dart';
 void main() {
   // Two animals whose power is far enough apart that the deal's gap rule is
   // satisfied on the first draw and no rounding wobble can swap them.
-  final Asteroid strong =
-      _rock('2020 AAA', diaMax: 3000, missLunar: 0.3, velKps: 30);
+  final Asteroid strong = _rock(
+    '2020 AAA',
+    diaMax: 3000,
+    missLunar: 0.3,
+    velKps: 30,
+  );
   final Asteroid weak = _rock('2020 DDD', diaMax: 5, missLunar: 40, velKps: 6);
   final List<Asteroid> sky = <Asteroid>[strong, weak];
 
@@ -63,11 +68,7 @@ void main() {
     });
 
     testWidgets('seeds BEST from storage', (WidgetTester tester) async {
-      await _mount(
-        tester,
-        sky: sky,
-        actions: _RecordingActions(bestDuel: 4),
-      );
+      await _mount(tester, sky: sky, actions: _RecordingActions(bestDuel: 4));
 
       expect(_scoreValue(tester, 'BEST'), '4');
     });
@@ -294,6 +295,47 @@ void main() {
     expect(find.text('⚔️ Power Duel'), findsOneWidget);
     expect(find.text('This game is on its way — coming soon!'), findsNothing);
   });
+
+  group('the reaction (specs/05)', () {
+    testWidgets('a correct answer hops the tapped animal and leaves the other '
+        'one alone', (WidgetTester tester) async {
+      await _mount(tester, sky: sky);
+
+      await _tap(tester, strongName);
+
+      // `react(av, win)` where `av` is the avatar inside the card that was
+      // clicked (`index.html:1052`) — the losing animal is revealed but does
+      // not perform.
+      expect(_cardReaction(tester, strongName), Reaction.happy);
+      expect(_cardReaction(tester, weakName), isNull);
+      await _drain(tester);
+    });
+
+    testWidgets('a wrong answer wobbles the tapped animal, still not the '
+        'other', (WidgetTester tester) async {
+      await _mount(tester, sky: sky);
+
+      await _tap(tester, weakName);
+
+      expect(_cardReaction(tester, weakName), Reaction.sad);
+      expect(_cardReaction(tester, strongName), isNull);
+      await _drain(tester);
+    });
+
+    testWidgets('the next pair opens with both animals still, so the following '
+        'answer can react again', (WidgetTester tester) async {
+      // The reset [ReactionAvatar] needs to replay a same-sign answer — the
+      // port of the prototype's remove-class-and-reflow (`index.html:968`).
+      await _mount(tester, sky: sky);
+
+      await _tap(tester, strongName);
+      await tester.pump(kDuelAdvanceDelay);
+
+      expect(_cardReaction(tester, strongName), isNull);
+      expect(_cardReaction(tester, weakName), isNull);
+      await _drain(tester);
+    });
+  });
 }
 
 /// Tap something and rebuild — a single `pump`, never `pumpAndSettle`, because
@@ -311,8 +353,9 @@ Future<void> _drain(WidgetTester tester) =>
 
 /// The big number in the score-bar cell captioned [label].
 String _scoreValue(WidgetTester tester, String label) {
-  final Finder cell =
-      find.ancestor(of: find.text(label), matching: find.byType(Column)).first;
+  final Finder cell = find
+      .ancestor(of: find.text(label), matching: find.byType(Column))
+      .first;
   final Text value = tester.widget<Text>(
     find.descendant(of: cell, matching: find.byType(Text)).first,
   );
@@ -452,4 +495,17 @@ Asteroid _rock(
     jpl: 'https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html',
     date: '2026-07-16',
   );
+}
+
+/// The motion the avatar on [animalName]'s card is playing, or null if that
+/// card is sitting still.
+Reaction? _cardReaction(WidgetTester tester, String animalName) {
+  final Finder card = find
+      .ancestor(of: find.text(animalName), matching: find.byType(Column))
+      .first;
+  return tester
+      .widget<ReactionAvatar>(
+        find.descendant(of: card, matching: find.byType(ReactionAvatar)),
+      )
+      .reaction;
 }

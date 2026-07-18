@@ -18,6 +18,7 @@ import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/games/challenge_grader.dart';
 import 'package:rockimals/features/games/game_shell.dart';
+import 'package:rockimals/features/rewards/reaction.dart';
 
 /// Today's Challenge, the Play hub's featured game.
 ///
@@ -82,8 +83,7 @@ class _ChallengeGameState extends ConsumerState<ChallengeGame> {
     final List<Asteroid> all =
         ref.read(asteroidsProvider).value ?? const <Asteroid>[];
     final List<Asteroid> pool = today.length >= _roundSize ? today : all;
-    final List<Asteroid> shuffled = List<Asteroid>.of(pool)
-      ..shuffle(Random());
+    final List<Asteroid> shuffled = List<Asteroid>.of(pool)..shuffle(Random());
     return shuffled.take(_roundSize).toList(growable: false);
   }
 
@@ -337,7 +337,15 @@ class _ChallengeCard extends StatelessWidget {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: <Widget>[
-                        _ChallengeAvatar(emoji: c.animal.emoji),
+                        // Each card reacts to **its own** placement, not to
+                        // the round's verdict: `ok = userPos === truePos` per
+                        // card (`index.html:937`). So a 3-of-4 reveal is three
+                        // hops and one wobble at once — the child sees exactly
+                        // which animal they misjudged.
+                        ReactionAvatar(
+                          reaction: reactionFor(isCorrect),
+                          child: _ChallengeAvatar(emoji: c.animal.emoji),
+                        ),
                         // `.chcard .mini{margin:0 auto 8px}`.
                         const SizedBox(height: 8),
                         // `.chcard .nm{font-size:13px;font-weight:700}` on one

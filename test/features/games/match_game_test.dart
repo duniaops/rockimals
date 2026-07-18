@@ -10,6 +10,7 @@ import 'package:rockimals/features/games/games_hub.dart';
 import 'package:rockimals/features/games/games_providers.dart';
 import 'package:rockimals/features/games/match_game.dart';
 import 'package:rockimals/features/games/match_round.dart';
+import 'package:rockimals/features/rewards/reaction.dart';
 
 /// Animal Match end to end (`specs/04`, game 4). The deal is pinned in
 /// `match_round_test.dart`; this suite is the screen — answering, the 1400ms
@@ -56,10 +57,7 @@ void main() {
 
       // The rock is a mystery: its width is the only clue on the board.
       expect(find.text('❓'), findsOneWidget);
-      expect(
-        find.textContaining('302 m', findRichText: true),
-        findsOneWidget,
-      );
+      expect(find.textContaining('302 m', findRichText: true), findsOneWidget);
       // The answer is not on the board — only in one of the three buttons.
       expect(find.text(answer.emoji), findsNothing);
     });
@@ -71,8 +69,10 @@ void main() {
 
       final List<Animal> onScreen = _optionsOnScreen();
       expect(onScreen, hasLength(kMatchOptions));
-      expect(onScreen.where((Animal a) => a.species == answer.species),
-          hasLength(1));
+      expect(
+        onScreen.where((Animal a) => a.species == answer.species),
+        hasLength(1),
+      );
     });
 
     testWidgets('never shows a real designation — only species names '
@@ -99,8 +99,10 @@ void main() {
       // `Yes! 🐘 It’s a <b>Elephant</b>! +10 ⭐` (`index.html:1115`) — with the
       // article agreeing with the species (see the port note in the banner).
       expect(
-        find.text('Yes! ${answer.emoji} It’s an Elephant! +10 ⭐',
-            findRichText: true),
+        find.text(
+          'Yes! ${answer.emoji} It’s an Elephant! +10 ⭐',
+          findRichText: true,
+        ),
         findsOneWidget,
       );
       expect(actions.awarded, <int>[10]);
@@ -144,8 +146,9 @@ void main() {
   });
 
   group('a wrong answer', () {
-    testWidgets('names the animal encouragingly, scores nothing, and plays on',
-        (WidgetTester tester) async {
+    testWidgets('names the animal encouragingly, scores nothing, and plays on', (
+      WidgetTester tester,
+    ) async {
       final _RecordingActions actions = _RecordingActions();
       final List<bool> reactions = <bool>[];
       await _mount(
@@ -160,8 +163,10 @@ void main() {
       // Never harsh (`CLAUDE.md:70`), and it still teaches: the true animal is
       // named whichever way the child guessed (`index.html:1115`).
       expect(
-        find.text('It’s ${answer.emoji} an Elephant — you’ll get the next one!',
-            findRichText: true),
+        find.text(
+          'It’s ${answer.emoji} an Elephant — you’ll get the next one!',
+          findRichText: true,
+        ),
         findsOneWidget,
       );
       // The rock turns into the animal on a wrong answer too — the child is
@@ -386,6 +391,42 @@ void main() {
     expect(find.text('🐾 Animal Match'), findsNothing);
     expect(find.text("Today's Challenge"), findsOneWidget);
   });
+
+  group('the reaction (specs/05)', () {
+    testWidgets('a correct answer hops the rock as it turns into an animal', (
+      WidgetTester tester,
+    ) async {
+      await _mount(tester, sky: sky);
+
+      await _tap(tester, _label(_optionsOnScreen().firstWhere(_isAnswer)));
+
+      // `$("szRock").textContent=an.emoji; react($("szRock"), ok)`
+      // (`index.html:1112`) — the reveal and the celebration are one beat.
+      expect(_soloReaction(tester), Reaction.happy);
+      await _drain(tester);
+    });
+
+    testWidgets('a wrong answer wobbles it — the animal still appears', (
+      WidgetTester tester,
+    ) async {
+      await _mount(tester, sky: sky);
+
+      await _tap(tester, _label(_wrongOption()));
+
+      expect(_soloReaction(tester), Reaction.sad);
+      await _drain(tester);
+    });
+
+    testWidgets('the next question opens with the rock still, so eight rounds '
+        'each get their own reaction', (WidgetTester tester) async {
+      await _mount(tester, sky: sky);
+
+      await _answer(tester, correct: true);
+
+      expect(_soloReaction(tester), isNull);
+      await _drain(tester);
+    });
+  });
 }
 
 /// The label an option button renders (`${o.emoji}&nbsp;&nbsp;${o.species}`,
@@ -435,8 +476,9 @@ Future<void> _drain(WidgetTester tester) => tester.pump(kMatchAdvanceDelay);
 
 /// The big number in the score-bar cell captioned [label].
 String _scoreValue(WidgetTester tester, String label) {
-  final Finder cell =
-      find.ancestor(of: find.text(label), matching: find.byType(Column)).first;
+  final Finder cell = find
+      .ancestor(of: find.text(label), matching: find.byType(Column))
+      .first;
   final Text value = tester.widget<Text>(
     find.descendant(of: cell, matching: find.byType(Text)).first,
   );
@@ -571,3 +613,7 @@ Asteroid _rock(String name, {required double diaMax}) {
     date: '2026-07-16',
   );
 }
+
+/// The motion the one avatar on screen is playing, or null if it is still.
+Reaction? _soloReaction(WidgetTester tester) =>
+    tester.widget<ReactionAvatar>(find.byType(ReactionAvatar)).reaction;

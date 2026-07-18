@@ -20,6 +20,7 @@ import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/games/game_shell.dart';
 import 'package:rockimals/features/games/match_round.dart';
+import 'package:rockimals/features/rewards/reaction.dart';
 
 /// How long the reveal sits before the next round is dealt
 /// (`setTimeout(sizeRound,1400)`, `index.html:1116`).
@@ -184,8 +185,7 @@ class _MatchGameState extends ConsumerState<MatchGame> {
       title: 'ALL DONE!',
       score: '$_score/$kMatchRounds',
       // `"best "+bestSize+"/"+SIZE_ROUNDS+" · ⭐ "+points+" points"`.
-      subtitle:
-          'best $_best/$kMatchRounds · ⭐ ${actions.points} points',
+      subtitle: 'best $_best/$kMatchRounds · ⭐ ${actions.points} points',
       onPlayAgain: _restart,
     );
   }
@@ -208,6 +208,10 @@ class _MatchGameState extends ConsumerState<MatchGame> {
           rock: _round.rock,
           revealed: revealed,
           answer: _round.answer,
+          // `$("szRock").textContent=an.emoji; react($("szRock"),ok)`
+          // (`index.html:1112`) — the reveal and the reaction are the same
+          // beat, so the animal appears and celebrates in one motion.
+          reaction: reactionFor(revealed ? win : null),
         ),
         for (final Animal option in _round.options)
           _OptionButton(
@@ -239,11 +243,15 @@ class _MysteryRock extends StatelessWidget {
     required this.rock,
     required this.revealed,
     required this.answer,
+    required this.reaction,
   });
 
   final Asteroid rock;
   final bool revealed;
   final Animal answer;
+
+  /// The motion the rock plays as it turns into an animal.
+  final Reaction? reaction;
 
   @override
   Widget build(BuildContext context) {
@@ -261,34 +269,39 @@ class _MysteryRock extends StatelessWidget {
                 ? 'It is a ${answer.species}'
                 : 'A mystery space rock',
             child: ExcludeSemantics(
-              child: Container(
-                // `width:96px;height:96px;margin:0 auto 12px` — bigger than any
-                // other avatar in the app, because it is the whole question.
-                width: 96,
-                height: 96,
-                alignment: Alignment.center,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    center: Alignment(0, -0.16),
-                    radius: 0.9,
-                    colors: <Color>[Palette.line, Color(0xFF14284A)],
+              child: ReactionAvatar(
+                reaction: reaction,
+                child: Container(
+                  // `width:96px;height:96px;margin:0 auto 12px` — bigger than
+                  // any other avatar in the app, because it is the whole
+                  // question.
+                  width: 96,
+                  height: 96,
+                  alignment: Alignment.center,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      center: Alignment(0, -0.16),
+                      radius: 0.9,
+                      colors: <Color>[Palette.line, Color(0xFF14284A)],
+                    ),
+                    border: Border.fromBorderSide(
+                      BorderSide(color: Palette.line),
+                    ),
                   ),
-                  border: Border.fromBorderSide(
-                    BorderSide(color: Palette.line),
+                  child: Text(
+                    revealed ? answer.emoji : '❓',
+                    // `font-size:46px` (`index.html:1101`).
+                    style: const TextStyle(fontSize: 46, height: 1),
                   ),
-                ),
-                child: Text(
-                  revealed ? answer.emoji : '❓',
-                  // `font-size:46px` (`index.html:1101`).
-                  style: const TextStyle(fontSize: 46, height: 1),
                 ),
               ),
             ),
           ),
           const SizedBox(height: 12),
           Semantics(
-            label: 'A space rock $width wide zooms past! '
+            label:
+                'A space rock $width wide zooms past! '
                 'Which animal is it?',
             child: ExcludeSemantics(
               child: Text.rich(
@@ -359,13 +372,13 @@ class _OptionButton extends StatelessWidget {
     final Color border = correct
         ? Palette.good
         : wrong
-            ? Palette.bad
-            : Palette.line;
+        ? Palette.bad
+        : Palette.line;
     final Color fill = correct
         ? Palette.good.withValues(alpha: 0.14)
         : wrong
-            ? Palette.bad.withValues(alpha: 0.14)
-            : Palette.card;
+        ? Palette.bad.withValues(alpha: 0.14)
+        : Palette.card;
 
     return Padding(
       // `.opt{margin-bottom:9px}` (`index.html:221`).
@@ -452,7 +465,11 @@ class _MatchBanner extends StatelessWidget {
       content = Text.rich(
         TextSpan(
           children: <InlineSpan>[
-            TextSpan(text: win ? 'Yes! ${a.emoji} It’s $article ' : 'It’s ${a.emoji} $article '),
+            TextSpan(
+              text: win
+                  ? 'Yes! ${a.emoji} It’s $article '
+                  : 'It’s ${a.emoji} $article ',
+            ),
             // The species is the answer, so it is the one bold word.
             TextSpan(
               text: a.species,
@@ -487,6 +504,11 @@ class _MatchBanner extends StatelessWidget {
 
   /// Of the eight species only "Elephant" takes *an*, but hard-coding that one
   /// name would break the moment the ladder gains a rung.
-  static bool _startsWithVowel(String species) =>
-      const <String>['a', 'e', 'i', 'o', 'u'].contains(species[0].toLowerCase());
+  static bool _startsWithVowel(String species) => const <String>[
+    'a',
+    'e',
+    'i',
+    'o',
+    'u',
+  ].contains(species[0].toLowerCase());
 }

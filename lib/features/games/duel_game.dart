@@ -18,6 +18,7 @@ import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/games/duel_pairing.dart';
 import 'package:rockimals/features/games/game_shell.dart';
+import 'package:rockimals/features/rewards/reaction.dart';
 
 /// How long the "✓ Correct!" banner sits before the next pair is dealt
 /// (`setTimeout(duelRound,950)`, `index.html:1054`).
@@ -207,6 +208,11 @@ class _DuelGameState extends ConsumerState<DuelGame> {
                     // (`index.html:1049-1051`) — so a wrong answer still shows
                     // which animal was stronger.
                     isWinner: revealed ? _pair.winnerIsA : null,
+                    // But only the card the child *tapped* reacts: the
+                    // prototype hands `react()` the avatar inside the tapped
+                    // card (`index.html:1052`), so the other animal holds
+                    // still even though it is revealed too.
+                    reaction: reactionFor(picked == true ? win : null),
                     onTap: () => _pick(isA: true),
                   ),
                 ),
@@ -215,6 +221,7 @@ class _DuelGameState extends ConsumerState<DuelGame> {
                   child: _DuelCard(
                     asteroid: _pair.b,
                     isWinner: revealed ? !_pair.winnerIsA : null,
+                    reaction: reactionFor(picked == false ? win : null),
                     onTap: () => _pick(isA: false),
                   ),
                 ),
@@ -256,7 +263,10 @@ class _DuelInstruction extends StatelessWidget {
           TextSpan(text: 'Which space animal has '),
           TextSpan(
             text: 'more power? ⭐',
-            style: TextStyle(color: Palette.accent2, fontWeight: FontWeight.w700),
+            style: TextStyle(
+              color: Palette.accent2,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
       ),
@@ -277,6 +287,7 @@ class _DuelCard extends StatelessWidget {
   const _DuelCard({
     required this.asteroid,
     required this.isWinner,
+    required this.reaction,
     required this.onTap,
   });
 
@@ -285,6 +296,10 @@ class _DuelCard extends StatelessWidget {
   /// Null while the round is open; whether this card is the stronger animal
   /// once revealed.
   final bool? isWinner;
+
+  /// The motion this card's avatar plays — non-null only on the tapped card,
+  /// and only once the round is revealed.
+  final Reaction? reaction;
 
   final VoidCallback onTap;
 
@@ -323,7 +338,10 @@ class _DuelCard extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              _DuelAvatar(emoji: c.animal.emoji),
+              ReactionAvatar(
+                reaction: reaction,
+                child: _DuelAvatar(emoji: c.animal.emoji),
+              ),
               // `.dcard .mini{margin:0 auto 8px}` (`index.html:215`).
               const SizedBox(height: 8),
               Text(

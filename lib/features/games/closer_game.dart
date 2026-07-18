@@ -21,6 +21,7 @@ import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/games/closer_pairing.dart';
 import 'package:rockimals/features/games/game_shell.dart';
+import 'package:rockimals/features/rewards/reaction.dart';
 
 /// How long the reveal sits before the next challenger is dealt
 /// (`setTimeout(closerRound,1250)`, `index.html:1079`).
@@ -197,7 +198,14 @@ class _CloserGameState extends ConsumerState<CloserGame> {
           ],
         ),
         _CloserQuestion(challenger: _round.challenger),
-        _AnchorCard(anchor: _round.anchor),
+        // The anchor's is the only `.avatar` element in this game's body, so it
+        // is the one `$("gameBody").querySelector('.avatar')` finds and the one
+        // the prototype reacts (`index.html:1076`). The challenger appears as
+        // inline text in the question and the banner, never as a disc.
+        _AnchorCard(
+          anchor: _round.anchor,
+          reaction: reactionFor(revealed ? win : null),
+        ),
         // `<div style="display:flex;gap:10px">` (`index.html:1071`) — the two
         // answers side by side, equal width.
         Row(
@@ -217,10 +225,7 @@ class _CloserGameState extends ConsumerState<CloserGame> {
             ),
           ],
         ),
-        _CloserBanner(
-          round: revealed ? _round : null,
-          win: win,
-        ),
+        _CloserBanner(round: revealed ? _round : null, win: win),
       ],
     );
   }
@@ -249,8 +254,7 @@ class _CloserQuestion extends StatelessWidget {
     );
 
     return Semantics(
-      label:
-          'Does ${c.name} fly closer or farther than the animal below?',
+      label: 'Does ${c.name} fly closer or farther than the animal below?',
       child: ExcludeSemantics(
         child: Text.rich(
           TextSpan(
@@ -283,9 +287,12 @@ class _CloserQuestion extends StatelessWidget {
 /// it) with the distance underneath — because this card is a *reference*, not
 /// something to tap.
 class _AnchorCard extends StatelessWidget {
-  const _AnchorCard({required this.anchor});
+  const _AnchorCard({required this.anchor, required this.reaction});
 
   final Asteroid anchor;
+
+  /// The motion the anchor's avatar plays once the guess is revealed.
+  final Reaction? reaction;
 
   @override
   Widget build(BuildContext context) {
@@ -317,7 +324,10 @@ class _AnchorCard extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: <Widget>[
-                      _AnchorAvatar(emoji: c.animal.emoji),
+                      ReactionAvatar(
+                        reaction: reaction,
+                        child: _AnchorAvatar(emoji: c.animal.emoji),
+                      ),
                       // `margin-left:8px` on the name (`index.html:1070`).
                       const SizedBox(width: 8),
                       Flexible(

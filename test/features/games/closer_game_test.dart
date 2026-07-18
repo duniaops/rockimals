@@ -9,6 +9,7 @@ import 'package:rockimals/features/games/closer_game.dart';
 import 'package:rockimals/features/games/game_shell.dart';
 import 'package:rockimals/features/games/games_hub.dart';
 import 'package:rockimals/features/games/games_providers.dart';
+import 'package:rockimals/features/rewards/reaction.dart';
 
 /// Closer or Farther end to end (`specs/04`, game 3). The deal and the
 /// comparison are pinned in `closer_pairing_test.dart`; this suite is the screen
@@ -104,13 +105,17 @@ void main() {
 
       // The reveal names the distance *before* the verdict — the answer is a
       // real fact about a real rock, not a score (`index.html:1078`).
-      expect(find.text(_revealText(sky, win: true), findRichText: true),
-          findsOneWidget);
+      expect(
+        find.text(_revealText(sky, win: true), findRichText: true),
+        findsOneWidget,
+      );
       expect(_scoreValue(tester, 'STREAK'), '1');
       expect(actions.awarded, <int>[10]);
       expect(
-        find.textContaining(distLabel(challenger.missLunar),
-            findRichText: true),
+        find.textContaining(
+          distLabel(challenger.missLunar),
+          findRichText: true,
+        ),
         findsOneWidget,
       );
 
@@ -180,8 +185,10 @@ void main() {
       await _tap(tester, _correctLabel(sky));
       // Just short of the delay: still reading the reveal.
       await tester.pump(const Duration(milliseconds: 1249));
-      expect(find.text(_revealText(sky, win: true), findRichText: true),
-          findsOneWidget);
+      expect(
+        find.text(_revealText(sky, win: true), findRichText: true),
+        findsOneWidget,
+      );
 
       await tester.pump(const Duration(milliseconds: 1));
       // `closerAnchor=ch` (`index.html:1079`) — the animal just guessed about is
@@ -258,8 +265,10 @@ void main() {
 
       // Never harsh (`CLAUDE.md:70`), and it still teaches: the true distance
       // and direction are stated whichever way the child guessed.
-      expect(find.text(_revealText(sky, win: false), findRichText: true),
-          findsOneWidget);
+      expect(
+        find.text(_revealText(sky, win: false), findRichText: true),
+        findsOneWidget,
+      );
       expect(actions.awarded, isEmpty);
 
       await tester.pump(const Duration(milliseconds: 1349));
@@ -358,6 +367,45 @@ void main() {
     expect(find.text('📏 Closer or Farther'), findsOneWidget);
     expect(find.text('This game is on its way — coming soon!'), findsNothing);
   });
+
+  group('the reaction (specs/05)', () {
+    testWidgets('a correct answer hops the anchor animal', (
+      WidgetTester tester,
+    ) async {
+      await _mount(tester, sky: sky);
+
+      await _tap(tester, _correctLabel(sky));
+
+      // `react($("gameBody").querySelector('.avatar'), win)`
+      // (`index.html:1076`) — and the anchor card holds the only `.avatar` in
+      // this game's body, so it is the one that performs.
+      expect(_soloReaction(tester), Reaction.happy);
+      await _drain(tester);
+    });
+
+    testWidgets('a wrong answer wobbles it instead', (
+      WidgetTester tester,
+    ) async {
+      await _mount(tester, sky: sky);
+
+      await _tap(tester, _wrongLabel(sky));
+
+      expect(_soloReaction(tester), Reaction.sad);
+      await _drain(tester);
+    });
+
+    testWidgets('the next round opens with the new anchor still', (
+      WidgetTester tester,
+    ) async {
+      await _mount(tester, sky: sky);
+
+      await _tap(tester, _correctLabel(sky));
+      await tester.pump(kCloserAdvanceDelay);
+
+      expect(_soloReaction(tester), isNull);
+      await _drain(tester);
+    });
+  });
 }
 
 /// Which rock the deal put on the anchor card, read off the board.
@@ -365,9 +413,9 @@ void main() {
 /// The anchor's name is the one place a name renders as a plain [Text]; the
 /// question and the reveal are `Text.rich`, which `find.text` skips by default.
 Asteroid _anchorOf(List<Asteroid> sky) => sky.firstWhere(
-      (Asteroid a) => find.text(critter(a).name).evaluate().isNotEmpty,
-      orElse: () => throw StateError('no anchor card on screen'),
-    );
+  (Asteroid a) => find.text(critter(a).name).evaluate().isNotEmpty,
+  orElse: () => throw StateError('no anchor card on screen'),
+);
 
 Asteroid _otherThan(Asteroid a, List<Asteroid> sky) =>
     sky.firstWhere((Asteroid x) => !identical(x, a));
@@ -387,8 +435,9 @@ String _revealText(List<Asteroid> sky, {required bool win}) {
   final Asteroid anchor = _anchorOf(sky);
   final Asteroid challenger = _otherThan(anchor, sky);
   final Critter c = critter(challenger);
-  final String direction =
-      challenger.missLunar < anchor.missLunar ? 'closer' : 'farther';
+  final String direction = challenger.missLunar < anchor.missLunar
+      ? 'closer'
+      : 'farther';
   final String outcome = win ? '✓ +10 ⭐' : '✗ good try!';
   return '${c.animal.emoji} ${c.name} flies '
       '${distLabel(challenger.missLunar)} — $direction. $outcome';
@@ -409,8 +458,9 @@ Future<void> _drain(WidgetTester tester) =>
 
 /// The big number in the score-bar cell captioned [label].
 String _scoreValue(WidgetTester tester, String label) {
-  final Finder cell =
-      find.ancestor(of: find.text(label), matching: find.byType(Column)).first;
+  final Finder cell = find
+      .ancestor(of: find.text(label), matching: find.byType(Column))
+      .first;
   final Text value = tester.widget<Text>(
     find.descendant(of: cell, matching: find.byType(Text)).first,
   );
@@ -545,3 +595,7 @@ Asteroid _rock(String name, {required double missLunar}) {
     date: '2026-07-16',
   );
 }
+
+/// The motion the one avatar on screen is playing, or null if it is still.
+Reaction? _soloReaction(WidgetTester tester) =>
+    tester.widget<ReactionAvatar>(find.byType(ReactionAvatar)).reaction;

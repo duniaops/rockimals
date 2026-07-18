@@ -142,9 +142,8 @@ class GameActions {
   /// Persist a new Power Duel best (`gSet("aw_duel", …)`,
   /// `index.html:1053`). The caller owns the "is this actually a best?" test, as
   /// the prototype does, because it also has to update what is on screen.
-  Future<void> setBestDuel(int streak) => _refreshingWrite(
-    _store.setBestDuel(streak),
-  );
+  Future<void> setBestDuel(int streak) =>
+      _refreshingWrite(_store.setBestDuel(streak));
 
   /// The best streak Closer or Farther has ever reached (`bestCloser`,
   /// `aw_closer`, `index.html:956`). Read when the game starts, to seed its BEST
@@ -154,9 +153,8 @@ class GameActions {
   /// Persist a new Closer or Farther best (`gSet("aw_closer", …)`,
   /// `index.html:1079`). As with [setBestDuel] the caller owns the "is this
   /// actually a best?" test, because it also has to update what is on screen.
-  Future<void> setBestCloser(int streak) => _refreshingWrite(
-    _store.setBestCloser(streak),
-  );
+  Future<void> setBestCloser(int streak) =>
+      _refreshingWrite(_store.setBestCloser(streak));
 
   /// The best Animal Match score out of 8 (`bestSize`, `aw_size`,
   /// `index.html:956`). Read when the game starts, so a run that never beats it
@@ -166,9 +164,8 @@ class GameActions {
   /// Persist a new Animal Match best (`gSet("aw_size", …)`,
   /// `index.html:1091`). As with [setBestDuel] the caller owns the "is this
   /// actually a best?" test, because it also has to update what is on screen.
-  Future<void> setBestSize(int score) => _refreshingWrite(
-    _store.setBestSize(score),
-  );
+  Future<void> setBestSize(int score) =>
+      _refreshingWrite(_store.setBestSize(score));
 
   /// Count one flawless 8/8 run of Animal Match (`prog.perfect++`,
   /// `index.html:1092`) — the Perfect Match badge's condition (`prog.perfect>0`,
@@ -248,17 +245,20 @@ final Provider<GameActions> gameActionsProvider = Provider<GameActions>(
   name: 'gameActions',
 );
 
-/// A right-or-wrong outcome a game just produced, for the avatar to react to —
-/// the port of the prototype's `react(el, ok)` call (`index.html:968`), minus
-/// the body.
+/// A right-or-wrong outcome a game just produced — the port of the prototype's
+/// `react(el, ok)` call (`index.html:968`), minus the body.
 ///
-/// **This is the reaction *hook*; task 05 is the body.** `specs/04` builds the
-/// single place a game says "the child got this right/wrong"; `specs/05` builds
-/// what happens then — the hop-and-spin / wobble animation ("Build the reaction
-/// animations") and the happy/sad tones ("Build the sound engine", gated on
-/// [soundOnProvider]). Both read this channel; until they land, publishing a
-/// reaction is silent, which is exactly the framework-without-its-effects this
-/// item is scoped to.
+/// **This channel is the *sound* half of `react()`, not the motion half.** It
+/// was built expecting both to read it, and the reaction-animations item found
+/// that only one can. One value per answer is exactly a sound cue — one tap, one
+/// tone — but it cannot name *which* avatar on screen moves, and in two games
+/// that is not "all of them": Power Duel hops only the tapped card
+/// (`index.html:1052`) and Today's Challenge hops all four on their own separate
+/// outcomes while playing a single tone chosen by the round's accuracy
+/// (`index.html:937,939`). So `ReactionAvatar` is driven by the answer state
+/// each widget already holds, and this channel is left to the sound engine
+/// ("Build the sound engine", gated on the persisted sound toggle). Until that
+/// lands, publishing a reaction is silent.
 ///
 /// **Modelled on [RadarFocus], and for the same reason: it is a one-shot event
 /// held as state, so it carries no value equality.** A game fires a reaction on
@@ -270,21 +270,20 @@ final Provider<GameActions> gameActionsProvider = Provider<GameActions>(
 class GameReaction {
   const GameReaction({required this.correct});
 
-  /// Whether the answer was right — happy when true, sad when false. The only
-  /// thing the sound engine needs; the reaction animation reads it the same way.
+  /// Whether the answer was right — a happy tone when true, a sad one when
+  /// false. The only thing the sound engine needs.
   final bool correct;
 }
 
 /// Holds the latest [GameReaction], or null before any answer. Written through
-/// [react]; read via `ref.listen` by task 05's reaction and sound systems.
+/// [react]; read via `ref.listen` by the sound engine.
 class GameReactionNotifier extends Notifier<GameReaction?> {
   @override
   GameReaction? build() => null;
 
   /// Publish a reaction to [correct]. A new [GameReaction] every call, so a run
   /// of same-sign answers still fires an event each time (see the class doc).
-  void react({required bool correct}) =>
-      state = GameReaction(correct: correct);
+  void react({required bool correct}) => state = GameReaction(correct: correct);
 }
 
 /// The reaction channel every game publishes to. Its own provider — rather than
@@ -475,10 +474,7 @@ class GameOverPanel extends StatelessWidget {
           ),
           // `margin-top:22px` on the button block (`index.html:1027`).
           const SizedBox(height: 22),
-          GameButton(
-            label: 'Play again',
-            onTap: onPlayAgain,
-          ),
+          GameButton(label: 'Play again', onTap: onPlayAgain),
           // `#gBack{margin-top:9px}` (`index.html:1028`).
           const SizedBox(height: 9),
           GameButton(

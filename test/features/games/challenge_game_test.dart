@@ -9,6 +9,7 @@ import 'package:rockimals/features/games/challenge_game.dart';
 import 'package:rockimals/features/games/game_shell.dart';
 import 'package:rockimals/features/games/games_hub.dart';
 import 'package:rockimals/features/games/games_providers.dart';
+import 'package:rockimals/features/rewards/reaction.dart';
 
 /// Today's Challenge end to end (`specs/04`, game 1). The scoring itself is
 /// pinned in `challenge_grader_test.dart` against the prototype's own output;
@@ -28,10 +29,30 @@ import 'package:rockimals/features/games/games_providers.dart';
 void main() {
   // Four rocks with widely separated power, so the true ranking is unambiguous
   // and a rounding wobble cannot reorder them.
-  final Asteroid strongest = _rock('2020 AAA', diaMax: 3000, missLunar: 0.3, velKps: 30);
-  final Asteroid strong = _rock('2020 BBB', diaMax: 500, missLunar: 2, velKps: 20);
-  final Asteroid weak = _rock('2020 CCC', diaMax: 60, missLunar: 12, velKps: 12);
-  final Asteroid weakest = _rock('2020 DDD', diaMax: 5, missLunar: 40, velKps: 6);
+  final Asteroid strongest = _rock(
+    '2020 AAA',
+    diaMax: 3000,
+    missLunar: 0.3,
+    velKps: 30,
+  );
+  final Asteroid strong = _rock(
+    '2020 BBB',
+    diaMax: 500,
+    missLunar: 2,
+    velKps: 20,
+  );
+  final Asteroid weak = _rock(
+    '2020 CCC',
+    diaMax: 60,
+    missLunar: 12,
+    velKps: 12,
+  );
+  final Asteroid weakest = _rock(
+    '2020 DDD',
+    diaMax: 5,
+    missLunar: 40,
+    velKps: 6,
+  );
   final List<Asteroid> sky = <Asteroid>[strong, weakest, strongest, weak];
 
   // Names are hashed from the designation, and 24 names over 4 rocks can
@@ -46,7 +67,11 @@ void main() {
   ];
 
   setUp(() {
-    expect(perfectOrder.toSet().length, 4, reason: 'fixture names must be distinct');
+    expect(
+      perfectOrder.toSet().length,
+      4,
+      reason: 'fixture names must be distinct',
+    );
   });
 
   group('dealing a round', () {
@@ -80,11 +105,7 @@ void main() {
       // A quiet day: two rocks approaching today, four in the window. A
       // three-card challenge would be a different game, so the pool widens
       // (`todayList.length >= 4 ? todayList : asteroids`, `index.html:882`).
-      await _mount(
-        tester,
-        sky: sky,
-        todayList: <Asteroid>[strongest, weakest],
-      );
+      await _mount(tester, sky: sky, todayList: <Asteroid>[strongest, weakest]);
 
       expect(find.text('0/4 ranked'), findsOneWidget);
       for (final String name in perfectOrder) {
@@ -151,7 +172,12 @@ void main() {
         'rank', (WidgetTester tester) async {
       final _RecordingActions actions = _RecordingActions();
       final List<bool> reactions = <bool>[];
-      await _mount(tester, sky: sky, actions: actions, onReaction: reactions.add);
+      await _mount(
+        tester,
+        sky: sky,
+        actions: actions,
+        onReaction: reactions.add,
+      );
 
       await _rank(tester, perfectOrder);
       await tester.tap(find.text('Reveal the truth'));
@@ -178,7 +204,12 @@ void main() {
     ) async {
       final _RecordingActions actions = _RecordingActions();
       final List<bool> reactions = <bool>[];
-      await _mount(tester, sky: sky, actions: actions, onReaction: reactions.add);
+      await _mount(
+        tester,
+        sky: sky,
+        actions: actions,
+        onReaction: reactions.add,
+      );
 
       await _rank(tester, perfectOrder.reversed.toList());
       await tester.tap(find.text('Reveal the truth'));
@@ -264,6 +295,77 @@ void main() {
       expect(find.text('This game is on its way — coming soon!'), findsNothing);
     });
   });
+
+  group('the reaction (specs/05)', () {
+    testWidgets('a flawless reveal hops all four animals', (
+      WidgetTester tester,
+    ) async {
+      await _mount(tester, sky: sky);
+      await _rank(tester, perfectOrder);
+
+      await tester.tap(find.text('Reveal the truth'));
+      await tester.pump();
+
+      for (final String name in perfectOrder) {
+        expect(_cardReaction(tester, name), Reaction.happy);
+      }
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('a half-right reveal hops the two the child placed and wobbles '
+        'the two they swapped', (WidgetTester tester) async {
+      // **The point of this test, and why the reaction does not read the
+      // shared channel.** The prototype animates each card on its *own*
+      // placement (`ok = userPos === truePos`, `index.html:937`) while playing
+      // a single tone for the round's accuracy (`index.html:939`). One channel
+      // value cannot say four different things, so a channel-driven avatar
+      // would have shown all four cards the same face here.
+      await _mount(tester, sky: sky);
+      await _rank(tester, <String>[
+        perfectOrder[0],
+        perfectOrder[2],
+        perfectOrder[1],
+        perfectOrder[3],
+      ]);
+
+      await tester.tap(find.text('Reveal the truth'));
+      await tester.pump();
+
+      expect(_cardReaction(tester, perfectOrder[0]), Reaction.happy);
+      expect(_cardReaction(tester, perfectOrder[3]), Reaction.happy);
+      expect(_cardReaction(tester, perfectOrder[1]), Reaction.sad);
+      expect(_cardReaction(tester, perfectOrder[2]), Reaction.sad);
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('an unrevealed board is perfectly still', (
+      WidgetTester tester,
+    ) async {
+      await _mount(tester, sky: sky);
+      await _rank(tester, perfectOrder);
+
+      for (final String name in perfectOrder) {
+        expect(_cardReaction(tester, name), isNull);
+      }
+    });
+
+    testWidgets(
+      'Play again stills the board, so the next reveal reacts again',
+      (WidgetTester tester) async {
+        await _mount(tester, sky: sky);
+        await _rank(tester, perfectOrder);
+        await tester.tap(find.text('Reveal the truth'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Play again'));
+        await tester.pumpAndSettle();
+
+        for (final String name in perfectOrder) {
+          expect(_cardReaction(tester, name), isNull);
+        }
+      },
+    );
+  });
 }
 
 /// Rank the cards by tapping the given animal names in order.
@@ -300,7 +402,10 @@ Future<void> _mount(
         gameActionsProvider.overrideWithValue(actions ?? _RecordingActions()),
       ],
       child: MaterialApp(
-        home: _ReactionSpy(onReaction: onReaction, child: const ChallengeGame()),
+        home: _ReactionSpy(
+          onReaction: onReaction,
+          child: const ChallengeGame(),
+        ),
       ),
     ),
   );
@@ -324,7 +429,12 @@ Future<void> _mountFromHub(
         asteroidFeedProvider.overrideWith((Ref ref) => _feed(sky, sky)),
         gameActionsProvider.overrideWithValue(_RecordingActions()),
         gamesHubStatsProvider.overrideWithValue(
-          const GamesHubStats(points: 0, bestDuel: 0, bestCloser: 0, bestSize: 0),
+          const GamesHubStats(
+            points: 0,
+            bestDuel: 0,
+            bestCloser: 0,
+            bestSize: 0,
+          ),
         ),
         soundOnProvider.overrideWith(_StubSound.new),
       ],
@@ -464,4 +574,17 @@ Asteroid _rock(
     jpl: 'https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html',
     date: '2026-07-16',
   );
+}
+
+/// The motion the avatar on [animalName]'s card is playing, or null if that
+/// card is sitting still.
+Reaction? _cardReaction(WidgetTester tester, String animalName) {
+  final Finder card = find
+      .ancestor(of: find.text(animalName), matching: find.byType(Column))
+      .first;
+  return tester
+      .widget<ReactionAvatar>(
+        find.descendant(of: card, matching: find.byType(ReactionAvatar)),
+      )
+      .reaction;
 }
