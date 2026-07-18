@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 import 'package:rockimals/core/storage/store.dart';
+import 'package:rockimals/core/streak/day_streak.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/games/game_shell.dart';
 import 'package:rockimals/features/games/games_providers.dart';
@@ -28,19 +29,31 @@ void main() {
     late Directory tempDir;
     late Store store;
     late List<int> refreshedAt;
+    late List<int> flameRefreshedAt;
+    late DateTime today;
 
-    /// A [GameActions] whose "the Play hub's numbers moved" callback records the
-    /// points total it was told about. The list is the assertion surface for
-    /// *which* writes are live: a write that must repaint the hub appends, one
+    /// A [GameActions] whose two "your snapshot is stale" callbacks record the
+    /// number they were told about — the points total for the Play hub, the day
+    /// streak for the home flame. The lists are the assertion surface for
+    /// *which* writes are live: a write that must repaint a surface appends, one
     /// that must not stays silent.
-    GameActions actionsOn(Store s) =>
-        GameActions(s, () => refreshedAt.add(s.points));
+    ///
+    /// The clock is [today], a mutable field rather than `DateTime.now`, so a
+    /// test can play a game "tomorrow" without waiting a day.
+    GameActions actionsOn(Store s) => GameActions(
+      s,
+      () => refreshedAt.add(s.points),
+      () => flameRefreshedAt.add(s.dayStreak),
+      now: () => today,
+    );
 
     setUp(() async {
       tempDir = await Directory.systemTemp.createTemp('rockimals_game_shell');
       Hive.init(tempDir.path);
       store = await Store.open();
       refreshedAt = <int>[];
+      flameRefreshedAt = <int>[];
+      today = DateTime(2026, 7, 18);
     });
 
     tearDown(() async {
@@ -218,6 +231,64 @@ void main() {
         expect(refreshedAt, isEmpty);
       });
     });
+
+    /// The home flame's half of the same seam. `markPlayed` records the day as
+    /// engaged (decision 14, settled in its doc: the launch trigger stays and a
+    /// game *begun* is an engagement too), so these pin the three things that
+    /// makes true — it advances on a new day, it is silent on a day already
+    /// counted, and the advance is on the disk rather than only in memory.
+    group('starting a game records the day as engaged', () {
+      test('a game on a new day advances the flame and says so', () async {
+        final GameActions actions = actionsOn(store);
+
+        // Day one: a fresh install whose first engagement is this game.
+        await actions.markPlayed();
+        expect(store.dayStreak, 1);
+        expect(flameRefreshedAt, <int>[1]);
+
+        // The next calendar day — the case the whole item exists for, since
+        // `bootstrap()` only records the day the app *launched* on.
+        today = DateTime(2026, 7, 19);
+        await actions.markPlayed();
+        expect(store.dayStreak, 2);
+        // The callback carries the *new* streak, which is the same
+        // read-after-un-awaited-write ordering the points half relies on: were
+        // the refresh firing before Hive's keystore insert, this would read 1.
+        expect(flameRefreshedAt, <int>[1, 2]);
+      });
+
+      test('a second game the same day leaves the flame alone', () async {
+        final GameActions actions = actionsOn(store);
+
+        await actions.markPlayed();
+        expect(flameRefreshedAt, <int>[1]);
+
+        // Two games in one afternoon is one day. Repainting the flame with the
+        // number already on it is the over-refresh the points half avoids for
+        // the same reason.
+        await actions.markPlayed();
+        await actions.markPlayed();
+        expect(store.dayStreak, 1);
+        expect(flameRefreshedAt, <int>[1]);
+      });
+
+      test('a streak advanced by a game survives a restart', () async {
+        final GameActions actions = actionsOn(store);
+        await actions.markPlayed();
+
+        today = DateTime(2026, 7, 19);
+        await actions.markPlayed();
+        expect(store.dayStreak, 2);
+
+        // Force-quit and relaunch: the flame is on disk, not just in the
+        // provider that was invalidated. This is the "still survives a restart"
+        // half of the item's Done-when.
+        await store.close();
+        final Store reopened = await Store.open();
+        expect(reopened.dayStreak, 2);
+        expect(reopened.lastPlayedDate, '2026-07-19');
+      });
+    });
   });
 
   /// The wiring itself: an award made through the app's own
@@ -269,6 +340,45 @@ void main() {
       // way, without a relaunch.
       await container.read(gameActionsProvider).setBestDuel(3);
       expect(container.read(gamesHubStatsProvider).bestDuel, 3);
+    });
+
+    /// The item's headline Done-when: *playing on a new day advances the flame
+    /// without a relaunch*. The failure this replaces is not a wrong number but
+    /// a frozen one — `dayStreakProvider` memoised its read of the store, so a
+    /// streak advanced mid-session sat behind a snapshot until the next cold
+    /// launch, and the child saw yesterday's flame over today's play.
+    ///
+    /// Built through the app's own [gameActionsProvider] rather than a
+    /// hand-made [GameActions], because the wiring *is* the fix: the callback
+    /// the provider passes is the only thing that drops the snapshot.
+    test('playing on a new day moves the flame with no relaunch', () async {
+      // The launch half: `bootstrap()` records the day the app opened on.
+      await DayStreak.record(store, DateTime(2026, 7, 18));
+
+      // Midnight passes with the app still open — the one case the launch
+      // trigger cannot cover, and so the case worth driving.
+      final ProviderContainer container = ProviderContainer(
+        overrides: <Override>[
+          storeProvider.overrideWithValue(store),
+          gameClockProvider.overrideWithValue(() => DateTime(2026, 7, 19)),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      // Read it first so it is memoised — a cached flame outliving the game
+      // that moved it is the whole bug.
+      expect(container.read(dayStreakProvider), 1);
+
+      final List<int> seen = <int>[];
+      container.listen<int>(
+        dayStreakProvider,
+        (int? _, int next) => seen.add(next),
+      );
+
+      await container.read(gameActionsProvider).markPlayed();
+
+      expect(container.read(dayStreakProvider), 2);
+      expect(seen, <int>[2], reason: 'the flame must be told, not just re-read');
     });
   });
 

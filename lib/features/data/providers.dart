@@ -154,11 +154,24 @@ final Provider<AsyncValue<FeedProvenance>> provenanceProvider = _fieldOf(
 
 /// The consecutive-days-played streak for the home flame (plan decision 3).
 ///
-/// A plain read of the value `bootstrap()` recorded on launch (`DayStreak`), so
-/// it is stable across the session and correct at first paint. Its own provider
-/// rather than an inline `store.dayStreak` for one reason: a widget test can
-/// stand a number in front of the flame without opening a Hive box, exactly as
-/// the radar suites override the feed rather than build a repository.
+/// A read of the store, seeded by the `DayStreak.record` that `bootstrap()` runs
+/// before the first frame — so the flame is right at first paint, not a frame
+/// later. Its own provider rather than an inline `store.dayStreak` for one
+/// reason: a widget test can stand a number in front of the flame without
+/// opening a Hive box, exactly as the radar suites override the feed rather than
+/// build a repository.
+///
+/// **Live, by invalidation rather than by holding state** — the shape
+/// [gamesHubStatsProvider] uses, and chosen here for the same two reasons.
+/// Starting a game is an engagement too (`GameActions.markPlayed`, which owns
+/// the trigger decision), so a child who plays across midnight moves the streak
+/// mid-session; `GameActions` drops this snapshot when — and only when — that
+/// write actually changed the number. Keeping it a [Provider] leaves the store
+/// the single source of truth, with no second in-memory copy of the count to
+/// drift from the box, and keeps `overrideWithValue` working, which six test
+/// files use to stand a fixed flame in front of the radar. `NotifierProvider`
+/// has no such override, so lifting it would have churned all six for no
+/// behaviour.
 final Provider<int> dayStreakProvider = Provider<int>(
   (Ref ref) => ref.watch(storeProvider).dayStreak,
   name: 'dayStreak',
@@ -167,15 +180,14 @@ final Provider<int> dayStreakProvider = Provider<int>(
 /// The animals a child follows, live — the persisted set of designations
 /// (plan decision 4), read as `state` and changed through [toggle].
 ///
-/// **A `Notifier`, where [dayStreakProvider] next to it is a plain read, and the
-/// difference is who writes it.** The day streak is set once, by `bootstrap()`,
-/// before the first frame; nothing changes it mid-session, so a plain
-/// [Provider] that reads the stored value is enough. A follow is the opposite:
-/// the radar's Follow button (and, at task 03, the detail screen) both write it
-/// *during* a session and must see the new state the same frame. So this holds
-/// the set in [state], seeds it from the store, and writes every change straight
-/// back — the reactive half the flame's own note said the streak would grow when
-/// a game first wrote it live.
+/// **A `Notifier`, where [dayStreakProvider] next to it is an invalidated read,
+/// and the difference is how often the writer fires.** The streak moves at most
+/// once a day, from a launch or a game start, and nothing on screen is waiting
+/// on the same tap — so re-reading the store on invalidation is enough. A follow
+/// is the opposite: the radar's Follow button and the detail screen both write it
+/// *during* a session and the button must flip the same frame the thumb lifts. So
+/// this holds the set in [state], seeds it from the store, and writes every
+/// change straight back.
 ///
 /// Seeded and keyed by **real designation** (`2011 EW`), the asteroid's identity
 /// everywhere in this app (plan decision 12) — never the derived "Milo the Fox",

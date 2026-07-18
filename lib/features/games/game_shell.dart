@@ -22,6 +22,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rockimals/core/storage/store.dart';
+import 'package:rockimals/core/streak/day_streak.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/games/games_providers.dart';
@@ -64,8 +65,22 @@ import 'package:rockimals/features/games/games_providers.dart';
 /// run a badge check after these writes land — every badge condition it cares
 /// about (Lift Off is `played > 0`, the points badges read the total) is already
 /// persisted by the time it does.
+///
+/// **[markPlayed] is also where a game touches the home flame**, and the trigger
+/// question decision 14 left open is settled in that method's doc: opening the
+/// app stays an engagement, and starting a game is *another* one. The
+/// [_onDayStreakChanged] callback is the streak's half of the same
+/// "your snapshot is stale" seam [_onStatsChanged] is for the hub.
 class GameActions {
-  const GameActions(this._store, this._onStatsChanged);
+  const GameActions(
+    this._store,
+    this._onStatsChanged,
+    this._onDayStreakChanged, {
+    DateTime Function() now = DateTime.now,
+    // An initializing formal cannot be private *and* named, and the two call
+    // sites read far better as `now:` than as a fourth positional argument.
+    // ignore: prefer_initializing_formals
+  }) : _now = now;
 
   final Store _store;
 
@@ -73,11 +88,47 @@ class GameActions {
   /// doc: this is the whole of "points are live".
   final void Function() _onStatsChanged;
 
-  /// Count one game played (`markPlayed`, `index.html:999`). Called once when a
-  /// game starts, so `played` is the number of games *begun* — which is what the
-  /// prototype counts (every `start*` calls it before the first round) and what
-  /// the Lift Off badge (`played > 0`) reads.
-  Future<void> markPlayed() => _store.setPlayed(_store.played + 1);
+  /// Called only when [markPlayed] actually *moved* the consecutive-days-played
+  /// streak, so the home flame re-reads it. See [markPlayed].
+  final void Function() _onDayStreakChanged;
+
+  /// Today, injectable so a test can play a game "tomorrow" without waiting a
+  /// day. Production passes nothing and gets [DateTime.now].
+  final DateTime Function() _now;
+
+  /// Count one game played (`markPlayed`, `index.html:999`) **and record the day
+  /// as engaged**. Called once when a game starts, so `played` is the number of
+  /// games *begun* — which is what the prototype counts (every `start*` calls it
+  /// before the first round) and what the Lift Off badge (`played > 0`) reads.
+  ///
+  /// **This settles decision 14's open question: the launch trigger stays, and a
+  /// game begun is an engagement too — "engaged" was *not* tightened to
+  /// "finished a game".** Three reasons, in order of weight:
+  ///
+  /// 1. **Rockimals is radar-first.** Games are one of four tabs; a child who
+  ///    comes back every day to watch the animals orbit and meet them has used
+  ///    the app exactly as intended. Tying the flame solely to games would show
+  ///    that child `🔥 0` forever, which is not "days the child came back".
+  /// 2. **There is no single "finished" seam to hang it on.** The three scored
+  ///    games end through [GameOverPanel], but Today's Challenge reveals in place
+  ///    and never builds one (`index.html:942-947`) — so a finish hook would
+  ///    have meant four call sites of two different shapes, to drift. `markPlayed`
+  ///    is the one call all four games already make exactly once per run.
+  /// 3. It still meets the item's bar, because a run that *finishes* necessarily
+  ///    *started*: playing on a new day advances the flame with no relaunch.
+  ///
+  /// [DayStreak.record] is idempotent per day, so on an ordinary day — where the
+  /// launch already recorded it — this writes nothing and fires nothing. It earns
+  /// its keep in the one case the launch trigger cannot cover: the app left open
+  /// across midnight, where the child plays on a day `bootstrap()` never saw.
+  Future<void> markPlayed() async {
+    await _store.setPlayed(_store.played + 1);
+    final int before = _store.dayStreak;
+    final int after = await DayStreak.record(_store, _now());
+    // Only on a real move: a same-day replay must not repaint the flame, for the
+    // reason `awardPoints` short-circuits a zero award.
+    if (after != before) _onDayStreakChanged();
+  }
 
   /// The child's lifetime points total (`points`, `index.html:955`) — read, not
   /// watched, because the one surface that needs it is a [GameOverPanel]
@@ -172,6 +223,16 @@ class GameActions {
   }
 }
 
+/// What "today" is, for the day-streak write [GameActions.markPlayed] makes.
+///
+/// Its own provider for one reason: without it, the only way to test that
+/// playing on a *new day* moves the flame is to hand-build a [GameActions] with
+/// a fake clock — which tests everything except the wiring, and the wiring is
+/// where the staleness bug lived. Overriding this instead lets a test drive the
+/// real [gameActionsProvider], callbacks and all, on any day it likes.
+final Provider<DateTime Function()> gameClockProvider =
+    Provider<DateTime Function()>((Ref ref) => DateTime.now, name: 'gameClock');
+
 /// The games' store writes. See [GameActions].
 final Provider<GameActions> gameActionsProvider = Provider<GameActions>(
   (Ref ref) => GameActions(
@@ -179,6 +240,10 @@ final Provider<GameActions> gameActionsProvider = Provider<GameActions>(
     // The whole of "the Play hub's numbers are live": drop its memoised
     // snapshot so the next read of it goes back to the store.
     () => ref.invalidate(gamesHubStatsProvider),
+    // And the same trick for the home flame — `dayStreakProvider` memoises its
+    // read of the store exactly as the hub's snapshot did.
+    () => ref.invalidate(dayStreakProvider),
+    now: ref.watch(gameClockProvider),
   ),
   name: 'gameActions',
 );
