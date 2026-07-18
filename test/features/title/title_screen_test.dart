@@ -204,6 +204,25 @@ void main() {
       expect(find.byType(Rusty), findsOneWidget);
     });
 
+    testWidgets('fits a small phone at a large text scale', (tester) async {
+      // **A rendered frame caught this one.** The wordmark is ~300px wide at
+      // 46px, which fits the prototype's 356px screen with its 26px gutters and
+      // ran off the edge of a 390dp phone the first time it was drawn — the
+      // failure mode being the app's own name clipped mid-word on the first
+      // screen a child ever sees. Two `FittedBox`es answer it, and this is what
+      // keeps them: 320×568 is the smallest phone worth supporting, and 2×
+      // is a text scale a grown-up who needs one really does set.
+      tester.view.physicalSize = const Size(320 * 2, 568 * 2);
+      tester.view.devicePixelRatio = 2;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(_app(textScale: 2));
+
+      // An overflow is reported as an exception in debug builds, which the test
+      // framework catches rather than throws — so it has to be asked for.
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('gives Play a target a small finger can hit', (tester) async {
       // `specs/06-title-polish-safety.md:21` — large, well-spaced targets. The
       // accessibility audit item owns the sweep across every screen; this pins
@@ -275,6 +294,7 @@ Widget _app({
   Future<AsteroidFeed>? feed,
   VoidCallback? onFeedRead,
   bool? reducedMotion,
+  double textScale = 1,
 }) {
   return ProviderScope(
     // The override list is left to inference: Riverpod 3 does not export the
@@ -291,7 +311,19 @@ Widget _app({
       ),
       dayStreakProvider.overrideWithValue(0),
     ],
-    child: const MaterialApp(home: TitleScreen()),
+    // The text scale is applied through `builder`, i.e. *below* the app.
+    // `WidgetsApp` inserts its own `MediaQuery.fromView` unconditionally, so a
+    // `MediaQuery` wrapped around `MaterialApp` is silently discarded and a test
+    // that set the scale there would be testing 1× while claiming to test 2×.
+    child: MaterialApp(
+      builder: (BuildContext context, Widget? child) => MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(textScale)),
+        child: child!,
+      ),
+      home: const TitleScreen(),
+    ),
   );
 }
 
