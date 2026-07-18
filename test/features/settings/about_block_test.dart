@@ -190,8 +190,8 @@ void main() {
           // `launchUrl` is unreachable without this line.
           isNot(contains("import 'package:url_launcher")),
           reason: '${source.path} reaches outside the app; Settings is not '
-              'parent-gated, so the JPL link in grown_up_facts.dart is the '
-              'only outbound link this app is allowed',
+              'parent-gated, so the JPL link behind core/safety/parent_gate.dart '
+              'is the only outbound link this app is allowed',
         );
       }
     });
@@ -251,23 +251,12 @@ void main() {
       }
     });
 
-    test('the sole outbound link in the app is still the gated JPL one', () {
-      // The complement, and the reason this file can be strict above without
-      // being wrong: `url_launcher` is not banned from the app, it is confined.
-      // If this ever fails because a *third* file imports it, that file needs
-      // the parent gate too.
-      final List<String> importers = Directory('lib')
-          .listSync(recursive: true)
-          .whereType<File>()
-          .where((File f) => f.path.endsWith('.dart'))
-          .where((File f) => f.readAsStringSync().contains(
-                "import 'package:url_launcher/url_launcher.dart'",
-              ))
-          .map((File f) => f.path)
-          .toList();
-
-      expect(importers, <String>['lib/features/detail/grown_up_facts.dart']);
-    });
+    // The complement of the grep above — *which* file is allowed to import
+    // `url_launcher`, since the package is confined rather than banned — lives
+    // with the module it is a claim about, in
+    // `test/core/safety/parent_gate_test.dart`. It moved there when the gate
+    // was promoted out of `features/detail/`; it is not duplicated here,
+    // because two copies of an invariant is one copy that goes stale.
   });
 
   group('on the Settings screen', () {
