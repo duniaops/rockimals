@@ -8,8 +8,8 @@ import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/core/streak/day_streak.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/features/data/providers.dart';
-import 'package:rockimals/features/loading/loading_screen.dart';
 import 'package:rockimals/features/rewards/badge_popup.dart';
+import 'package:rockimals/features/title/title_screen.dart';
 
 Future<void> main() async {
   // Explicit rather than left to `Hive.initFlutter()`, which calls it too:
@@ -43,7 +43,9 @@ Future<void> main() async {
 /// leaving the repository's ten-second ceiling pending at teardown, and resting
 /// on `flutter_test` happening to mock `HttpClient` to keep the request off a
 /// real network. The production call passes nothing.
-Future<Widget> bootstrap({List<Override> overrides = const <Override>[]}) async {
+Future<Widget> bootstrap({
+  List<Override> overrides = const <Override>[],
+}) async {
   await Hive.initFlutter();
   final Store store = await Store.open();
 
@@ -109,11 +111,18 @@ class RockimalsApp extends StatelessWidget {
       // the child is looking at. See `badge_popup.dart`.
       builder: (BuildContext context, Widget? child) =>
           BadgePopupHost(child: child ?? const SizedBox.shrink()),
-      // "Contacting NASA…", and then the four-tab frame behind it. The gate is
-      // the app's first widget for the same reason the prototype's overlay is
-      // its first element (`index.html:271`): the shell is only built once
-      // there is a sky to put in it.
-      home: const LoadingGate(),
+      // **The title, and then the gate behind it** (`title.html`,
+      // `specs/06-title-polish-safety.md:16`). This used to be [LoadingGate]
+      // directly, for a reason that still holds — the shell is only built once
+      // there is a sky to put in it (`index.html:271`) — and the gate is still
+      // the only thing that decides that. What changed is that the gate is now
+      // reached by a tap rather than by a cold launch.
+      //
+      // The load itself did *not* move back a step with it: [TitleScreen] starts
+      // the feed when it mounts, so the request is in flight while a child is
+      // still looking at Rusty. See its own docs — that is the whole reason a
+      // splash in front of a network gate is not a delay.
+      home: const TitleScreen(),
     );
   }
 }

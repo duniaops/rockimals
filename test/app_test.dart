@@ -12,21 +12,24 @@ import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/data/models/asteroid_feed.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/loading/loading_screen.dart';
+import 'package:rockimals/features/title/title_screen.dart';
 import 'package:rockimals/main.dart';
 
 import 'support/memory_store.dart';
 
 void main() {
   // What `RockimalsApp` opens onto. It was the scaffold's placeholder, then the
-  // task-01 debug list, then the four-tab shell; it is now the loading gate,
-  // which shows "Contacting NASA…" and puts that shell up once there is a sky.
-  // `loading_screen_test.dart` owns what the gate does and `app_shell_test.dart`
-  // owns which tabs exist — all this pins is that the app opens onto the gate at
-  // all, i.e. that nothing routes around it straight to the shell.
-  testWidgets('opens onto the loading gate', (tester) async {
-    // Needs a scope: the gate watches the feed. Overridden with a
-    // never-completing future rather than left to the real repository, which
-    // would build a Dio to answer a question about routing.
+  // task-01 debug list, then the four-tab shell, then the loading gate; it is
+  // now the title screen, which hands over to that gate on a tap.
+  // `title_screen_test.dart` owns what the title does, `loading_screen_test.dart`
+  // the gate, and `app_shell_test.dart` which tabs exist — all this pins is that
+  // a cold launch lands on the title at all, i.e. that nothing routes around it
+  // straight to the gate or the shell.
+  testWidgets('opens onto the title screen', (tester) async {
+    // Needs a scope: the title starts the feed loading at mount (it is what
+    // keeps a splash in front of a network gate from being a delay). Overridden
+    // with a never-completing future rather than left to the real repository,
+    // which would build a Dio to answer a question about routing.
     //
     // **And a store, which it did not need until the badge system.** The
     // celebration popup mounts through `MaterialApp.builder`, above the
@@ -46,7 +49,8 @@ void main() {
       ),
     );
 
-    expect(find.byType(LoadingGate), findsOneWidget);
+    expect(find.byType(TitleScreen), findsOneWidget);
+    expect(find.byType(LoadingGate), findsNothing);
   });
 
   // The theme is what every Material widget in the app reads when nothing
@@ -70,33 +74,36 @@ void main() {
       return tester.widget<MaterialApp>(find.byType(MaterialApp)).theme!;
     }
 
-    testWidgets('the brand orange is the prototype\'s, exactly', (tester) async {
+    testWidgets('the brand orange is the prototype\'s, exactly', (
+      tester,
+    ) async {
       final ThemeData theme = await themeOf(tester);
       expect(theme.colorScheme.primary, Palette.accent);
       expect(theme.colorScheme.onPrimary, Palette.onAccent);
       expect(theme.colorScheme.brightness, Brightness.dark);
     });
 
-    testWidgets('and it is pinned because the seed alone does not give it back', (
-      tester,
-    ) async {
-      // **This is the test that earns the `copyWith` in `main.dart`.** Seeding
-      // with `--accent` reads like it would make `primary` be `--accent`; it
-      // does not. `fromSeed` runs the seed through a Material 3 tonal palette
-      // and returns a harmonised neighbour, so without the override the app
-      // would ship an orange that is *not* `#E8571F` while every comment
-      // claimed otherwise. Asserting the inequality pins the reason, so a
-      // future agent tidying away a `copyWith` that looks redundant finds out
-      // here rather than on a device.
-      final ColorScheme seeded = ColorScheme.fromSeed(
-        seedColor: Palette.accent,
-        brightness: Brightness.dark,
-      );
-      expect(seeded.primary, isNot(Palette.accent));
+    testWidgets(
+      'and it is pinned because the seed alone does not give it back',
+      (tester) async {
+        // **This is the test that earns the `copyWith` in `main.dart`.** Seeding
+        // with `--accent` reads like it would make `primary` be `--accent`; it
+        // does not. `fromSeed` runs the seed through a Material 3 tonal palette
+        // and returns a harmonised neighbour, so without the override the app
+        // would ship an orange that is *not* `#E8571F` while every comment
+        // claimed otherwise. Asserting the inequality pins the reason, so a
+        // future agent tidying away a `copyWith` that looks redundant finds out
+        // here rather than on a device.
+        final ColorScheme seeded = ColorScheme.fromSeed(
+          seedColor: Palette.accent,
+          brightness: Brightness.dark,
+        );
+        expect(seeded.primary, isNot(Palette.accent));
 
-      final ThemeData theme = await themeOf(tester);
-      expect(theme.colorScheme.primary, Palette.accent);
-    });
+        final ThemeData theme = await themeOf(tester);
+        expect(theme.colorScheme.primary, Palette.accent);
+      },
+    );
 
     testWidgets('the backdrop is the prototype\'s page background', (
       tester,
@@ -172,7 +179,10 @@ void main() {
       // a device, not here, so the path is asserted rather than assumed.
       await tester.pumpWidget(await _bootstrap(tester));
 
-      expect(File('${tempDir.path}/${Store.boxName}.hive').existsSync(), isTrue);
+      expect(
+        File('${tempDir.path}/${Store.boxName}.hive').existsSync(),
+        isTrue,
+      );
     });
   });
 
@@ -207,14 +217,14 @@ void main() {
 /// [WidgetTester.runAsync].
 ///
 /// The feed is overridden with a future that never completes, so these stay
-/// tests of the boot sequence. `RockimalsApp` opens onto the loading gate, which
-/// watches the feed — so without this, asking whether the store is open would
-/// build a real Dio, fire a real request, and leave the repository's
-/// ten-second ceiling pending when the tree is disposed. A never-completing
-/// future also holds the app on "Contacting NASA…", which is exactly the state a
-/// cold launch is in at the moment these assertions look — and the reason they
-/// pin the store rather than anything the shell shows: behind the gate, the
-/// shell does not exist yet.
+/// tests of the boot sequence. `RockimalsApp` opens onto the title screen, which
+/// starts the feed loading the moment it mounts — so without this, asking
+/// whether the store is open would build a real Dio, fire a real request, and
+/// leave the repository's ten-second ceiling pending when the tree is disposed.
+/// A never-completing future also holds the app on the title, which is exactly
+/// the state a cold launch is in at the moment these assertions look — and the
+/// reason they pin the store rather than anything the shell shows: in front of
+/// the gate, the shell does not exist yet.
 ///
 /// A `testWidgets` body runs in a fake-async zone where timers and I/O
 /// completions are the test's to pump, so a future that only completes on a real
