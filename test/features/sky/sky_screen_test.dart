@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rockimals/core/mascot/rusty.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/data/models/asteroid_feed.dart';
@@ -127,6 +128,8 @@ void main() {
 
       expect(find.byType(AnimalCard), findsOneWidget);
       expect(_cardOrder(tester), <String>[_a.name]);
+      // The empty state's mascot must not leak onto a list with cards on it.
+      expect(find.byType(Rusty), findsNothing);
     });
 
     testWidgets('shows the friendly empty state when nothing matches the filter', (
@@ -145,6 +148,9 @@ void main() {
       );
       // The tone guardrail: never the prototype's "hazardous" wording.
       expect(find.textContaining('hazardous'), findsNothing);
+      // And the mascot fronts the good news
+      // (`specs/06-title-polish-safety.md:18`).
+      expect(find.byType(Rusty), findsOneWidget);
     });
 
     testWidgets('the footer shows the real window for a live sky', (

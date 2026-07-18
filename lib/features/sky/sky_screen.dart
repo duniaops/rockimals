@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rockimals/core/animals/animal_system.dart';
+import 'package:rockimals/core/mascot/rusty.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/features/animals/widgets/animal_card.dart';
@@ -307,10 +308,20 @@ class _SkyEmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Padding(
       padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      child: Text(
-        'No close flybys in this window — good news! 🌍',
-        textAlign: TextAlign.center,
-        style: TextStyle(color: Palette.muted, fontSize: 14),
+      child: Column(
+        children: <Widget>[
+          // Spec 06 puts Rusty on the empty states
+          // (`specs/06-title-polish-safety.md:18`); the prototype's `.empty` is
+          // text alone. Decoration — a painter publishes no semantics — so the
+          // good news below is what a screen reader hears.
+          Rusty(size: kRustyHalfSize),
+          SizedBox(height: 16),
+          Text(
+            'No close flybys in this window — good news! 🌍',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Palette.muted, fontSize: 14),
+          ),
+        ],
       ),
     );
   }

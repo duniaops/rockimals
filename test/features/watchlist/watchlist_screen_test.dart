@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rockimals/core/mascot/rusty.dart';
 import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/data/fallback_asteroids.dart';
 import 'package:rockimals/data/models/asteroid.dart';
@@ -104,6 +105,9 @@ void main() {
       );
       expect(find.textContaining('⭐ Follow'), findsOneWidget);
       expect(find.byType(AnimalCard), findsNothing);
+      // The mascot fronts the invitation (`specs/06-title-polish-safety.md:18`)
+      // — Rusty where the prototype had paw prints.
+      expect(find.byType(Rusty), findsOneWidget);
     });
 
     testWidgets('lists the followed animals closest first', (tester) async {
@@ -177,6 +181,9 @@ void main() {
 
       expect(find.byType(AnimalCard), findsOneWidget);
       expect(find.textContaining('not following'), findsNothing);
+      // The whole empty state goes, mascot included — a Rusty left over a list
+      // would read as the screen contradicting itself.
+      expect(find.byType(Rusty), findsNothing);
     });
 
     testWidgets('empties back to the invitation when the last is unfollowed', (
@@ -199,6 +206,7 @@ void main() {
 
       expect(find.byType(AnimalCard), findsNothing);
       expect(find.textContaining('not following'), findsOneWidget);
+      expect(find.byType(Rusty), findsOneWidget);
     });
 
     testWidgets('is still filled after a restart', (tester) async {

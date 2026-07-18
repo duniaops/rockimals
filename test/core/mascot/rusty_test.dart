@@ -78,6 +78,15 @@ void main() {
       }
     });
 
+    test('kRustyHalfSize is exactly half of him', () {
+      // The one size the loading screen and both empty states share
+      // (`specs/06-title-polish-safety.md:18`). It is a const restatement of
+      // `kRustySize / 2` — restated because a `Size`'s fields are not constant
+      // expressions — so this is the only thing stopping the two sets of
+      // digits drifting apart.
+      expect(kRustyHalfSize, kRustySize / 2);
+    });
+
     testWidgets('scales whole rather than cropping', (tester) async {
       // The loading screen and the empty states each want him at their own size
       // (`specs/06-title-polish-safety.md:18`), so the painter has to be a scale

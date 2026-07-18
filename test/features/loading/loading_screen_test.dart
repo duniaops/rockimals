@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rockimals/core/mascot/rusty.dart';
 import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/data/models/asteroid_feed.dart';
 import 'package:rockimals/features/data/providers.dart';
@@ -120,6 +121,19 @@ void main() {
   });
 
   group('LoadingScreen', () {
+    testWidgets('fronts the wait with Rusty, at his shared half size', (
+      tester,
+    ) async {
+      // `specs/06-title-polish-safety.md:18` — the mascot on the loading
+      // screen, which is this plan item's Done-when for this surface. *Beside*
+      // the spinner rather than instead of it: the ring is what says "still
+      // working", and the two tests below own that it keeps saying it.
+      await tester.pumpWidget(_app(Completer<AsteroidFeed>().future));
+
+      expect(find.byType(Rusty), findsOneWidget);
+      expect(tester.getSize(find.byType(Rusty)), kRustyHalfSize);
+    });
+
     testWidgets('turns the spinner, and keeps turning it', (tester) async {
       // `animation:spin 1s linear infinite` (`index.html:166`). A controller
       // built but never `repeat()`-ed renders a perfectly correct ring that

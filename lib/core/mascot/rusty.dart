@@ -26,6 +26,18 @@ import 'package:flutter/widgets.dart';
 /// the numbers in this file can be diffed against `title.html` line by line.
 const Size kRustySize = Size(212, 206);
 
+/// Rusty at exactly half scale — the one size his three secondary surfaces
+/// share (`specs/06-title-polish-safety.md:18`): the loading screen and the
+/// My Animals and Sky empty states. Half rather than a bespoke number per
+/// surface, so the brand reads as the same fox everywhere and the title's
+/// full-size Rusty stays the biggest thing he ever is.
+///
+/// Restated as digits rather than computed from [kRustySize], because a
+/// `Size`'s fields are not constant expressions and every surface that shows
+/// him this size builds a `const` tree. `rusty_test.dart` pins the two to each
+/// other so the digits cannot drift apart.
+const Size kRustyHalfSize = Size(106, 103);
+
 /// Rusty, at [size] (defaulting to his intrinsic [kRustySize]).
 ///
 /// He does not move: the 3.6s bob is `.float` (`title.html:43-44`), a *wrapper*

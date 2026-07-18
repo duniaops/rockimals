@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rockimals/core/mascot/rusty.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/data/fallback_asteroids.dart';
 import 'package:rockimals/data/models/asteroid.dart';
@@ -197,11 +198,12 @@ class _WatchlistEmptyState extends StatelessWidget {
       padding: EdgeInsets.symmetric(horizontal: 20, vertical: 28),
       child: Column(
         children: <Widget>[
-          // `🐾<br><br>` (`index.html:502`) — decoration, and excluded so a
-          // screen reader reads the invitation rather than "paw prints".
-          ExcludeSemantics(
-            child: Text('🐾', style: TextStyle(fontSize: 40, height: 1)),
-          ),
+          // The prototype's `🐾` (`index.html:502`), grown into the mascot —
+          // spec 06 puts Rusty on the empty states
+          // (`specs/06-title-polish-safety.md:18`). Still decoration, and still
+          // silent: a painter publishes no semantics, so a screen reader reads
+          // the invitation, exactly as the old `ExcludeSemantics` arranged.
+          Rusty(size: kRustyHalfSize),
           SizedBox(height: 16),
           Text(
             "You're not following any space animals yet.\n"

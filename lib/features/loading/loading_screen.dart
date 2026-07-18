@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rockimals/core/mascot/rusty.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/data/models/asteroid_feed.dart';
 import 'package:rockimals/features/data/providers.dart';
@@ -49,11 +50,15 @@ class LoadingGate extends ConsumerWidget {
   }
 }
 
-/// The spinner and the line under it (`index.html:271`).
+/// Rusty, the spinner, and the line under it (`index.html:271`,
+/// `specs/06-title-polish-safety.md:18`).
 ///
-/// Task 06 re-skins this with Rusty the fox
-/// (`specs/06-title-polish-safety.md`) and reuses it for empty states, which is
-/// why it is a widget of its own rather than a branch inside [LoadingGate].
+/// The mascot is the spec's addition, not the prototype's — `.loading` is only
+/// the ring and the words. He stands *beside* the spinner rather than replacing
+/// it: the ring is what says "still working", the one job this screen has, and
+/// its motion is already pinned by this screen's tests. Rusty himself does not
+/// move here — the bob is the title screen's wrapper, not his — so this surface
+/// adds no new motion for the Calm-motion setting to reach.
 ///
 /// **A [Scaffold] rather than the [ColoredBox] this screen's contents would
 /// suggest, and that is not boilerplate.** `Text` outside a [Material] silently
@@ -75,8 +80,14 @@ class LoadingScreen extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
+            // The brand's face on the wait. A painter publishes no semantics,
+            // so a screen reader hears "Contacting NASA…" alone rather than a
+            // description of a fox.
+            Rusty(size: kRustyHalfSize),
+            // `.loading{gap:14px}` (`index.html:165`) is a flex gap, so the
+            // spec's new child inherits the same spacing as the two it joins.
+            SizedBox(height: 14),
             _Spinner(),
-            // `gap:14px` (`index.html:165`).
             SizedBox(height: 14),
             Text(
               // The only words in the app a child reads before anything else,
