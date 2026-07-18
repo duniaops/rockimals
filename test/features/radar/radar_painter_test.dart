@@ -445,9 +445,13 @@ void main() {
       // Five planet names and the Sun's (Mercury has none) go quiet — the ring
       // labels, "Earth" and "Moon" are not label-gated and stay.
       expect(emptyOn - emptyOff, 6, reason: 'the planets and the Sun');
-      // On, a waving animal adds its emoji and its name; off, only its emoji.
-      expect(wavingOn - emptyOn, 2, reason: 'emoji and name');
-      expect(wavingOff - emptyOff, 1, reason: 'emoji only — the name is gone');
+      // On, a waving animal adds its emoji, its wave and its name; off, the
+      // emoji and the wave. **The wave is not label-gated, deliberately**: it
+      // is the icon half of "never rely on colour alone"
+      // (`specs/06-title-polish-safety.md:23`), so turning names off must not
+      // take the app back to marking a close flyby by ring colour alone.
+      expect(wavingOn - emptyOn, 3, reason: 'emoji, wave and name');
+      expect(wavingOff - emptyOff, 2, reason: 'emoji and wave — the name is gone');
     });
   });
 
@@ -804,8 +808,8 @@ void _animalTests() {
 
       await _radar(tester, sky: <Asteroid>[_rock(name: '2020 AA', ld: 0.4)], maxLd: 31.5);
       expect(
-        _paragraphOffsets(tester), hasLength(base + 2),
-        reason: 'emoji and name — a close flyby says hello',
+        _paragraphOffsets(tester), hasLength(base + 3),
+        reason: 'emoji, wave and name — a close flyby says hello, twice over',
       );
     });
 
@@ -844,6 +848,99 @@ void _animalTests() {
         name.at.dx + name.width / 2,
         closeTo(at.dx, 0.01),
         reason: 'centred over the animal it belongs to',
+      );
+    });
+
+    testWidgets('waves at a close flyby, so the ring is not the only mark', (
+      tester,
+    ) async {
+      // **The radar's half of "never rely on colour alone"**
+      // (`specs/06-title-polish-safety.md:23`). Until the accessibility audit
+      // this field marked a close flyby with an orange ring and nothing else —
+      // meaningless to a colour-blind child, and to any child who has not been
+      // told what orange stands for. The 👋 is the same glyph the badge, the
+      // home strip's count and the Sky filter already use, so the radar now says
+      // what the rest of the app says.
+      //
+      // Counted rather than read, because a `ui.Paragraph` does not carry its
+      // text: the wave is one extra laid-out label on the *same sky*, with
+      // labels off so the name cannot account for it.
+      const RadarLayers noLabels = RadarLayers(labels: false);
+      final Asteroid passing = _rock(name: '2020 BB', ld: 20);
+      final Asteroid waving = _rock(name: '2020 BB', ld: 0.5);
+
+      await _radar(tester, sky: <Asteroid>[passing], layers: noLabels);
+      final int quiet = _paragraphOffsets(tester).length;
+
+      await _radar(tester, sky: <Asteroid>[waving], layers: noLabels);
+
+      expect(
+        _paragraphOffsets(tester),
+        hasLength(quiet + 1),
+        reason: 'a close flyby draws its emoji and a wave',
+      );
+    });
+
+    testWidgets('and a rock just passing is not waved at', (tester) async {
+      // The other arm, and the one that stops the fix from becoming "every
+      // animal waves", which would say nothing at all.
+      const RadarLayers noLabels = RadarLayers(labels: false);
+
+      await _radar(
+        tester,
+        sky: <Asteroid>[_rock(name: '2020 BB', ld: 20)],
+        layers: noLabels,
+      );
+      final int passing = _paragraphOffsets(tester).length;
+
+      await _radar(
+        tester,
+        sky: <Asteroid>[_rock(name: '2020 CC', ld: 30)],
+        layers: noLabels,
+      );
+
+      expect(_paragraphOffsets(tester), hasLength(passing));
+    });
+
+    testWidgets('the wave sits on the token, clear of the name above it', (
+      tester,
+    ) async {
+      // Placement is behaviour here: a wave drawn at the animal's centre would
+      // sit under the emoji and be invisible, and one drawn straight up would
+      // collide with the name label a close flyby also shows.
+      //
+      // Isolated by the set-difference idiom the name test above established —
+      // the same rock at the same place, close in one frame and passing in the
+      // other, so the single offset that appears *is* the wave.
+      const RadarLayers noLabels = RadarLayers(labels: false);
+      const RadarGeometry geometry = RadarGeometry(size: _size, maxLd: 60);
+      final Asteroid passing = _rock(name: '2020 BB', ld: 20);
+      final Asteroid waving = _rock(name: '2020 BB', ld: 0.5);
+
+      await _radar(tester, sky: <Asteroid>[passing], layers: noLabels);
+      final Set<({Offset at, double width})> quiet =
+          _paragraphOffsets(tester).toSet();
+
+      await _radar(tester, sky: <Asteroid>[waving], layers: noLabels);
+      final Set<({Offset at, double width})> withWave =
+          _paragraphOffsets(tester).toSet();
+
+      final RadarOrbits orbits = RadarOrbits.seed(<Asteroid>[waving]);
+      final Offset at = orbits.positionOf(
+        orbits.orbits[0],
+        geometry: geometry,
+        zoom: 1,
+        viewRot: 0,
+      );
+
+      // Two offsets differ — the emoji moved with the rock's new distance, and
+      // the wave is new — so the wave is the one up and to the right of centre.
+      final Iterable<({Offset at, double width})> fresh =
+          withWave.difference(quiet);
+      expect(
+        fresh.any((o) => o.at.dx > at.dx && o.at.dy < at.dy),
+        isTrue,
+        reason: 'the wave sits on the token\'s upper-right shoulder',
       );
     });
 

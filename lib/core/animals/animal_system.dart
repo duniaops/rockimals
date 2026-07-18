@@ -254,6 +254,20 @@ int powerStars(Asteroid a) => (power(a) * 3).round();
 /// the stars exactly and the raw score to a tolerance, for this reason.
 double _log10(double x) => math.log(x) / math.ln10;
 
+/// The wave that means "close flyby", wherever the app says so.
+///
+/// One constant rather than eight literals because it is not decoration: it is
+/// the **icon** half of `specs/06-title-polish-safety.md:23`, "never rely on
+/// colour alone — pair the close-flyby colour with icon + text". Every surface
+/// that tints something for a close flyby has to show this too, so a
+/// colour-blind child sees the state and not just the hue. Keeping it here, next
+/// to [flybyTag], is what makes "which surfaces mark a close flyby" answerable
+/// by grep instead of by memory.
+///
+/// It is also deliberately a *greeting* and not a warning triangle
+/// (`CLAUDE.md:64`).
+const String kCloseFlybyGlyph = '👋';
+
 /// How a flyby is described to a child (`index.html:445-447`).
 ///
 /// Two values, never a raw boolean: `hazardous` is NASA's word and
@@ -262,7 +276,7 @@ double _log10(double x) => math.log(x) / math.ln10;
 /// singled out is a friendly wave.
 enum FlybyTag {
   /// A rock NASA flags, or one passing inside the Moon's distance.
-  closeFlyby('👋 close flyby'),
+  closeFlyby('$kCloseFlybyGlyph close flyby'),
 
   /// Everything else — the overwhelming majority of the sky.
   justPassing('just passing');

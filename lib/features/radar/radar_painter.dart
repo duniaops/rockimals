@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
+import 'package:rockimals/core/animals/animal_system.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/features/radar/planet_backdrop.dart';
@@ -321,6 +322,29 @@ class RadarPainter extends CustomPainter {
 
       _emoji(orbit.critter.animal.emoji, orbit.emojiSize).paintCentred(canvas, at);
 
+      // **The wave is the accessibility audit's addition, and it is the only
+      // mark on this field the prototype does not have.**
+      // `specs/06-title-polish-safety.md:23` says never to rely on colour
+      // alone, and until now the radar did exactly that: a close flyby was an
+      // orange ring and nothing else, which is invisible to a colour-blind
+      // child and to anyone who has not been told what orange means. Every
+      // other surface in the app already pairs that state with this glyph and
+      // the words "close flyby" — the badge, the home strip's count chip, the
+      // Sky filter — so the fix is to say the same thing here rather than
+      // invent a radar-specific one. The words follow on tap, in the HUD card.
+      //
+      // Drawn at the token's shoulder so it cannot sit under the name label
+      // above it, and sized against the animal rather than fixed, so it stays
+      // proportional as the zoom changes `emojiSize`. It costs one cached
+      // [RadarLabel] per distinct size (`radar_labels.dart`), exactly as the
+      // animal emoji beside it does — no per-frame layout (`CLAUDE.md:80`).
+      if (orbit.isCloseFlyby) {
+        _wave(orbit.emojiSize * _waveScale).paintCentred(
+          canvas,
+          at.translate(chip * 0.8, -chip * 0.8),
+        );
+      }
+
       // Only the animals waving and the one being looked at say their names,
       // and only while the Labels chip is on — `showLabels && (close || sel)`
       // (`index.html:864`). Sixty labels at once would be a wall of text on a
@@ -546,6 +570,19 @@ RadarLabel _ringLabel(int ld) =>
 /// one label whose key really varies.
 RadarLabel _emoji(String emoji, double size) =>
     radarLabel(emoji, size: size, colour: _emojiColour, family: 'serif');
+
+/// The 👋 on a close flyby's token — the icon half of "never colour alone"
+/// (`specs/06-title-polish-safety.md:23`). `serif` for the same reason the
+/// animal emoji asks for it, and the same opaque white: a colour emoji carries
+/// its own bitmap and ignores the fill, so this colour only matters to a
+/// monochrome fallback glyph.
+RadarLabel _wave(double size) =>
+    radarLabel(kCloseFlybyGlyph, size: size, colour: _emojiColour, family: 'serif');
+
+/// How big the wave is against the animal it belongs to. Small enough to read
+/// as a mark *on* the token rather than a second animal beside it, big enough
+/// to survive the smallest `emojiSize` the zoom produces.
+const double _waveScale = 0.55;
 
 /// A close flyby's or the selected animal's first name (`index.html:865-867`).
 /// The selected one is white and bold; everyone else waving is warm amber.
