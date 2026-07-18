@@ -51,8 +51,8 @@ void main() {
       // Every tab, not a sample: this is the whole of the item's behaviour, and
       // there are only four. The nav labels are unique strings in the tree — no
       // body renders a bare "Sky"/"Watchlist"/"Profile" (the tab titles are
-      // "The Sky" and "My Animals", the last stub reads "… is coming soon") —
-      // so these finders hit the buttons and not the bodies.
+      // "The Sky", "My Animals", and "My Space Zoo") — so these finders hit the
+      // buttons and not the bodies.
       for (final String label in <String>[
         'Sky',
         'Watchlist',
@@ -257,18 +257,18 @@ const Color _selected = Color(0xFFFF7A45);
 const Color _idle = Color(0xFF93A8CA);
 
 /// A probe for each tab's *body*, keyed by its nav label — something only that
-/// tab puts on screen. The one remaining stub is transitional and is deleted by
-/// the task that owns its tab; it should be repointed at the real screen rather
-/// than dropped, as the Radar row was when the radar displaced the debug list,
-/// the Sky row was when the Sky tab landed, and the Watchlist row was when My
-/// Animals did. Note each probe is a tab's `.h-title` — "The Sky", "My Animals"
-/// — which `find.text` matches exactly and so never collides with the bare
-/// "Sky" / "Watchlist" nav labels beside them.
+/// tab puts on screen. **Every row now points at a real screen**: the Radar row
+/// was repointed when the radar displaced the debug list, the Sky row when the
+/// Sky tab landed, the Watchlist row when My Animals did, and this last one when
+/// My Space Zoo replaced the final "… is coming soon" stub. Note each probe is a
+/// tab's `.h-title` — "The Sky", "My Animals", "My Space Zoo" — which
+/// `find.text` matches exactly and so never collides with the bare "Sky" /
+/// "Watchlist" / "Profile" nav labels beside them.
 Finder _bodyOf(String label) => switch (label) {
   'Radar' => find.byType(RadarView),
   'Sky' => find.text('The Sky'),
   'Watchlist' => find.text('My Animals'),
-  'Profile' => find.text('My Space Zoo is coming soon'),
+  'Profile' => find.text('My Space Zoo'),
   _ => throw ArgumentError.value(label, 'label', 'not a tab'),
 };
 

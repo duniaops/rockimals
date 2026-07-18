@@ -12,6 +12,8 @@ import 'package:rockimals/features/radar/radar_painter.dart';
 import 'package:rockimals/features/radar/radar_view.dart';
 import 'package:rockimals/features/shell/app_shell.dart';
 
+import '../../support/memory_store.dart';
+
 /// Show on radar (`openRadarFocus`, `index.html:657`; `specs/03-meet-animal.md:
 /// 23`) — the one action that reaches across three widgets that do not know
 /// about each other. The detail screen publishes a [RadarFocus] request; the
@@ -166,6 +168,13 @@ ProviderContainer _container() {
       asteroidFeedProvider.overrideWith((Ref ref) => _sky),
       dayStreakProvider.overrideWithValue(0),
       followsProvider.overrideWith(_NoFollows.new),
+      // **The Profile tab's arrival made this a hard requirement of any suite
+      // that mounts the shell**, which is the rule the My Animals item wrote
+      // down and this is the third suite to meet: the shell mounts every tab
+      // from the first frame, My Space Zoo reads `profileStatsProvider`, and
+      // that reads the store — which throws by design until overridden. The
+      // radar suites cannot care less what is in it, so it is empty.
+      storeProvider.overrideWithValue(MemoryStore()),
     ],
   );
   return container;

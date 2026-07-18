@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rockimals/core/theme/palette.dart';
+import 'package:rockimals/features/profile/my_space_zoo_screen.dart';
 import 'package:rockimals/features/radar/radar_focus.dart';
 import 'package:rockimals/features/radar/radar_view.dart';
 import 'package:rockimals/features/sky/sky_screen.dart';
@@ -115,11 +116,7 @@ const List<_NavTab> _tabs = <_NavTab>[
   _NavTab(emoji: '🛰️', label: 'Radar', body: RadarView()),
   _NavTab(emoji: '🌌', label: 'Sky', body: SkyScreen()),
   _NavTab(emoji: '⭐', label: 'Watchlist', body: WatchlistScreen()),
-  _NavTab(
-    emoji: '👤',
-    label: 'Profile',
-    body: _TabStub(emoji: '👤', title: 'My Space Zoo'),
-  ),
+  _NavTab(emoji: '👤', label: 'Profile', body: MySpaceZooScreen()),
 ];
 
 class _NavTab {
@@ -249,29 +246,6 @@ class _NavButton extends StatelessWidget {
   }
 }
 
-/// What a tab shows until its own task builds it.
-///
-/// Worded for a child rather than a developer ("coming soon", not "not
-/// implemented"), because these are reachable in any build the shell is in and
-/// `CLAUDE.md:63` asks for a gentle tone everywhere — but each is deleted by the
-/// task that owns its tab, so none of this copy is load-bearing.
-class _TabStub extends StatelessWidget {
-  const _TabStub({required this.emoji, required this.title});
-
-  final String emoji;
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Text(emoji, style: const TextStyle(fontSize: 48)),
-          const SizedBox(height: 12),
-          Text('$title is coming soon', style: const TextStyle(fontSize: 16)),
-        ],
-      ),
-    );
-  }
-}
+// `_TabStub` — the kid-toned "… is coming soon" placeholder each unbuilt tab
+// showed — is gone with the Profile, the last tab that still used one. Every
+// nav button now opens the screen it names.
