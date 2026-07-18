@@ -277,10 +277,10 @@ class _SpinnerPainter extends CustomPainter {
 /// can only ever see this if the app is already broken, and then the fastest
 /// way to unbreak it is worth more than a gentle face on it.
 ///
-/// This is the app's copy of the branch the debug screen also has; when that
-/// screen is deleted this becomes the only one. Not shared with it deliberately
-/// — the two say different things (that one is about the screen it is in) and
-/// factoring them together would point a shipping file at a doomed one.
+/// This is now the app's **only** report of that broken promise — the task-01
+/// debug screen carried the other copy and was deleted 2026-07-18. The two were
+/// deliberately never factored together, which is what let that one go without
+/// touching this one.
 class _BootBroke extends StatelessWidget {
   const _BootBroke({required this.error});
 

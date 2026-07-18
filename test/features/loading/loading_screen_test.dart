@@ -22,7 +22,7 @@ import '../../support/stub_settings.dart';
 /// launch, and it goes away when there is a sky, whichever kind of sky that is.
 ///
 /// The feed provider is overridden directly rather than a repository faked
-/// underneath it, matching `app_shell_test.dart` and the debug screen's suite:
+/// underneath it, matching `app_shell_test.dart`:
 /// `providers_test.dart` owns the wiring below this point, and a real
 /// repository would drag a clock, a window, and a Dio into a test about which
 /// widget is on screen.
