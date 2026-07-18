@@ -107,6 +107,29 @@ void main() {
       ]);
     });
   });
+
+  group('the sample sky', () {
+    test('is the whole bundled set, with the first seven visiting today', () {
+      // Plan decision 10, and the one rule that is **only** true offline: a
+      // live window derives `todayList` by date, while the sample set takes a
+      // fixed prefix (`index.html:381`). The two lists therefore differ here
+      // and nowhere else, which is exactly what makes the mistake invisible —
+      // a screen wired to `todayList` instead of `asteroids` shows seven
+      // plausible animals rather than fourteen, and no live test can catch it.
+      //
+      // Pinned here in 2026-07-18 as the debug list screen was deleted: its
+      // suite was the only thing asserting this, and the count had to survive
+      // the screen that happened to be displaying it.
+      final AsteroidFeed feed = AsteroidFeed.fallback();
+
+      expect(feed.asteroids, hasLength(14));
+      expect(feed.todayList, hasLength(7));
+      // Identity, not just length: a `take(7)` on a *sorted* copy would satisfy
+      // both counts above while handing the home strip the wrong seven rocks.
+      expect(feed.todayList, orderedEquals(kFallbackAsteroids.take(7)));
+      expect(feed.provenance, FeedProvenance.sample);
+    });
+  });
 }
 
 AsteroidFeed _feed() => AsteroidFeed(
