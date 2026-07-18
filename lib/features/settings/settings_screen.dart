@@ -4,6 +4,7 @@ import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/features/games/games_providers.dart';
 import 'package:rockimals/features/settings/about_block.dart';
 import 'package:rockimals/features/settings/calm_motion.dart';
+import 'package:rockimals/features/settings/little_kids_mode.dart';
 
 /// The Settings screen — the app's one home for its grown-up-facing toggles and
 /// its NASA attribution (`specs/08-settings-about.md`).
@@ -15,13 +16,13 @@ import 'package:rockimals/features/settings/calm_motion.dart';
 /// at the list that would otherwise grow; the entry point is a row at the bottom
 /// of the Profile tab, next door in `my_space_zoo_screen.dart`.
 ///
-/// **The body fills one item at a time, in spec order.** 🐢 Calm motion landed
-/// first, then 🔊 Sound above it, and now the [AboutBlock] at the foot. 🧸
-/// Little Kids mode is the last outstanding item and inserts *between* them,
-/// below Calm motion, per spec 08's own list (`:45-53`). Nothing stands in for
-/// it — the shell's `_TabStub` was exactly such a placeholder and was deleted
-/// the moment the last tab landed, so inviting a second one back would be
-/// re-learning the same lesson at the same cost.
+/// **The body filled one item at a time, in spec order, and is now complete.**
+/// 🐢 Calm motion landed first, then 🔊 Sound above it, then the [AboutBlock] at
+/// the foot, and finally 🧸 Little Kids mode *between* them — below Calm motion,
+/// per spec 08's own list (`:45-53`). Nothing ever stood in for a row that had
+/// not landed: the shell's `_TabStub` was exactly such a placeholder and was
+/// deleted the moment the last tab arrived, so inviting a second one back would
+/// have been re-learning the same lesson at the same cost.
 ///
 /// **Nothing on this screen may be an outbound link** (`:64-65`); the rule and
 /// the tests that hold it live on [AboutBlock], which is where the only text a
@@ -92,6 +93,36 @@ class SettingsScreen extends ConsumerWidget {
                     onChanged: (bool next) =>
                         ref.read(reducedMotionProvider.notifier).choose(next),
                   ),
+                  const SizedBox(height: 10),
+                  _ToggleRow(
+                    // "🧸 Little Kids mode" verbatim
+                    // (`specs/08-settings-about.md:51`).
+                    emoji: '🧸',
+                    label: 'Little Kids mode',
+                    // **The hint says it is not here yet, and that is the
+                    // decision this row turns on.** Spec 08 requires the toggle
+                    // to ship *visible* and persisted while allowing its body to
+                    // be a no-op (`:51-53`), so for one release a grown-up can
+                    // flip a switch that changes nothing they can see. Copy
+                    // describing the finished feature in the present tense would
+                    // make that read as a broken app — the one impression a kids
+                    // app can least afford — and copy describing nothing would
+                    // leave the row meaningless. Naming what is coming, and
+                    // saying plainly that it is coming, is the only version that
+                    // is true on the day it ships. The three things listed are
+                    // `specs/06-title-polish-safety.md:26`'s own list, in the
+                    // order a grown-up would notice them.
+                    // **Drop the last four words when v1.1 lands** — see
+                    // `little_kids_mode.dart`, and the plan item that owns it.
+                    hint: 'Read-aloud names, bigger buttons and simpler games — '
+                        'coming soon.',
+                    value: ref.watch(littleKidsModeProvider),
+                    // `choose(next)` rather than the 🔊 row's `toggle()`: this
+                    // notifier has no "unset" state to flip relative to, so the
+                    // row's own `next` is the whole answer.
+                    onChanged: (bool next) =>
+                        ref.read(littleKidsModeProvider.notifier).choose(next),
+                  ),
                   // A wider gap than the 10px between stacked rows: this is a
                   // change of subject, from switches a grown-up flips to
                   // statements they read.
@@ -109,12 +140,11 @@ class SettingsScreen extends ConsumerWidget {
 
 /// One settings row: an emoji, a label, a line of explanation, and a [Switch].
 ///
-/// **Built for three rows before there were two**, and the bet paid: 🔊 Sound
-/// reused it whole, for the cost of five lines in the column above. 🧸 Little
-/// Kids mode is the third and is again the same row with different words — the
-/// shape is pinned by spec 08's own list (`:45-53`). What it buys is that the
-/// ≥48dp target and the semantics below get decided once instead of three times,
-/// in three diffs, by three agents.
+/// **Built for three rows before there were two, and all three arrived without
+/// touching it.** 🔊 Sound reused it whole for the cost of five lines in the
+/// column above; 🧸 Little Kids mode was again the same row with different
+/// words. What that bought is that the ≥48dp target and the semantics below were
+/// decided once instead of three times, in three diffs, by three agents.
 ///
 /// **The whole row is the target, not just the switch.** A [Switch] is ~40dp of
 /// hittable box inside a 48dp one, and it sits at the far edge of the screen; a

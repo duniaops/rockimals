@@ -501,6 +501,135 @@ void main() {
       );
     });
   });
+
+  /// The 🧸 Little Kids mode toggle (`specs/08-settings-about.md:51-53`).
+  ///
+  /// **What the setting does is nothing, in v1, and that is pinned next door**
+  /// in `little_kids_mode_test.dart` — spec 08 allows the body to be a no-op and
+  /// the extension point behind it is where that claim belongs. This group owns
+  /// the surface, on the same terms as the two rows above it: the row exists, it
+  /// says the right words, it is big enough, it shows the right state, and a tap
+  /// reaches the store.
+  group('the 🧸 Little Kids mode toggle', () {
+    testWidgets('is on the Settings screen, below Calm motion', (tester) async {
+      // Order is spec 08's own list (`:45-53`): Sound, Calm motion, Little Kids
+      // mode, then About.
+      await _openSettings(tester);
+
+      expect(find.text('Little Kids mode'), findsOneWidget);
+      expect(find.text('🧸'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text('Little Kids mode')).dy,
+        greaterThan(tester.getTopLeft(find.text('Calm motion')).dy),
+      );
+    });
+
+    testWidgets('sits above the About block, not below it', (tester) async {
+      // The other half of its position, and the one a later edit is likelier to
+      // get wrong: About is the change of subject at the foot of the screen, so
+      // a toggle that drifted under it would read as part of the small print.
+      await _openSettings(tester);
+
+      expect(
+        tester.getTopLeft(find.text('Little Kids mode')).dy,
+        lessThan(
+          tester
+              .getTopLeft(
+                find.textContaining('Asteroid data from NASA'),
+              )
+              .dy,
+        ),
+      );
+    });
+
+    testWidgets('says plainly that it is not here yet', (tester) async {
+      // **The honesty check, and it is a product requirement rather than a
+      // copy preference.** For one release this switch changes nothing a child
+      // can see (`specs/08-settings-about.md:51-53` allows the no-op body). A
+      // hint written in the present tense would make a working app read as a
+      // broken one, and `specs/08-settings-about.md:69` forbids dead ends. This
+      // fails the day someone describes the feature as live without shipping
+      // it — and it is *meant* to be deleted by the v1.1 item, which is why the
+      // words are asserted rather than merely their absence.
+      await _openSettings(tester);
+
+      expect(find.textContaining('coming soon'), findsOneWidget);
+    });
+
+    testWidgets('is off on a fresh install', (tester) async {
+      await _openSettings(tester);
+
+      expect(
+        tester.widget<Switch>(_switchFor('Little Kids mode')).value,
+        isFalse,
+      );
+    });
+
+    testWidgets('shows on when the stored value is on', (tester) async {
+      await _openSettings(tester, littleKidsMode: true);
+
+      expect(
+        tester.widget<Switch>(_switchFor('Little Kids mode')).value,
+        isTrue,
+      );
+    });
+
+    testWidgets('writes the flip to the store, both ways', (tester) async {
+      // The half of "all three toggles persist across a restart"
+      // (`specs/08-settings-about.md:73`) this screen owns: the value reaches
+      // the store. That the store survives a reopen is `store_test.dart`'s
+      // question, asked there against a real Hive box.
+      late final Store store;
+      await _openSettings(tester, onStore: (Store s) => store = s);
+      expect(store.littleKidsMode, isFalse, reason: 'the premise: the default');
+
+      await tester.tap(find.text('Little Kids mode'));
+      await tester.pumpAndSettle();
+      expect(store.littleKidsMode, isTrue);
+      expect(
+        tester.widget<Switch>(_switchFor('Little Kids mode')).value,
+        isTrue,
+      );
+
+      await tester.tap(find.text('Little Kids mode'));
+      await tester.pumpAndSettle();
+      expect(store.littleKidsMode, isFalse);
+      expect(
+        tester.widget<Switch>(_switchFor('Little Kids mode')).value,
+        isFalse,
+      );
+    });
+
+    testWidgets('is at least 48dp tall, and stays so at 1.5× text', (
+      tester,
+    ) async {
+      // `specs/08-settings-about.md:82`, measured off the rendered box like
+      // every other target in this file.
+      await _openSettings(tester);
+      expect(
+        tester.getSize(_tappableAround(find.text('Little Kids mode'))).height,
+        greaterThanOrEqualTo(48),
+      );
+
+      await _openSettings(tester, textScale: 1.5);
+      expect(
+        tester.getSize(_tappableAround(find.text('Little Kids mode'))).height,
+        greaterThanOrEqualTo(48),
+      );
+    });
+
+    testWidgets('speaks as one control', (tester) async {
+      await _openSettings(tester);
+
+      expect(
+        find.bySemanticsLabel(
+          'Little Kids mode. Read-aloud names, bigger buttons and simpler '
+          'games — coming soon.',
+        ),
+        findsOneWidget,
+      );
+    });
+  });
 }
 
 /// Opens the Settings screen from the Profile tab, the way a child does.
@@ -522,6 +651,7 @@ Future<void> _openSettings(
   double textScale = 1,
   bool? reducedMotion,
   bool soundOn = true,
+  bool littleKidsMode = false,
   bool osDisablesAnimations = false,
   void Function(Store store)? onStore,
 }) async {
@@ -536,7 +666,12 @@ Future<void> _openSettings(
   }
 
   await tester.pumpWidget(
-    _app(reducedMotion: reducedMotion, soundOn: soundOn, onStore: onStore),
+    _app(
+      reducedMotion: reducedMotion,
+      soundOn: soundOn,
+      littleKidsMode: littleKidsMode,
+      onStore: onStore,
+    ),
   );
   await tester.scrollUntilVisible(find.text('Settings'), 200);
   await tester.tap(find.text('Settings'));
@@ -586,6 +721,9 @@ Widget _app({
   bool? reducedMotion,
   /// The stored 🔊 Sound value. True is [Store.soundOn]'s own default.
   bool soundOn = true,
+  /// The stored 🧸 Little Kids mode value. False is the fresh-install state,
+  /// and — unlike Calm motion — there is no third "never chose" to express.
+  bool littleKidsMode = false,
   /// Handed back so a test can ask what the toggle wrote.
   void Function(Store store)? onStore,
 }) {
@@ -594,6 +732,7 @@ Widget _app({
     bestStreak: 7,
     reducedMotion: reducedMotion,
     soundOn: soundOn,
+    littleKidsMode: littleKidsMode,
   );
   onStore?.call(store);
 

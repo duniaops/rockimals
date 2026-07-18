@@ -31,6 +31,7 @@ class MemoryStore implements Store {
     // Calm motion resolver treats specially — "never chosen, ask the OS". A
     // test that wants a *chosen* value has to say so.
     this.reducedMotion,
+    this.littleKidsMode = false,
     this.badges = const <String>[],
     this.follows = const <String>[],
   });
@@ -69,7 +70,7 @@ class MemoryStore implements Store {
   bool? reducedMotion;
 
   @override
-  bool littleKidsMode = false;
+  bool littleKidsMode;
 
   @override
   String? cachedFeed;
