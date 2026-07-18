@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/features/games/challenge_game.dart';
+import 'package:rockimals/features/games/duel_game.dart';
 import 'package:rockimals/features/games/games_providers.dart';
 
 /// The Play hub — a port of the prototype's `openGames` (`index.html:1002-1021`),
@@ -127,14 +128,14 @@ class GamesHub extends ConsumerWidget {
 
   /// Where each card goes. Each of the four game items (`specs/04`) replaces its
   /// own branch with the real game; until then a card opens a kid-toned "coming
-  /// soon" screen rather than a dead tap (`CLAUDE.md:63`). Today's Challenge has
-  /// landed; the other three are still ahead.
+  /// soon" screen rather than a dead tap (`CLAUDE.md:63`). Today's Challenge and
+  /// Power Duel have landed; the other two are still ahead.
   Widget _destinationFor(_GameId id) {
     switch (id) {
       case _GameId.daily:
         return const ChallengeGame();
       case _GameId.duel:
-        return const _ComingSoonGame(title: 'Power Duel');
+        return const DuelGame();
       case _GameId.closer:
         return const _ComingSoonGame(title: 'Closer or Farther');
       case _GameId.size:

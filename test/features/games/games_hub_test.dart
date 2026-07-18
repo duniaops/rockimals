@@ -111,12 +111,14 @@ void main() {
       testWidgets('a card opens its game placeholder', (tester) async {
         await pumpHub(tester);
 
-        await tester.tap(find.text('Power Duel'));
+        await tester.tap(find.text('Closer or Farther'));
         await tester.pumpAndSettle();
 
-        // The games themselves are still ahead in specs/04, so a tap lands on
-        // the kid-toned placeholder that names the game — proof the route is
-        // wired, which each game item swaps for the real game.
+        // Two of the four games have landed (Today's Challenge, Power Duel) and
+        // are covered by their own suites; the rest still route to the
+        // kid-toned placeholder that names the game — proof the route is wired,
+        // which each remaining game item swaps for the real game. This test
+        // must always point at a card that is *still* a placeholder.
         expect(
           find.text('This game is on its way — coming soon!'),
           findsOneWidget,
