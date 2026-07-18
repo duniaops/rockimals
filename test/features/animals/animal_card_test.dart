@@ -4,6 +4,7 @@ import 'package:rockimals/core/animals/animal_system.dart';
 import 'package:rockimals/data/fallback_asteroids.dart';
 import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/features/animals/widgets/animal_card.dart';
+import 'package:rockimals/features/animals/widgets/flyby_badge.dart';
 
 /// The shared animal row card (`acardEl`, `index.html:461-469`) — the `.acard`
 /// the Sky and My Animals lists are built from.
@@ -30,7 +31,7 @@ void main() {
       kFallbackAsteroids.firstWhere((Asteroid a) => a.name == '2015 TB145');
 
   Future<void> mount(WidgetTester tester, Asteroid rock,
-      {VoidCallback? onTap, Widget? footer}) {
+      {VoidCallback? onTap, Widget? footer, String? footerLabel}) {
     return tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -41,6 +42,7 @@ void main() {
                 asteroid: rock,
                 onTap: onTap ?? () {},
                 footer: footer,
+                footerLabel: footerLabel,
               ),
             ),
           ),
@@ -97,6 +99,47 @@ void main() {
     // The footer is present, and the rest of the card still renders around it.
     expect(find.text(caption), findsOneWidget);
     expect(find.text(critter(closeRock).name), findsOneWidget);
+  });
+
+  testWidgets('appends the footer to what a screen reader is told', (
+    WidgetTester tester,
+  ) async {
+    // The card says its whole meaning through one label and hides the visual —
+    // including the footer — behind [ExcludeSemantics], so a caption added
+    // there is *silent* unless the card is told what it means. That is the
+    // failure mode a screenshot cannot show: My Animals' approach date would
+    // render for a child who can see it and not exist for one using a screen
+    // reader.
+    final SemanticsHandle handle = tester.ensureSemantics();
+    const String caption = '⏳ approach 2026-07-16';
+    await mount(
+      tester,
+      closeRock,
+      footer: const Text(caption),
+      footerLabel: caption,
+    );
+
+    final String label = tester.getSemantics(find.byType(AnimalCard)).label;
+    expect(label, contains(caption));
+    // Appended, not substituted — the name and meta are still spoken first.
+    expect(label, startsWith(critter(closeRock).name));
+
+    handle.dispose();
+  });
+
+  testWidgets('says nothing extra when there is no footer', (
+    WidgetTester tester,
+  ) async {
+    // The Sky tab's bare card. A null [AnimalCard.footerLabel] must leave the
+    // label exactly as it was rather than trailing a stray comma or the word
+    // "null" — the shape a naive interpolation produces.
+    final SemanticsHandle handle = tester.ensureSemantics();
+    await mount(tester, closeRock);
+
+    final String label = tester.getSemantics(find.byType(AnimalCard)).label;
+    expect(label, endsWith(spokenFlyby(flybyTag(closeRock))));
+
+    handle.dispose();
   });
 
   testWidgets('speaks a screen reader label without the decorative glyphs', (

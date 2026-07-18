@@ -28,6 +28,7 @@ class AnimalCard extends StatelessWidget {
     required this.asteroid,
     required this.onTap,
     this.footer,
+    this.footerLabel,
   });
 
   final Asteroid asteroid;
@@ -42,6 +43,21 @@ class AnimalCard extends StatelessWidget {
   /// card. Kept out of the card's own body so the shared widget carries only
   /// what every list of animals shows.
   final Widget? footer;
+
+  /// What [footer] *means*, in words, appended to the card's spoken label.
+  ///
+  /// **Without this a footer is silent, and silently so.** The card says its
+  /// whole meaning through one [Semantics.label] and hides the visual behind
+  /// [ExcludeSemantics] (so the avatar emoji and the badge's 👋 are not sounded
+  /// out) — and [footer] is inside that visual. So My Animals' "⏳ approach
+  /// 2026-07-17" would render for a child who can see it and not exist at all
+  /// for one using a screen reader, which is the failure mode that looks like
+  /// nothing in a screenshot.
+  ///
+  /// A second parameter rather than a `String footerText` the card styles
+  /// itself: the caption's accent colour and weight belong to My Animals, not
+  /// to every list of animals (see [footer]). Null when [footer] is null.
+  final String? footerLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +82,8 @@ class AnimalCard extends StatelessWidget {
       // visual is excluded below and the meaning is said in words — the pattern
       // the nav, the chips, and the home strip all follow. `_spokenFlyby` drops
       // the badge emoji; the rest of the meta reads aloud fine.
-      label: '${c.name}, $meta, ${spokenFlyby(tag)}',
+      label: '${c.name}, $meta, ${spokenFlyby(tag)}'
+          '${footerLabel == null ? '' : ', $footerLabel'}',
       child: ExcludeSemantics(
         child: Material(
           // `.acard` — `background:var(--card)`, `border:1px var(--line)`,
