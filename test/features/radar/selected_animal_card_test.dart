@@ -125,6 +125,98 @@ void main() {
     expect(find.text(_name), findsNothing);
     expect(find.textContaining('tap an animal'), findsOneWidget);
   });
+
+  /// 🐢 Calm motion's half of this card. The radar field's drift is pinned in
+  /// `radar_view_test.dart`; this is the other motion on the same screen.
+  group('🐢 Calm motion', () {
+    testWidgets('halves the slide-up rather than removing it', (tester) async {
+      // **A duration, so it shortens rather than slowing** ([kCalmReactionScale],
+      // not [kCalmDriftScale]) — the fifth that calms the drift would here
+      // *stretch* a 200ms slide to a full second, which is the opposite of what
+      // the setting was asked for.
+      //
+      // **And shortened rather than removed**, which is the half worth arguing.
+      // This slide is what tells a child their tap landed on *this* animal; a
+      // card that simply appeared, fully formed, would be indistinguishable
+      // from one that had been sitting there. Eight pixels over a tenth of a
+      // second keeps that answer while barely being movement at all.
+      //
+      // The measurement is *when it lands*, not how far along it is at some
+      // sampled instant: `Curves.ease` is steep early, so a mid-slide sample of
+      // a halved 200ms and a full 200ms differ by less than intuition suggests
+      // and a sloppy tolerance would pass for either. "Finished at 100ms, still
+      // going at 100ms" cannot.
+      final Duration halved = kHudSlide * kCalmReactionScale;
+
+      await _mount(tester, calmMotion: true);
+      expect(
+        await _slideProgressAt(tester, halved * 0.5),
+        inExclusiveRange(0, 1),
+        reason: 'a calm card is genuinely mid-slide, not snapped to its end',
+      );
+
+      await _remount(tester, calmMotion: true);
+      expect(
+        await _slideProgressAt(tester, halved),
+        closeTo(1, 1e-6),
+        reason: 'and has landed by half of the prototype’s 200ms',
+      );
+
+      // The same two samples against the unchanged card, which is what makes
+      // the pair above mean anything: at 100ms it is still on its way, and only
+      // at the full 200ms is it home.
+      await _remount(tester);
+      expect(await _slideProgressAt(tester, halved), lessThan(1));
+
+      await _remount(tester);
+      expect(await _slideProgressAt(tester, kHudSlide), closeTo(1, 1e-6));
+    });
+  });
+}
+
+/// Tears the radar down and mounts it again, so the next tap plays a *fresh*
+/// slide.
+///
+/// **Not optional, and the reason is a trap worth stating.** Calling [_mount]
+/// twice does not remount anything: the root widgets are the same types in the
+/// same positions, so Flutter *updates* the tree rather than rebuilding it, the
+/// field keeps its `_selected`, and the card is already sitting at full opacity
+/// when the second tap arrives. A comparison written that way reads 1.0 for the
+/// second arm no matter what the code does — it passes for any implementation,
+/// including one that ignores the setting entirely.
+Future<void> _remount(WidgetTester tester, {bool? calmMotion}) async {
+  await tester.pumpWidget(const SizedBox());
+  await _mount(tester, calmMotion: calmMotion);
+}
+
+/// How far through its slide-up the card is [elapsed] after the animal is
+/// tapped, as the 0→1 the card's builder drives.
+///
+/// Read off the [Opacity] the card's own builder installs rather than off the
+/// [Transform], because the transform's 8 pixels are shared with nothing while
+/// the opacity is the same `t` — and the tree above the card carries transforms
+/// of its own that a `find.byType(Transform).first` would have to dodge.
+Future<double> _slideProgressAt(WidgetTester tester, Duration elapsed) async {
+  final RadarPainter painter = _painter(tester);
+  final Size size = tester.getSize(_radarCanvas());
+  await tester.tapAt(
+    painter.orbits.positionOf(
+      painter.orbits.orbits.single,
+      geometry: RadarGeometry(size: size, maxLd: painter.maxLd),
+      zoom: painter.zoom,
+      viewRot: painter.viewRot,
+    ),
+  );
+  await tester.pump(); // build the card at t = 0
+  await tester.pump(elapsed);
+
+  return tester
+      .widget<Opacity>(
+        find
+            .ancestor(of: find.text(_name), matching: find.byType(Opacity))
+            .first,
+      )
+      .opacity;
 }
 
 /// The one animal in the test sky. `2026 AB` at 100 m is a Tiger (plane-sized),
@@ -185,6 +277,7 @@ class _MemFollows extends FollowsNotifier {
 Future<void> _mount(
   WidgetTester tester, {
   Set<String> followed = const <String>{},
+  bool? calmMotion,
 }) async {
   tester.view
     ..physicalSize = const Size(390, 700)
@@ -204,11 +297,12 @@ Future<void> _mount(
         asteroidFeedProvider.overrideWith((Ref ref) => feed),
         dayStreakProvider.overrideWithValue(0),
         followsProvider.overrideWith(() => _MemFollows(followed)),
-        // The radar field resolves 🐢 Calm motion each build, and the real
-        // notifier reads the store. Held at "never chose", which resolves
-        // against a `MediaQuery` that is not asking — so the sky drifts at full
-        // speed here exactly as it did before the setting existed.
-        reducedMotionProvider.overrideWith(StubCalmMotion.new),
+        // The radar field and this card both resolve 🐢 Calm motion each build,
+        // and the real notifier reads the store. Defaulted to "never chose",
+        // which resolves against a `MediaQuery` that is not asking — so the sky
+        // drifts and the card slides at full speed here exactly as they did
+        // before the setting existed.
+        reducedMotionProvider.overrideWith(() => StubCalmMotion(calmMotion)),
       ],
       child: const MaterialApp(home: RadarView()),
     ),

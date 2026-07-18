@@ -1051,6 +1051,13 @@ class _PlayCta extends StatelessWidget {
 /// animal is a new element and re-runs it, while a Follow toggle rebuilds in
 /// place. There is no exit animation, matching the prototype's instant
 /// `display:none` on deselect.
+///
+/// **🐢 Calm motion halves the 200ms rather than removing it** ([kHudSlide] /
+/// [kCalmReactionScale]): the slide plays once and ends, which is the category
+/// that shortens, and it is what tells the child their tap landed on *this*
+/// animal — a card that simply appeared would be indistinguishable from one
+/// that had been there all along. Eight pixels in a tenth of a second keeps
+/// that answer while barely being movement at all.
 class _SelectedAnimalCard extends ConsumerWidget {
   const _SelectedAnimalCard({
     super.key,
@@ -1074,7 +1081,9 @@ class _SelectedAnimalCard extends ConsumerWidget {
       // when the card is a new element — a new selection (see the key in
       // [RadarView]).
       tween: _slideTween,
-      duration: const Duration(milliseconds: 200),
+      duration: calmMotionOf(context, ref)
+          ? kHudSlide * kCalmReactionScale
+          : kHudSlide,
       curve: Curves.ease,
       builder: (BuildContext context, double t, Widget? child) => Opacity(
         opacity: t,
@@ -1455,6 +1464,12 @@ const Color _hudSurface = Color(0xF20C1A32);
 /// `opacity 0 → 1`. Held as one instance so a Follow toggle's rebuild does not
 /// restart it — see the note at its use in [_SelectedAnimalCard].
 final Tween<double> _slideTween = Tween<double>(begin: 0, end: 1);
+
+/// How long that slide takes — `animation:hudup .2s ease` (`index.html:181`).
+///
+/// Named rather than inline because 🐢 Calm motion halves it, and a test has to
+/// be able to say "half of the real one" without restating the 200.
+const Duration kHudSlide = Duration(milliseconds: 200);
 
 /// `.hchip` fill — `rgba(19,42,77,.82)` (`index.html:45`), `--card` at the
 /// strip's own alpha, a shade heavier than the toggle chips' .85.

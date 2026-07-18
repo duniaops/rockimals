@@ -564,6 +564,33 @@ void main() {
       expect(calmMoon, closeTo(fullMoon * kCalmDriftScale, fullMoon * 0.02));
     });
 
+    testWidgets('leaves Earth breathing at full speed — calm is not frozen', (
+      tester,
+    ) async {
+      // **The counterweight to the two tests above, and the reason it is
+      // needed is that they are so easy to "finish".** A later agent reading
+      // "Calm motion slows the radar" could reasonably scale the clock the
+      // painter reads instead of the step the sky integrates, or gate the
+      // ticker outright — every assertion above would still pass, and the radar
+      // would become a still photograph. This is the test that says no.
+      //
+      // The line the exclusion rests on: the pulse is a radius breathing in
+      // place, three pixels either side, and reduced motion exists for travel
+      // across a screen, not for a planet that is quietly alive. Frozen, the
+      // screen a child stares at longest reads as a crash.
+      //
+      // Sampled at exactly the numbers the full-motion test uses (mid-breath at
+      // rest, the 29px peak a quarter period later), because "unchanged" is the
+      // whole assertion.
+      await _mount(tester, _sky(<double>[3]), calmMotion: true);
+
+      expect(_painter(tester), _glowRadius(closeTo(27.5, 0.05)));
+      await tester.pump(const Duration(milliseconds: 471));
+      expect(_painter(tester), _glowRadius(closeTo(29, 0.05)));
+      await tester.pump(const Duration(milliseconds: 942));
+      expect(_painter(tester), _glowRadius(closeTo(26, 0.05)));
+    });
+
     testWidgets('takes hold without leaving the screen', (tester) async {
       // The acceptance criterion in as many words: *"Toggle on Calm motion and
       // watch the radar settle without leaving the screen"*
