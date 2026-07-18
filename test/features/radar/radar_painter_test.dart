@@ -1,19 +1,18 @@
 import 'dart:math' as math;
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/features/radar/planet_backdrop.dart';
-import 'package:rockimals/features/radar/radar_clock.dart';
 import 'package:rockimals/features/radar/radar_geometry.dart';
 import 'package:rockimals/features/radar/radar_labels.dart';
 import 'package:rockimals/features/radar/radar_layers.dart';
 import 'package:rockimals/features/radar/radar_orbits.dart';
 import 'package:rockimals/features/radar/radar_painter.dart';
+
+import '../../support/radar_frame.dart';
 
 /// What the radar's base layer actually puts on the screen.
 ///
@@ -458,11 +457,10 @@ void main() {
   _animalTests();
 }
 
-/// A phone-shaped field. The default test view is 800×600, which would clamp
-/// this and quietly move every coordinate below, so [_radar] resizes the view
-/// rather than wrapping the radar in a box the view can squash.
-const Size _size = Size(390, 700);
-final Offset _centre = Offset(_size.width / 2, _size.height * 0.46);
+/// A phone-shaped field, and where Earth sits on it — both from
+/// `test/support/radar_frame.dart`, which every radar suite mounts through.
+const Size _size = radarSize;
+final Offset _centre = radarCentre;
 
 /// The painter under test, filling a field of a known size, so every coordinate
 /// above is one the painter computed rather than one the test invented.
@@ -475,58 +473,20 @@ Future<void> _radar(
   Asteroid? selected,
   PlanetBackdrop? backdrop,
   RadarLayers layers = const RadarLayers(),
-}) async {
-  tester.view
-    ..physicalSize = _size
-    ..devicePixelRatio = 1;
-  addTearDown(tester.view.reset);
-
-  await tester.pumpWidget(
-    RepaintBoundary(
-      child: _Ticking(
-        // A fresh key per call, so a test that mounts two radars in a row really
-        // gets two. Without it the second `pumpWidget` reuses the first's
-        // `State` — and the sky is seeded in a `late final` there, exactly as it
-        // is in the app, so the new asteroids would be silently ignored and the
-        // test would be asserting against the previous frame's sky.
-        key: UniqueKey(),
-        maxLd: maxLd,
-        zoom: zoom,
-        viewRot: viewRot,
-        asteroids: sky,
-        selected: selected,
-        backdrop: backdrop,
-        layers: layers,
-      ),
-    ),
-  );
-}
+}) => pumpRadar(
+  tester,
+  maxLd: maxLd,
+  zoom: zoom,
+  viewRot: viewRot,
+  sky: sky,
+  selected: selected,
+  backdrop: backdrop,
+  layers: layers,
+);
 
 /// Every `drawCircle` the painter recorded, in order, with the [Paint] it used.
-///
-/// **The recorded paints really are per-call**, even though `_paintAnimals`
-/// reuses two [Paint] objects across every animal to keep per-frame allocation
-/// down (`CLAUDE.md:80`): the recording canvas snapshots each one. Worth knowing
-/// before trusting any colour asserted here — if it did not, every ring in a
-/// frame would read back as the last colour set and these tests would quietly
-/// agree with themselves.
-List<({Offset at, double radius, Paint paint})> _circles(WidgetTester tester) {
-  final List<({Offset at, double radius, Paint paint})> circles =
-      <({Offset at, double radius, Paint paint})>[];
-  final Matcher collector = (paints
-    ..something((Symbol method, List<dynamic> arguments) {
-      if (method == #drawCircle) {
-        circles.add((
-          at: arguments[0] as Offset,
-          radius: arguments[1] as double,
-          paint: arguments[2] as Paint,
-        ));
-      }
-      return false;
-    })) as Matcher;
-  collector.matches(_painterOf(tester), <dynamic, dynamic>{});
-  return circles;
-}
+List<({Offset at, double radius, Paint paint})> _circles(WidgetTester tester) =>
+    radarCircles(tester);
 
 /// The circles drawn around [at] — one animal's token, its ring, and its
 /// selection ring if it has one.
@@ -572,21 +532,10 @@ Offset _animalAt(Asteroid rock) {
 ({Path path, Paint paint}) _caret(WidgetTester tester) =>
     _filledPaths(tester).single;
 
-List<({Path path, Paint paint})> _filledPaths(WidgetTester tester) {
-  final List<({Path path, Paint paint})> paths = <({Path path, Paint paint})>[];
-  final Matcher collector = (paints
-    ..something((Symbol method, List<dynamic> arguments) {
-      if (method == #drawPath) {
-        final Paint paint = arguments[1] as Paint;
-        if (paint.style == PaintingStyle.fill) {
-          paths.add((path: arguments[0] as Path, paint: paint));
-        }
-      }
-      return false;
-    })) as Matcher;
-  collector.matches(_painterOf(tester), <dynamic, dynamic>{});
-  return paths;
-}
+List<({Path path, Paint paint})> _filledPaths(WidgetTester tester) => <({Path path, Paint paint})>[
+  for (final ({Path path, Paint paint}) drawn in radarPaths(tester))
+    if (drawn.paint.style == PaintingStyle.fill) drawn,
+];
 
 /// A rock with only what the radar reads. [ld] and [diaMax] are the two inputs
 /// that decide everything on screen: where it orbits and how big it is drawn.
@@ -1243,101 +1192,10 @@ Matcher _near(Offset at) => predicate<Offset>(
 /// in the right style at the wrong place is still wrong. The offset is the
 /// text's **left edge**, not its centre: `_Label.paint` does the centring itself
 /// (canvas's `textAlign="center"`), so recovering the centre needs the width.
-List<({Offset at, double width})> _paragraphOffsets(WidgetTester tester) {
-  final List<({Offset at, double width})> offsets = <({Offset at, double width})>[];
-  final Matcher collector = (paints
-    ..something((Symbol method, List<dynamic> arguments) {
-      if (method == #drawParagraph) {
-        offsets.add((
-          at: arguments[1] as Offset,
-          width: (arguments[0] as ui.Paragraph).longestLine,
-        ));
-      }
-      return false;
-    })) as Matcher;
-  collector.matches(_painterOf(tester), <dynamic, dynamic>{});
-  return offsets;
-}
+List<({Offset at, double width})> _paragraphOffsets(WidgetTester tester) =>
+    radarParagraphs(tester);
 
-/// Drives [RadarPainter] with a clock a test can advance by pumping, standing in
-/// for the `Ticker` that `RadarView` gives it in the app.
-class _Ticking extends StatefulWidget {
-  const _Ticking({
-    super.key,
-    required this.maxLd,
-    required this.zoom,
-    this.viewRot = 0,
-    this.asteroids = const <Asteroid>[],
-    this.selected,
-    this.backdrop,
-    this.layers = const RadarLayers(),
-  });
-
-  final double maxLd;
-  final double zoom;
-
-  /// Defaults to an empty sky, so the base-layer tests above see exactly the
-  /// frame they were written against: no asteroids, no chips.
-  final List<Asteroid> asteroids;
-  final Asteroid? selected;
-  final double viewRot;
-
-  final PlanetBackdrop? backdrop;
-
-  /// Defaults to every layer on and Close-flybys off — the prototype's opening
-  /// state (`index.html:625`), which is what every test above was written
-  /// against. Toggle tests pass their own.
-  final RadarLayers layers;
-
-  @override
-  State<_Ticking> createState() => _TickingState();
-}
-
-class _TickingState extends State<_Ticking> with SingleTickerProviderStateMixin {
-  final ValueNotifier<Duration> _clock = ValueNotifier<Duration>(Duration.zero);
-  late final RadarOrbits _orbits = RadarOrbits.seed(widget.asteroids);
-
-  late final PlanetBackdrop _backdrop = widget.backdrop ?? PlanetBackdrop.seed();
-
-  /// The app's own wiring (`radar_view.dart`): one step per frame, measured once.
-  final FrameClock _frame = FrameClock();
-
-  late final Ticker _ticker = createTicker((Duration d) {
-    _orbits.advance(_frame.step(d));
-    _clock.value = d;
-  });
-
-  @override
-  void initState() {
-    super.initState();
-    _ticker.start();
-  }
-
-  @override
-  void dispose() {
-    _ticker.dispose();
-    _clock.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => CustomPaint(
-    painter: RadarPainter(
-      clock: _clock,
-      orbits: _orbits,
-      backdrop: _backdrop,
-      maxLd: widget.maxLd,
-      zoom: widget.zoom,
-      viewRot: widget.viewRot,
-      selected: widget.selected,
-      layers: widget.layers,
-    ),
-    size: Size.infinite,
-  );
-}
-
-RenderBox _painterOf(WidgetTester tester) =>
-    tester.renderObject<RenderBox>(find.byType(CustomPaint).last);
+RenderBox _painterOf(WidgetTester tester) => radarPainterOf(tester);
 
 /// The rings, outward — the paths the painter drew **around Earth**.
 ///
@@ -1348,23 +1206,10 @@ RenderBox _painterOf(WidgetTester tester) =>
 /// not "a path" — it is a circle centred on Earth, which is what a distance ring
 /// *is*, and Saturn's arcs are 460px away from that. So the filter says the
 /// thing the old count was only assuming.
-List<Path> _ringPaths(WidgetTester tester) {
-  final List<Path> paths = <Path>[];
-  // `something` is the only supported way to see the call list; it wants a
-  // predicate, so this collects as a side effect and always declines. The
-  // matcher then fails to match, which is why the result is read from `paths`
-  // rather than from `expect`.
-  final Matcher collector = (paints
-    ..something((Symbol method, List<dynamic> arguments) {
-      if (method == #drawPath) {
-        final Path path = arguments[0] as Path;
-        if ((path.getBounds().center - _centre).distance < 1) paths.add(path);
-      }
-      return false;
-    })) as Matcher;
-  collector.matches(_painterOf(tester), <dynamic, dynamic>{});
-  return paths;
-}
+List<Path> _ringPaths(WidgetTester tester) => <Path>[
+  for (final ({Path path, Paint paint}) drawn in radarPaths(tester))
+    if ((drawn.path.getBounds().center - _centre).distance < 1) drawn.path,
+];
 
 /// The length of each dash on each ring, outward.
 List<List<double>> _ringDashes(WidgetTester tester) => <List<double>>[
@@ -1391,44 +1236,13 @@ PaintPattern _drawsCircle({required Matcher radius}) =>
     });
 
 /// Every canvas call the painter recorded, in order.
-List<({Symbol method, List<dynamic> args})> _calls(WidgetTester tester) {
-  final List<({Symbol method, List<dynamic> args})> calls =
-      <({Symbol method, List<dynamic> args})>[];
-  final Matcher collector = (paints
-    ..something((Symbol method, List<dynamic> arguments) {
-      calls.add((method: method, args: arguments));
-      return false;
-    })) as Matcher;
-  collector.matches(_painterOf(tester), <dynamic, dynamic>{});
-  return calls;
-}
+List<({Symbol method, List<dynamic> args})> _calls(WidgetTester tester) =>
+    radarCalls(tester);
 
 /// The rendered frame, read back from the engine — a real rasterisation through
 /// `flutter_tester`, the same painting pipeline a phone runs. `toImage` must go
 /// through [WidgetTester.runAsync] because a `testWidgets` body runs in a
 /// fake-async zone where a future waiting on the real engine never completes.
-Future<_Pixels> _paintedPixels(WidgetTester tester) async {
-  final RenderRepaintBoundary boundary = tester.renderObject(
-    find.byType(RepaintBoundary).first,
-  );
-  final ui.Image image = (await tester.runAsync<ui.Image>(boundary.toImage))!;
-  final ByteData data = (await tester.runAsync<ByteData?>(image.toByteData))!;
-  return _Pixels(data, image.width);
-}
+Future<_Pixels> _paintedPixels(WidgetTester tester) => rasteriseRadar(tester);
 
-class _Pixels {
-  const _Pixels(this._rgba, this._width);
-
-  final ByteData _rgba;
-  final int _width;
-
-  Color at(double x, double y) {
-    final int i = ((y.round() * _width) + x.round()) * 4;
-    return Color.fromARGB(
-      _rgba.getUint8(i + 3),
-      _rgba.getUint8(i),
-      _rgba.getUint8(i + 1),
-      _rgba.getUint8(i + 2),
-    );
-  }
-}
+typedef _Pixels = RadarPixels;
