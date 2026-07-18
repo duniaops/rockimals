@@ -300,13 +300,13 @@ class GameOverPanel extends StatelessWidget {
           ),
           // `margin-top:22px` on the button block (`index.html:1027`).
           const SizedBox(height: 22),
-          _GameButton(
+          GameButton(
             label: 'Play again',
             onTap: onPlayAgain,
           ),
           // `#gBack{margin-top:9px}` (`index.html:1028`).
           const SizedBox(height: 9),
-          _GameButton(
+          GameButton(
             label: 'Back to games',
             ghost: true,
             // `closeOverlay("ov-game")` (`index.html:1029`): back to the hub.
@@ -321,13 +321,17 @@ class GameOverPanel extends StatelessWidget {
 /// A full-width `.btn` (`index.html:51-56`), filled by default and [ghost] for
 /// the secondary action.
 ///
-/// A local clone of the detail screen's `_ActionButton` — the same `.btn` CSS,
-/// but stacked full-width here rather than in a row. It is the second `.btn`
-/// site in the app; extracting one shared button now has a case, but that is a
-/// refactor across the detail module and is left to its own item (the same
-/// clone-then-extract rule the shared `.obar` and `.panel` header follow).
-class _GameButton extends StatelessWidget {
-  const _GameButton({
+/// A clone of the detail screen's `_ActionButton` — the same `.btn` CSS, but
+/// stacked full-width here rather than in a row. Public rather than private
+/// because it is part of the framework the games share: Today's Challenge
+/// reveals in place instead of ending through [GameOverPanel]
+/// (`index.html:942-947`) and so builds its own Reveal / Start over / Play again
+/// / Done stack out of it. Extracting **one** button across the detail module
+/// too remains its own plan item; this is reuse inside `features/games`, not
+/// that refactor.
+class GameButton extends StatelessWidget {
+  const GameButton({
+    super.key,
     required this.label,
     required this.onTap,
     this.ghost = false,
