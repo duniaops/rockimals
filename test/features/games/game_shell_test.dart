@@ -417,7 +417,8 @@ class _RecordingActions implements GameActions {
   @override
   Future<void> awardPoints(int n) async => awarded.add(n);
 
-  // The rest of the surface exists for Power Duel and is unexercised here.
+  // The rest of the surface exists for the two streak games and is unexercised
+  // here.
   @override
   int get points => 0;
 
@@ -426,6 +427,11 @@ class _RecordingActions implements GameActions {
 
   @override
   Future<void> setBestDuel(int streak) async {}
+  @override
+  int get bestCloser => 0;
+
+  @override
+  Future<void> setBestCloser(int streak) async {}
 
   @override
   Future<void> noteStreak(int streak) async {}

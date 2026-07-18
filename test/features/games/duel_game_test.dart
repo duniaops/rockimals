@@ -410,6 +410,13 @@ class _RecordingActions implements GameActions {
 
   @override
   Future<void> noteStreak(int streak) async => streakNotes.add(streak);
+
+  // Closer or Farther's half of the surface; Power Duel never touches it.
+  @override
+  int get bestCloser => 0;
+
+  @override
+  Future<void> setBestCloser(int streak) async {}
 }
 
 /// The sound toggle with the store taken out — the hub reads it on build.

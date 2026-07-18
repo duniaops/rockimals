@@ -68,14 +68,26 @@ class GameActions {
   /// the prototype does, because it also has to update what is on screen.
   Future<void> setBestDuel(int streak) => _store.setBestDuel(streak);
 
+  /// The best streak Closer or Farther has ever reached (`bestCloser`,
+  /// `aw_closer`, `index.html:956`). Read when the game starts, to seed its BEST
+  /// cell.
+  int get bestCloser => _store.bestCloser;
+
+  /// Persist a new Closer or Farther best (`gSet("aw_closer", …)`,
+  /// `index.html:1079`). As with [setBestDuel] the caller owns the "is this
+  /// actually a best?" test, because it also has to update what is on screen.
+  Future<void> setBestCloser(int streak) => _store.setBestCloser(streak);
+
   /// Record a run of correct answers against the profile's all-time best
   /// (`noteStreak`, `index.html:998`).
   ///
   /// **Cross-game and distinct from [bestDuel]**: `aw_bstreak` is the longest
   /// run of right answers anywhere (the Profile shows it, and the badge system
-  /// will read it), while `aw_duel` is this one game's best. Power Duel happens
-  /// to feed both with the same number; Closer or Farther will feed this one
-  /// with a different tally.
+  /// will read it), while `aw_duel` and `aw_closer` are one game's best each.
+  /// Both streak games happen to feed their own best and this one with the same
+  /// number, so the distinction only shows across games: a run of 5 in Power
+  /// Duel raises `aw_bstreak` above a `aw_closer` of 2, and neither game's own
+  /// card moves.
   ///
   /// A no-op unless the streak beats the record, so a losing round costs no disk
   /// write — the same short-circuit [awardPoints] makes.
