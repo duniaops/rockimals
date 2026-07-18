@@ -22,11 +22,19 @@ import 'package:rockimals/features/data/providers.dart';
 /// files use to stand a fixed snapshot in front of the hub —
 /// `NotifierProvider` has no such override.
 ///
-/// **Only these four are live.** `played`, `bestStreak`, and `perfect` are
-/// written by [GameActions] too, but no surface watches them yet; the badge and
-/// Profile items (`specs/05`) own widening this snapshot *and* the invalidation
-/// list in [GameActions] together when they gain one. Widening only one of the
-/// two is the silent-staleness bug this item existed to fix.
+/// **These four, and only these four, because the Profile did not widen it.**
+/// This note used to say that whichever item first needed `played`,
+/// `bestStreak`, or `perfect` on screen owned widening this snapshot *and*
+/// [GameActions]' invalidation list together — widening one without the other
+/// being the silent-staleness bug this item existed to fix. The Profile was that
+/// item, and it took the other road: `ProfileStats` is its own snapshot beside
+/// this one (see its doc for why a `features/profile` screen reading its points
+/// out of `features/games` was the wrong dependency to create). The trap is
+/// still shut, because both snapshots hang off the *same* `_onStatsChanged`
+/// callback — there is one thing to remember, not two.
+///
+/// `played` and `perfect` remain unshown by anything; whoever surfaces one
+/// inherits the same choice, and the same rule about the callback.
 class GamesHubStats {
   const GamesHubStats({
     required this.points,

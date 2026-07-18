@@ -29,6 +29,7 @@ import 'package:rockimals/core/streak/day_streak.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/games/games_providers.dart';
+import 'package:rockimals/features/profile/profile_providers.dart';
 import 'package:rockimals/features/rewards/badge_controller.dart';
 import 'package:rockimals/features/rewards/sound_controller.dart';
 
@@ -91,8 +92,15 @@ class GameActions {
 
   final Store _store;
 
-  /// Called after a write that moves a number the Play hub shows. See the class
-  /// doc: this is the whole of "points are live".
+  /// Called after a write that moves a number some screen shows off the store.
+  /// See the class doc: this is the whole of "points are live".
+  ///
+  /// **One callback for every stats snapshot, not one each.** It now drops both
+  /// the Play hub's and the Profile's, because a second callback is the shape
+  /// that lets a future write remember one reader and forget the other — the
+  /// silent staleness `games_providers.dart` warns about, arrived at from the
+  /// other direction. Both snapshots re-read the same store on the same
+  /// invalidation, so neither can be a frame behind the other.
   final void Function() _onStatsChanged;
 
   /// Called only when [markPlayed] actually *moved* the consecutive-days-played
@@ -220,7 +228,11 @@ class GameActions {
   /// write — the same short-circuit [awardPoints] makes.
   Future<void> noteStreak(int streak) {
     if (streak <= _store.bestStreak) return Future<void>.value();
-    final Future<void> write = _store.setBestStreak(streak);
+    // Through `_refreshingWrite` as of the Profile item: the 🔥 stat is the
+    // first surface to *show* this number, so a new record has to reach it
+    // without a relaunch. The short-circuit above still means a losing round
+    // costs neither a disk write nor a repaint.
+    final Future<void> write = _refreshingWrite(_store.setBestStreak(streak));
     // On Fire (`bestStreak >= 5`) — reached only on a write, so a losing round
     // asks nothing (`noteStreak`, `index.html:998`).
     _onProgressChanged();
@@ -272,9 +284,14 @@ final Provider<DateTime Function()> gameClockProvider =
 final Provider<GameActions> gameActionsProvider = Provider<GameActions>(
   (Ref ref) => GameActions(
     ref.watch(storeProvider),
-    // The whole of "the Play hub's numbers are live": drop its memoised
-    // snapshot so the next read of it goes back to the store.
-    () => ref.invalidate(gamesHubStatsProvider),
+    // The whole of "the store-backed numbers are live": drop both memoised
+    // snapshots so the next read of either goes back to the store. See
+    // `_onStatsChanged` on why the Profile shares this callback rather than
+    // getting a fifth of its own.
+    () {
+      ref.invalidate(gamesHubStatsProvider);
+      ref.invalidate(profileStatsProvider);
+    },
     // And the same trick for the home flame — `dayStreakProvider` memoises its
     // read of the store exactly as the hub's snapshot did.
     () => ref.invalidate(dayStreakProvider),

@@ -210,34 +210,50 @@ void main() {
       );
     });
 
-    /// Which writes make the Play hub repaint. This is the item's actual bug
-    /// fix, and the list is exact in both directions: over-refreshing costs a
-    /// rebuild of a screen nobody is looking at, but *under*-refreshing is the
-    /// silent staleness the child sees — their new total simply not there.
-    group('telling the Play hub its numbers moved', () {
-      test('every number the hub shows refreshes it', () async {
+    /// Which writes drop the store-backed stats snapshots. This is the item's
+    /// actual bug fix, and the list is exact in both directions:
+    /// over-refreshing costs a rebuild of a screen nobody is looking at, but
+    /// *under*-refreshing is the silent staleness the child sees — their new
+    /// total simply not there.
+    ///
+    /// **One callback now serves two snapshots, so "the hub does not show it"
+    /// stopped being the test.** The Profile item widened this seam rather than
+    /// adding a second callback beside it (`profile_providers.dart` argues the
+    /// choice), which moved `noteStreak` across: the hub does not show the best
+    /// answer streak, but the Profile's 🔥 stat does, and a fifth callback is
+    /// the thing a sixth write forgets. The over-refresh that buys costs the hub
+    /// nothing — `GamesHubStats` compares by value, so recomputing its four
+    /// unchanged numbers notifies no listener. That equality was added by the
+    /// previous item *against this exact day*, and this is the day.
+    group('telling the stats snapshots their numbers moved', () {
+      test('every number a snapshot shows refreshes it', () async {
         final GameActions actions = actionsOn(store);
 
         await actions.awardPoints(10);
         await actions.setBestDuel(3);
         await actions.setBestCloser(2);
         await actions.setBestSize(8);
+        // The Profile's 🔥 stat, which is why this one is here at all — the hub
+        // shows no answer streak.
+        await actions.noteStreak(4);
 
-        // Four writes, four refreshes — and the first carries the *new* total,
+        // Five writes, five refreshes — and the first carries the *new* total,
         // which is the read-after-un-awaited-write ordering the class doc
         // argues is safe. Were the refresh firing before Hive's keystore
         // insert, this would read 0.
-        expect(refreshedAt, <int>[10, 10, 10, 10]);
+        expect(refreshedAt, <int>[10, 10, 10, 10, 10]);
       });
 
-      test('a write the hub does not show leaves it alone', () async {
+      test('a write no snapshot shows leaves them alone', () async {
         final GameActions actions = actionsOn(store);
 
         await actions.markPlayed();
-        await actions.noteStreak(4);
         await actions.notePerfectRun();
         // A zero award moves no total, so it is not a repaint either.
         await actions.awardPoints(0);
+        // Nor is a streak that fails to beat the record: `noteStreak` refreshes
+        // only on a write, so a losing round costs nothing.
+        await actions.noteStreak(0);
 
         expect(refreshedAt, isEmpty);
       });
