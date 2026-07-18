@@ -52,9 +52,9 @@ const double _scrimBlur = 3;
 ///
 /// **A third local copy of that gradient** (`games_hub.dart` holds the other
 /// two, as `_featGradient`). Left duplicated rather than hoisted, for the reason
-/// this codebase leaves `_Obar` copied three times: the natural home would be
-/// `Palette`, whose membership test is "the prototype named it", and the
-/// prototype does not name this — it restates the two hex values at every use
+/// the `.obar` stayed copied until its own item came round: the natural home
+/// would be `Palette`, whose membership test is "the prototype named it", and
+/// the prototype does not name this — it restates the two hex values at every use
 /// (`index.html:210,249,262`). The Profile's `.ptsCard` is the fourth and lands
 /// with the next item; extracting it is an appended plan item rather than a
 /// reach across two features from here.

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rockimals/core/a11y/tap_target.dart';
+import 'package:rockimals/core/chrome/obar.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/features/games/games_providers.dart';
 import 'package:rockimals/features/settings/about_block.dart';
@@ -43,7 +44,7 @@ class SettingsScreen extends ConsumerWidget {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          const _Obar(title: 'Settings'),
+          const Obar(title: 'Settings'),
           Expanded(
             child: SingleChildScrollView(
               // `.obody{padding:16px 16px 30px}` (`index.html:95`).
@@ -229,125 +230,6 @@ class _ToggleRow extends StatelessWidget {
                   ),
                 ],
               ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// The overlay back-bar (`.obar`, `index.html:92-94`): a card-pill back button
-/// and a plain title over a bottom rule.
-///
-/// **The fourth copy**, after `detail_screen.dart`, `games_hub.dart`, and
-/// `game_shell.dart`. It stays local for the reason the third one did: the
-/// extraction is its own plan item across three completed, tested modules, and
-/// folding it into a new screen's diff would bury a cross-feature move. The
-/// clone is faithful, so nothing drifts before that item lands.
-class _Obar extends StatelessWidget {
-  const _Obar({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        // `border-bottom:1px solid var(--line2)` (`index.html:92`).
-        border: Border(bottom: BorderSide(color: Palette.line2)),
-      ),
-      child: Padding(
-        // `.obar{padding:36px 14px 10px}` — the 36px clears the status bar; the
-        // real device inset is added so it clears the notch too.
-        padding: EdgeInsets.fromLTRB(
-          14,
-          36 + MediaQuery.of(context).padding.top,
-          14,
-          10,
-        ),
-        child: Row(
-          children: <Widget>[
-            const _BackButton(),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Palette.ink,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  height: 1.1,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// The `.back` pill (`index.html:93`).
-///
-/// The tap target is [kMinTapTarget] tall while the painted pill stays the
-/// prototype's ~30dp: the pill's `8px` of vertical padding around 14px text
-/// cannot reach 48 without making it visibly heavier than the 16px title beside
-/// it, so the [InkWell] sits *outside* the pill and [TapTarget] stretches the
-/// region a thumb has to find without touching a painted pixel.
-///
-/// This screen invented that trick and the accessibility audit has since made
-/// it [TapTarget] and given it to the other three pills, so all four are now the
-/// same shape. The `.obar` extraction item can therefore fold them into one
-/// widget as a straight rename — which is exactly what this comment used to say
-/// it could not.
-class _BackButton extends StatelessWidget {
-  const _BackButton();
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      // The three sibling pills carry the same label and the radar and hub
-      // route tests tap them by it — there is no Material `BackButton` here to
-      // find. Kept identical so the extraction is a rename, not a re-test.
-      label: 'Back',
-      child: InkWell(
-        onTap: () => Navigator.of(context).maybePop(),
-        // No `expandWidth`: the row is `MainAxisSize.min` and the pill is
-        // already wider than 48, so a width floor would only leave dead space
-        // beside it.
-        child: const TapTarget(child: _BackPill()),
-      ),
-    );
-  }
-}
-
-/// The painted pill itself, split out so [_BackButton] can wrap it in a bigger
-/// tap target without the ink and the border disagreeing about their bounds.
-class _BackPill extends StatelessWidget {
-  const _BackPill();
-
-  @override
-  Widget build(BuildContext context) {
-    return const DecoratedBox(
-      decoration: BoxDecoration(
-        color: Palette.card,
-        borderRadius: BorderRadius.all(Radius.circular(11)),
-        border: Border.fromBorderSide(BorderSide(color: Palette.line)),
-      ),
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: ExcludeSemantics(
-          child: Text(
-            '‹ Back',
-            style: TextStyle(
-              color: Palette.ink,
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              height: 1,
             ),
           ),
         ),

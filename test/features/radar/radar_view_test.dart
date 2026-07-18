@@ -704,10 +704,10 @@ void main() {
       // in the tree, so its CTA is still findable underneath.
       expect(find.text(_hubMarker), findsOneWidget);
 
-      // Tap the hub's own `.obar` back pill, not `tester.pageBack()`: the hub
-      // uses the detail screen's flat back-bar (a `Semantics(label:'Back')`
-      // pill), not a Material [AppBar], so there is no `BackButton` for
-      // `pageBack` to find.
+      // Tap the hub's `.obar` back pill, not `tester.pageBack()`: the hub wears
+      // the shared flat back-bar (`core/chrome/obar.dart`, a
+      // `Semantics(label:'Back')` pill), not a Material [AppBar], so there is
+      // no `BackButton` for `pageBack` to find.
       await tester.tap(find.bySemanticsLabel('Back'));
       // A full second, not the push's 350ms: the pop's reverse transition runs
       // longer, and `pumpAndSettle` is out because the radar's perpetual ticker

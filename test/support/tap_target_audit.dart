@@ -32,8 +32,9 @@ import 'package:rockimals/core/a11y/tap_target.dart';
 /// finger experiences: it hits the largest region that responds, and there is
 /// only one of those per place you can touch.
 ///
-/// The fix this pushes people toward is the one `settings_screen.dart`'s
-/// `_BackButton` found first and `TapTarget` now generalises: put the 48dp
+/// The fix this pushes people toward is the one `settings_screen.dart`'s back
+/// pill found first (it now lives in `core/chrome/obar.dart`, shared by all
+/// four screens that wear the bar) and `TapTarget` generalises: put the 48dp
 /// around the 30dp painted pill, so what grows is the region a thumb has to
 /// find, not the picture.
 ///

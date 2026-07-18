@@ -25,6 +25,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rockimals/core/a11y/tap_target.dart';
 import 'package:rockimals/core/audio/sound_cues.dart';
+import 'package:rockimals/core/chrome/obar.dart';
 import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/core/streak/day_streak.dart';
 import 'package:rockimals/core/theme/palette.dart';
@@ -408,7 +409,7 @@ class GameShell extends ConsumerWidget {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          _GameTopBar(title: title),
+          Obar(title: title),
           Expanded(
             child: SingleChildScrollView(
               // `.obody{padding:16px 16px 30px}` (`index.html:95`).
@@ -653,107 +654,6 @@ class GameButton extends StatelessWidget {
                       fontSize: 15,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0.3,
-                      height: 1,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// The overlay back-bar (`.obar`, `index.html:92-94,328`): a card-pill back
-/// button and the game title over a bottom rule.
-///
-/// A third local copy of the detail screen's `_Obar` (the Play hub holds the
-/// second). Three callers now more than justify one shared back-bar, but that
-/// extraction spans completed, tested modules and stays its own plan item; this
-/// is one game-framework file and keeps to it.
-class _GameTopBar extends StatelessWidget {
-  const _GameTopBar({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        // `border-bottom:1px solid var(--line2)` (`index.html:92`).
-        border: Border(bottom: BorderSide(color: Palette.line2)),
-      ),
-      child: Padding(
-        // `.obar{padding:36px 14px 10px}` — the 36px clears the status bar; the
-        // real device inset is added so it clears the notch too.
-        padding: EdgeInsets.fromLTRB(
-          14,
-          36 + MediaQuery.of(context).padding.top,
-          14,
-          10,
-        ),
-        child: Row(
-          children: <Widget>[
-            const _GameBackButton(),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Palette.ink,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  height: 1.1,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// The `.back` pill (`index.html:93,328`).
-class _GameBackButton extends StatelessWidget {
-  const _GameBackButton();
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: 'Back',
-      // The painted pill stays the prototype's ~30dp and the ink sits outside
-      // it, so [TapTarget] can raise the region a thumb has to find to
-      // [kMinTapTarget] without making the pill heavier than the title beside
-      // it. `settings_screen.dart` found this shape first; all four back pills
-      // now share it, which is also what makes them safe to fold into one
-      // widget when the `.obar` extraction item gets to them.
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          borderRadius: const BorderRadius.all(Radius.circular(11)),
-          onTap: () => Navigator.of(context).maybePop(),
-          child: const TapTarget(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: Palette.card,
-                borderRadius: BorderRadius.all(Radius.circular(11)),
-                border: Border.fromBorderSide(BorderSide(color: Palette.line)),
-              ),
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                child: ExcludeSemantics(
-                  child: Text(
-                    '‹ Back',
-                    style: TextStyle(
-                      color: Palette.ink,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
                       height: 1,
                     ),
                   ),

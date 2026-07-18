@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rockimals/core/a11y/tap_target.dart';
 import 'package:rockimals/core/animals/animal_system.dart';
+import 'package:rockimals/core/chrome/obar.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/features/animals/widgets/flyby_badge.dart';
@@ -48,7 +49,7 @@ class DetailScreen extends StatelessWidget {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          _Obar(title: c.name),
+          Obar(title: c.name),
           Expanded(
             child: SingleChildScrollView(
               // `.obody{padding:16px 16px 30px}` (`index.html:95`).
@@ -90,115 +91,6 @@ class DetailScreen extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// The overlay's top bar (`.obar`, `index.html:92-94`, `312`) — a `‹ Back`
-/// card-pill and the animal's `"{Name} the {Species}"` title, over a bottom
-/// rule.
-///
-/// Built inline rather than shared: it is the second overlay chrome the app will
-/// grow (the games and challenge overlays wear the same `.obar`), but those are
-/// later items and not yet written, so this waits for its own second caller the
-/// way the rest of this codebase does.
-class _Obar extends StatelessWidget {
-  const _Obar({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        // `border-bottom:1px solid var(--line2)` (`index.html:92`).
-        border: Border(bottom: BorderSide(color: Palette.line2)),
-      ),
-      child: Padding(
-        // `.obar{padding:36px 14px 10px}` (`index.html:92`) — the 36px top clears
-        // the status bar the prototype sits under; on device the real inset is
-        // added below so it clears the notch too.
-        padding: EdgeInsets.fromLTRB(
-          14,
-          36 + MediaQuery.of(context).padding.top,
-          14,
-          10,
-        ),
-        child: Row(
-          children: <Widget>[
-            const _BackButton(),
-            // `gap:12px` (`index.html:92`).
-            const SizedBox(width: 12),
-            // `.otitle{font-weight:800;font-size:16px}` on one ellipsised line
-            // (`index.html:94`).
-            Expanded(
-              child: Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Palette.ink,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  height: 1.1,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// The `‹ Back` pill (`.obar .back`, `index.html:93`) — closes the detail,
-/// popping back to whatever pushed it (the radar HUD, or a Sky / My Animals
-/// card). The prototype's `data-close` handler is a plain
-/// [Navigator.pop].
-class _BackButton extends StatelessWidget {
-  const _BackButton();
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: 'Back',
-      // The painted pill stays the prototype's ~30dp and the ink sits outside
-      // it, so [TapTarget] can raise the region a thumb has to find to
-      // [kMinTapTarget] without making the pill heavier than the title beside
-      // it. `settings_screen.dart` found this shape first; all four back pills
-      // now share it, which is also what makes them safe to fold into one
-      // widget when the `.obar` extraction item gets to them.
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          borderRadius: const BorderRadius.all(Radius.circular(11)),
-          onTap: () => Navigator.of(context).maybePop(),
-          child: const TapTarget(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: Palette.card,
-                borderRadius: BorderRadius.all(Radius.circular(11)),
-                border: Border.fromBorderSide(BorderSide(color: Palette.line)),
-              ),
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                child: ExcludeSemantics(
-                  child: Text(
-                    '‹ Back',
-                    style: TextStyle(
-                      color: Palette.ink,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      height: 1,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
