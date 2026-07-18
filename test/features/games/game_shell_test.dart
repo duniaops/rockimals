@@ -3,10 +3,14 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+// `Override` lives here in Riverpod 3, not in the main barrel.
+import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 import 'package:rockimals/core/storage/store.dart';
+import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/games/game_shell.dart';
+import 'package:rockimals/features/games/games_providers.dart';
 
 /// The game framework (`specs/04`, "Game framework"): the shared surface, the
 /// score bar, the one `gameOver` end screen, `markPlayed`, and the two seams a
@@ -23,11 +27,20 @@ void main() {
   group('GameActions writes to the store (real box)', () {
     late Directory tempDir;
     late Store store;
+    late List<int> refreshedAt;
+
+    /// A [GameActions] whose "the Play hub's numbers moved" callback records the
+    /// points total it was told about. The list is the assertion surface for
+    /// *which* writes are live: a write that must repaint the hub appends, one
+    /// that must not stays silent.
+    GameActions actionsOn(Store s) =>
+        GameActions(s, () => refreshedAt.add(s.points));
 
     setUp(() async {
       tempDir = await Directory.systemTemp.createTemp('rockimals_game_shell');
       Hive.init(tempDir.path);
       store = await Store.open();
+      refreshedAt = <int>[];
     });
 
     tearDown(() async {
@@ -37,7 +50,7 @@ void main() {
     });
 
     test('markPlayed increments played and survives a reopen', () async {
-      final GameActions actions = GameActions(store);
+      final GameActions actions = actionsOn(store);
       expect(store.played, 0);
 
       await actions.markPlayed();
@@ -52,7 +65,7 @@ void main() {
     });
 
     test('awardPoints accumulates the total and survives a reopen', () async {
-      final GameActions actions = GameActions(store);
+      final GameActions actions = actionsOn(store);
 
       await actions.awardPoints(10);
       await actions.awardPoints(5);
@@ -64,7 +77,7 @@ void main() {
     });
 
     test('a zero award is a no-op and touches nothing', () async {
-      final GameActions actions = GameActions(store);
+      final GameActions actions = actionsOn(store);
       await actions.awardPoints(0);
       expect(store.points, 0);
 
@@ -84,7 +97,7 @@ void main() {
     });
 
     test('setBestDuel persists the streak across a restart', () async {
-      final GameActions actions = GameActions(store);
+      final GameActions actions = actionsOn(store);
       expect(actions.bestDuel, 0);
 
       await actions.setBestDuel(4);
@@ -94,11 +107,11 @@ void main() {
       // BEST cell still reads 4.
       await store.close();
       final Store reopened = await Store.open();
-      expect(GameActions(reopened).bestDuel, 4);
+      expect(actionsOn(reopened).bestDuel, 4);
     });
 
     test('noteStreak keeps the longest run and never lowers it', () async {
-      final GameActions actions = GameActions(store);
+      final GameActions actions = actionsOn(store);
 
       await actions.noteStreak(3);
       expect(store.bestStreak, 3);
@@ -118,7 +131,7 @@ void main() {
     });
 
     test('a streak that only ties the record costs no disk write', () async {
-      final GameActions actions = GameActions(store);
+      final GameActions actions = actionsOn(store);
 
       // The tie case (`>` not `>=`, `index.html:998`) is invisible through the
       // value — writing the record back over itself leaves the same number — so
@@ -138,11 +151,124 @@ void main() {
     });
 
     test('points can never be taken away (a negative award asserts)', () {
-      final GameActions actions = GameActions(store);
+      final GameActions actions = actionsOn(store);
       expect(
         () => actions.awardPoints(-1),
         throwsA(isA<AssertionError>()),
       );
+    });
+
+    /// `specs/05`, "Wire points": *points accumulate across all four games and
+    /// survive a restart*. Each game's own suite already pins what **it** awards
+    /// (`+10` on a correct answer in Duel / Closer / Match, `grade.gain` in
+    /// Today's Challenge) against a recording fake; what none of them can see is
+    /// the total those four separately-mounted screens build up in one box.
+    /// That is this test, and it is the Done-when's other half.
+    test('points from all four games land in one total that survives a '
+        'restart', () async {
+      final GameActions actions = actionsOn(store);
+
+      // A plausible session, in the amounts the four games actually award.
+      await actions.awardPoints(10); // Power Duel, one correct
+      await actions.awardPoints(10); // Closer or Farther, one correct
+      await actions.awardPoints(10); // Animal Match, one correct
+      await actions.awardPoints(0); // Animal Match, one wrong — nothing
+      await actions.awardPoints(75); // Today's Challenge, graded on accuracy
+
+      expect(store.points, 105);
+
+      await store.close();
+      final Store reopened = await Store.open();
+      expect(
+        reopened.points,
+        105,
+        reason: 'a child force-quitting must not lose the afternoon',
+      );
+    });
+
+    /// Which writes make the Play hub repaint. This is the item's actual bug
+    /// fix, and the list is exact in both directions: over-refreshing costs a
+    /// rebuild of a screen nobody is looking at, but *under*-refreshing is the
+    /// silent staleness the child sees — their new total simply not there.
+    group('telling the Play hub its numbers moved', () {
+      test('every number the hub shows refreshes it', () async {
+        final GameActions actions = actionsOn(store);
+
+        await actions.awardPoints(10);
+        await actions.setBestDuel(3);
+        await actions.setBestCloser(2);
+        await actions.setBestSize(8);
+
+        // Four writes, four refreshes — and the first carries the *new* total,
+        // which is the read-after-un-awaited-write ordering the class doc
+        // argues is safe. Were the refresh firing before Hive's keystore
+        // insert, this would read 0.
+        expect(refreshedAt, <int>[10, 10, 10, 10]);
+      });
+
+      test('a write the hub does not show leaves it alone', () async {
+        final GameActions actions = actionsOn(store);
+
+        await actions.markPlayed();
+        await actions.noteStreak(4);
+        await actions.notePerfectRun();
+        // A zero award moves no total, so it is not a repaint either.
+        await actions.awardPoints(0);
+
+        expect(refreshedAt, isEmpty);
+      });
+    });
+  });
+
+  /// The wiring itself: an award made through the app's own
+  /// [gameActionsProvider] must reach [gamesHubStatsProvider], because that
+  /// snapshot is what the Play hub's points card and three "Best" tags render.
+  ///
+  /// **A `ProviderContainer` rather than a mounted hub**, following this
+  /// codebase's split for store-backed UI: the store half needs `await` on real
+  /// Hive I/O, which deadlocks inside `testWidgets`. What the hub does with a
+  /// snapshot is pinned in `games_hub_test.dart` against a stood-in value; what
+  /// this pins is that the snapshot moves at all.
+  group('the Play hub snapshot goes live when a game scores', () {
+    late Directory tempDir;
+    late Store store;
+
+    setUp(() async {
+      tempDir = await Directory.systemTemp.createTemp('rockimals_hub_live');
+      Hive.init(tempDir.path);
+      store = await Store.open();
+    });
+
+    tearDown(() async {
+      await Hive.deleteFromDisk();
+      await Hive.close();
+      if (tempDir.existsSync()) await tempDir.delete(recursive: true);
+    });
+
+    test('an award through the real provider updates the hub snapshot', () async {
+      final ProviderContainer container = ProviderContainer(
+        overrides: <Override>[storeProvider.overrideWithValue(store)],
+      );
+      addTearDown(container.dispose);
+
+      // Read it first, so it is memoised — the whole failure being fixed is
+      // that a *cached* snapshot outlived the game that changed it.
+      expect(container.read(gamesHubStatsProvider).points, 0);
+
+      final List<int> seen = <int>[];
+      container.listen<GamesHubStats>(
+        gamesHubStatsProvider,
+        (GamesHubStats? _, GamesHubStats next) => seen.add(next.points),
+      );
+
+      await container.read(gameActionsProvider).awardPoints(10);
+      expect(container.read(gamesHubStatsProvider).points, 10);
+      expect(seen, <int>[10], reason: 'the hub must be told, not just re-read');
+
+      // And a best earned in a game reaches the card's "Best n" tag the same
+      // way, without a relaunch.
+      await container.read(gameActionsProvider).setBestDuel(3);
+      expect(container.read(gamesHubStatsProvider).bestDuel, 3);
     });
   });
 

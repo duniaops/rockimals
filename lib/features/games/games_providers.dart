@@ -2,27 +2,31 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/features/data/providers.dart';
 
-/// The numbers the Play hub reads off the store when it opens: the lifetime
-/// points total and the three per-game bests (`openGames`,
-/// `index.html:1002-1006`).
+/// The numbers the Play hub reads off the store: the lifetime points total and
+/// the three per-game bests (`openGames`, `index.html:1002-1006`).
 ///
-/// **One snapshot, not four providers, and read once rather than watched.** The
-/// prototype reads all four synchronously at the top of `openGames`
-/// (`points`, `bestDuel`, `bestCloser`, `bestSize`) and never updates them while
-/// the hub is on screen — a game that changes a best does so on its own overlay,
-/// and `gameOver` → `refreshTabs` re-renders the hub only once it is returned to.
-/// So the hub's numbers are a point-in-time read, and bundling them keeps the
-/// store's shape out of the widget while giving a test one value to stand in
-/// front of the cards (the `dayStreakProvider` seam, one level up).
+/// **One snapshot, not four providers.** The prototype reads all four
+/// synchronously at the top of `openGames` (`points`, `bestDuel`, `bestCloser`,
+/// `bestSize`); bundling them keeps the store's shape out of the widget while
+/// giving a test one value to stand in front of the cards (the
+/// `dayStreakProvider` seam, one level up).
 ///
-/// **These are a plain read, deliberately not reactive yet.** Nothing writes
-/// points or a best today — the four games and the "Wire points" item
-/// (`specs/05`) are still ahead — so a plain [Provider] off [storeProvider] is
-/// the whole need, exactly as [dayStreakProvider] is until a game writes the
-/// streak live. When those items land, whoever makes points accumulate owns
-/// lifting this to a `Notifier` (or invalidating it on write) so a best earned
-/// in a game shows on the card without a relaunch; the hub reads it the same way
-/// either way.
+/// **Live as of the "Wire points" item (`specs/05`), by invalidation rather than
+/// by holding state.** This stayed a plain [Provider] — the alternative the
+/// original note offered — and [GameActions] invalidates it after every write
+/// that moves one of these four numbers. The store remains the single source of
+/// truth: there is no second in-memory copy of the total that could drift from
+/// the box, which a `Notifier` seeded once at `build()` would have introduced.
+///
+/// Keeping it a [Provider] also kept `overrideWithValue` working, which six test
+/// files use to stand a fixed snapshot in front of the hub —
+/// `NotifierProvider` has no such override.
+///
+/// **Only these four are live.** `played`, `bestStreak`, and `perfect` are
+/// written by [GameActions] too, but no surface watches them yet; the badge and
+/// Profile items (`specs/05`) own widening this snapshot *and* the invalidation
+/// list in [GameActions] together when they gain one. Widening only one of the
+/// two is the silent-staleness bug this item existed to fix.
 class GamesHubStats {
   const GamesHubStats({
     required this.points,
@@ -42,6 +46,27 @@ class GamesHubStats {
 
   /// Best Animal Match score out of 8 (`aw_size`).
   final int bestSize;
+
+  /// Value equality, so an invalidation that recomputes the *same* four numbers
+  /// does not repaint the hub — [Provider] decides whether to notify with `==`,
+  /// and without this every recompute is a fresh identity and therefore a fresh
+  /// rebuild.
+  ///
+  /// **No write reaches that case today**, since [GameActions] only invalidates
+  /// after a number actually moved. It is here because this is a snapshot value
+  /// held as provider state, and a value that compares by identity is the sort
+  /// of thing the next item widens the invalidation list into a bug. Pinned by
+  /// its own test rather than left as an unchecked claim.
+  @override
+  bool operator ==(Object other) =>
+      other is GamesHubStats &&
+      other.points == points &&
+      other.bestDuel == bestDuel &&
+      other.bestCloser == bestCloser &&
+      other.bestSize == bestSize;
+
+  @override
+  int get hashCode => Object.hash(points, bestDuel, bestCloser, bestSize);
 }
 
 /// The Play hub's read-only numbers. See [GamesHubStats].
@@ -62,10 +87,12 @@ final Provider<GamesHubStats> gamesHubStatsProvider = Provider<GamesHubStats>((
 ///
 /// **A `Notifier`, for the same reason [FollowsNotifier] is one: this one
 /// changes mid-session and must repaint the same frame.** Tapping the button has
-/// to flip the icon at once, so the value cannot be a plain read the way
-/// [gamesHubStatsProvider] is — it seeds from the store, holds the live value in
-/// [state], and writes every change straight back so it survives a restart
-/// (specs 05 and 08 both require the toggle to hold).
+/// to flip the icon at once — the child is looking straight at it — so it seeds
+/// from the store, holds the live value in [state], and writes every change
+/// straight back so it survives a restart (specs 05 and 08 both require the
+/// toggle to hold). [gamesHubStatsProvider] stays a recomputed read instead,
+/// because its writer is a *different screen*: nothing changes points while the
+/// hub is the thing on screen.
 ///
 /// Defaults to **on**: a game that starts silent reads as broken ([Store.soundOn]
 /// owns that default, and the note there on why the prototype's own persistence

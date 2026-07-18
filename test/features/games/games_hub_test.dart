@@ -20,6 +20,86 @@ import 'package:rockimals/features/games/games_providers.dart';
 /// is a store round trip, so it is a plain `test()` against a real box (the
 /// store suite's own pattern), where `await` works.
 void main() {
+  /// The snapshot is provider *state*, and Riverpod asks it whether it changed.
+  /// `GameActions` only invalidates after a number moved, so nothing hits the
+  /// equal case today — which is exactly why it is pinned here rather than left
+  /// to the first item that widens the invalidation list.
+  group('GamesHubStats compares by value, not identity', () {
+    test('two snapshots of the same four numbers are equal', () {
+      const GamesHubStats a = GamesHubStats(
+        points: 120,
+        bestDuel: 7,
+        bestCloser: 3,
+        bestSize: 5,
+      );
+      const GamesHubStats b = GamesHubStats(
+        points: 120,
+        bestDuel: 7,
+        bestCloser: 3,
+        bestSize: 5,
+      );
+
+      expect(a, b);
+      expect(a.hashCode, b.hashCode);
+    });
+
+    test('a move in any one of the four is a different snapshot', () {
+      const GamesHubStats base = GamesHubStats(
+        points: 120,
+        bestDuel: 7,
+        bestCloser: 3,
+        bestSize: 5,
+      );
+
+      // One assertion per field, because an `==` that forgets a field is
+      // exactly the bug that would strand that number on the hub.
+      expect(
+        base,
+        isNot(
+          const GamesHubStats(
+            points: 130,
+            bestDuel: 7,
+            bestCloser: 3,
+            bestSize: 5,
+          ),
+        ),
+      );
+      expect(
+        base,
+        isNot(
+          const GamesHubStats(
+            points: 120,
+            bestDuel: 8,
+            bestCloser: 3,
+            bestSize: 5,
+          ),
+        ),
+      );
+      expect(
+        base,
+        isNot(
+          const GamesHubStats(
+            points: 120,
+            bestDuel: 7,
+            bestCloser: 4,
+            bestSize: 5,
+          ),
+        ),
+      );
+      expect(
+        base,
+        isNot(
+          const GamesHubStats(
+            points: 120,
+            bestDuel: 7,
+            bestCloser: 3,
+            bestSize: 6,
+          ),
+        ),
+      );
+    });
+  });
+
   group('the hub screen', () {
     Future<void> pumpHub(
       WidgetTester tester, {

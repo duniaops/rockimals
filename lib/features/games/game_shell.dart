@@ -24,19 +24,40 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/features/data/providers.dart';
+import 'package:rockimals/features/games/games_providers.dart';
 
-/// The two store writes a game makes as it plays: it counts the play
-/// ([markPlayed]) and it awards points ([awardPoints]).
+/// Every store write a game makes as it plays: it counts the play
+/// ([markPlayed]), awards points ([awardPoints]), and banks its records.
 ///
 /// **A plain store-writer, not a `Notifier`, on purpose.** Nothing on screen
 /// watches the *lifetime* points total while a game is running — the score bar
 /// shows the game's own round score (local state), and the [GameOverPanel]'s
-/// subtitle is a string the game builds once. So these are fire-and-forget
-/// writes through [storeProvider], the same shape [dayStreakProvider]'s writer
-/// would be; the "Wire points" item (`specs/05`) owns lifting the *total* to a
-/// reactive read if a surface ever needs it live.
+/// subtitle is a string the game builds once. So these stay fire-and-forget
+/// writes through [storeProvider].
 ///
-/// **`checkBadges()` is deliberately not called yet.** The prototype's
+/// **What the "Wire points" item (`specs/05`) added is [_onStatsChanged].** The
+/// Play hub sits one route *below* a running game and shows the points total and
+/// each best (`index.html:1010,1004-1006`); those come from
+/// [gamesHubStatsProvider], which memoised its read of the store and so kept
+/// showing a child their pre-game numbers until the app was relaunched. Every
+/// write below that moves one of those four numbers now tells the hub its
+/// snapshot is stale, and Riverpod recomputes it before the child sees it again.
+///
+/// **The callback rather than a `Ref`**, so this class knows nothing about which
+/// screen is watching — the games' one seam stays a store-writer, and the four
+/// `implements GameActions` fakes in the suites stay trivial.
+///
+/// **Refreshing synchronously after an un-awaited write is safe, and it is worth
+/// recording why**, because it looks like a race: [awardPoints] hands the store
+/// a write it does not await and then immediately asks the hub to re-read it.
+/// Hive's `_writeFrames` calls `keystore.beginTransaction`, which `insert`s
+/// every frame into the in-memory keystore *before* awaiting the disk write
+/// (`hive/lib/src/box/box_impl.dart:82-96`, `keystore.dart:184-203`). So the new
+/// total is readable the moment [Store.setPoints] returns, and only a disk
+/// failure — which reverts the keystore in the same place — could make the
+/// refreshed snapshot a lie.
+///
+/// **`checkBadges()` is deliberately still not called.** The prototype's
 /// `markPlayed`/`addPoints` both end in `checkBadges()` (`index.html:997,999`),
 /// but the badge system does not exist (`specs/05`, "Build the badge system").
 /// Rather than half-build it here, this leaves the seam to that item, which will
@@ -44,9 +65,13 @@ import 'package:rockimals/features/data/providers.dart';
 /// about (Lift Off is `played > 0`, the points badges read the total) is already
 /// persisted by the time it does.
 class GameActions {
-  const GameActions(this._store);
+  const GameActions(this._store, this._onStatsChanged);
 
   final Store _store;
+
+  /// Called after a write that moves a number the Play hub shows. See the class
+  /// doc: this is the whole of "points are live".
+  final void Function() _onStatsChanged;
 
   /// Count one game played (`markPlayed`, `index.html:999`). Called once when a
   /// game starts, so `played` is the number of games *begun* — which is what the
@@ -66,7 +91,9 @@ class GameActions {
   /// Persist a new Power Duel best (`gSet("aw_duel", …)`,
   /// `index.html:1053`). The caller owns the "is this actually a best?" test, as
   /// the prototype does, because it also has to update what is on screen.
-  Future<void> setBestDuel(int streak) => _store.setBestDuel(streak);
+  Future<void> setBestDuel(int streak) => _refreshingWrite(
+    _store.setBestDuel(streak),
+  );
 
   /// The best streak Closer or Farther has ever reached (`bestCloser`,
   /// `aw_closer`, `index.html:956`). Read when the game starts, to seed its BEST
@@ -76,7 +103,9 @@ class GameActions {
   /// Persist a new Closer or Farther best (`gSet("aw_closer", …)`,
   /// `index.html:1079`). As with [setBestDuel] the caller owns the "is this
   /// actually a best?" test, because it also has to update what is on screen.
-  Future<void> setBestCloser(int streak) => _store.setBestCloser(streak);
+  Future<void> setBestCloser(int streak) => _refreshingWrite(
+    _store.setBestCloser(streak),
+  );
 
   /// The best Animal Match score out of 8 (`bestSize`, `aw_size`,
   /// `index.html:956`). Read when the game starts, so a run that never beats it
@@ -86,7 +115,9 @@ class GameActions {
   /// Persist a new Animal Match best (`gSet("aw_size", …)`,
   /// `index.html:1091`). As with [setBestDuel] the caller owns the "is this
   /// actually a best?" test, because it also has to update what is on screen.
-  Future<void> setBestSize(int score) => _store.setBestSize(score);
+  Future<void> setBestSize(int score) => _refreshingWrite(
+    _store.setBestSize(score),
+  );
 
   /// Count one flawless 8/8 run of Animal Match (`prog.perfect++`,
   /// `index.html:1092`) — the Perfect Match badge's condition (`prog.perfect>0`,
@@ -123,15 +154,32 @@ class GameActions {
   Future<void> awardPoints(int n) {
     assert(n >= 0, 'points are only ever awarded, never taken away (spec 05)');
     // A zero award is a real call site (a wrong answer scores 0), and it must
-    // not cost a disk write for nothing.
+    // not cost a disk write for nothing — nor a hub repaint, since the total
+    // it shows has not moved.
     if (n <= 0) return Future<void>.value();
-    return _store.setPoints(_store.points + n);
+    return _refreshingWrite(_store.setPoints(_store.points + n));
+  }
+
+  /// Tell the Play hub its snapshot is stale, then hand back [write] unchanged.
+  ///
+  /// **The argument is already applied when this runs**, which is the point:
+  /// Dart evaluates `_store.setBestDuel(streak)` before the call, and that
+  /// updates Hive's in-memory keystore synchronously (see the class doc), so the
+  /// re-read this triggers sees the new number rather than the old one.
+  Future<void> _refreshingWrite(Future<void> write) {
+    _onStatsChanged();
+    return write;
   }
 }
 
-/// The games' two store writes. See [GameActions].
+/// The games' store writes. See [GameActions].
 final Provider<GameActions> gameActionsProvider = Provider<GameActions>(
-  (Ref ref) => GameActions(ref.watch(storeProvider)),
+  (Ref ref) => GameActions(
+    ref.watch(storeProvider),
+    // The whole of "the Play hub's numbers are live": drop its memoised
+    // snapshot so the next read of it goes back to the store.
+    () => ref.invalidate(gamesHubStatsProvider),
+  ),
   name: 'gameActions',
 );
 
