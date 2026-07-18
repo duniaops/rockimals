@@ -6,6 +6,7 @@ import 'package:rockimals/core/mascot/rusty.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/data/models/asteroid_feed.dart';
 import 'package:rockimals/features/data/providers.dart';
+import 'package:rockimals/features/settings/calm_motion.dart';
 import 'package:rockimals/features/shell/app_shell.dart';
 
 /// The cold-launch gate: "Contacting NASA…" until the sky is ready, then the
@@ -58,7 +59,14 @@ class LoadingGate extends ConsumerWidget {
 /// it: the ring is what says "still working", the one job this screen has, and
 /// its motion is already pinned by this screen's tests. Rusty himself does not
 /// move here — the bob is the title screen's wrapper, not his — so this surface
-/// adds no new motion for the Calm-motion setting to reach.
+/// adds no new motion for the Calm-motion setting to reach. The ring does, and
+/// takes it.
+///
+/// **A [ConsumerWidget] only so the ring can ask.** Nothing else on this screen
+/// reads a provider, and the setting is resolved here rather than inside
+/// [_Spinner] for the reason that widget's own doc gives: a controller cannot
+/// be driven from the build of the widget whose listeners it notifies, so the
+/// answer is resolved a level up and handed down as a parameter.
 ///
 /// **A [Scaffold] rather than the [ColoredBox] this screen's contents would
 /// suggest, and that is not boilerplate.** `Text` outside a [Material] silently
@@ -69,12 +77,14 @@ class LoadingGate extends ConsumerWidget {
 /// brings its floating-action-button transition along with no button to
 /// animate; that costs nothing at runtime but is why this screen has two
 /// `RotationTransition`s in its tree and its test has to say which one it means.
-class LoadingScreen extends StatelessWidget {
+class LoadingScreen extends ConsumerWidget {
   const LoadingScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bool calm = calmMotionOf(context, ref);
+
+    return Scaffold(
       backgroundColor: Palette.pageBackground,
       body: Center(
         child: Column(
@@ -83,13 +93,13 @@ class LoadingScreen extends StatelessWidget {
             // The brand's face on the wait. A painter publishes no semantics,
             // so a screen reader hears "Contacting NASA…" alone rather than a
             // description of a fox.
-            Rusty(size: kRustyHalfSize),
+            const Rusty(size: kRustyHalfSize),
             // `.loading{gap:14px}` (`index.html:165`) is a flex gap, so the
             // spec's new child inherits the same spacing as the two it joins.
-            SizedBox(height: 14),
-            _Spinner(),
-            SizedBox(height: 14),
-            Text(
+            const SizedBox(height: 14),
+            _Spinner(calm: calm),
+            const SizedBox(height: 14),
+            const Text(
               // The only words in the app a child reads before anything else,
               // and they are the prototype's verbatim. "Contacting" rather than
               // "Loading" is doing real work: it says a real telescope is being
@@ -127,15 +137,45 @@ const Color _spinnerTrack = Color(0x26FFFFFF);
 const double _spinnerSize = 40;
 const double _spinnerStroke = 4;
 
-/// `.spin` — a 1s linear clockwise loop, forever (`index.html:166-167`).
+/// `animation:spin 1s linear infinite` (`index.html:166-167`).
+const Duration kSpinnerPeriod = Duration(seconds: 1);
+
+/// The same turn under 🐢 Calm motion: five seconds, still linear, still
+/// endless.
+///
+/// **Slowed rather than stopped, and that is the whole decision on this
+/// surface** — see [kCalmDriftScale], which this divides by because a spinner's
+/// period is the reciprocal of its speed. A ring at a fifth speed is
+/// unmistakably still turning, so the screen keeps the one thing it is for;
+/// a ring at zero says the fetch died, to a child who has no other signal on
+/// the screen to contradict it and no way to retry.
+///
+/// Derived rather than written out as five, so it cannot drift from the factor
+/// the radar turns at. `final` and not `const` only because [Duration] has no
+/// const multiply.
+final Duration kSpinnerCalmPeriod = Duration(
+  milliseconds: (kSpinnerPeriod.inMilliseconds / kCalmDriftScale).round(),
+);
+
+/// `.spin` — a linear clockwise loop, forever (`index.html:166-167`), at
+/// [kSpinnerPeriod] or [kSpinnerCalmPeriod].
 ///
 /// Hand-rolled rather than [CircularProgressIndicator], which animates a
 /// growing-and-shrinking arc and would read as a different app's spinner.
 /// `CLAUDE.md:47` asks for the prototype to be ported rather than reinvented,
 /// and this is a ring with one lit quarter turning at a constant rate — the
 /// Material indicator is not that shape or that motion.
+///
+/// **[calm] arrives as a parameter rather than being read here**, the shape
+/// `title_screen.dart`'s `_Bob` and the badge popup's hopping emoji both use:
+/// the setting can only be read in a build, and re-driving a controller from
+/// the build of the widget its listeners sit under is a "setState during build"
+/// assertion. `didUpdateWidget` runs a frame earlier, where the mutation is
+/// legal.
 class _Spinner extends StatefulWidget {
-  const _Spinner();
+  const _Spinner({required this.calm});
+
+  final bool calm;
 
   @override
   State<_Spinner> createState() => _SpinnerState();
@@ -145,8 +185,27 @@ class _SpinnerState extends State<_Spinner>
     with SingleTickerProviderStateMixin {
   late final AnimationController _turns = AnimationController(
     vsync: this,
-    duration: const Duration(seconds: 1),
-  )..repeat();
+    duration: kSpinnerPeriod,
+  );
+
+  Duration get _period => widget.calm ? kSpinnerCalmPeriod : kSpinnerPeriod;
+
+  @override
+  void initState() {
+    super.initState();
+    _turns.repeat(period: _period);
+  }
+
+  @override
+  void didUpdateWidget(_Spinner oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // `repeat` resumes from the controller's current value, so the ring changes
+    // speed from wherever it had turned to rather than snapping back to twelve
+    // o'clock. Unlike the mascot's bob there is no "at rest" to settle to here —
+    // every angle of a spinner is as good as every other, and the one thing a
+    // child would notice is a jump.
+    if (widget.calm != oldWidget.calm) _turns.repeat(period: _period);
+  }
 
   @override
   void dispose() {

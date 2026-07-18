@@ -11,9 +11,11 @@ import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/data/models/asteroid_feed.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/loading/loading_screen.dart';
+import 'package:rockimals/features/settings/calm_motion.dart';
 import 'package:rockimals/features/shell/app_shell.dart';
 
 import '../../support/memory_store.dart';
+import '../../support/stub_settings.dart';
 
 /// The gate is a *routing* decision — which of two things the app is — so what
 /// these pin is the two halves of the item's Done-when: it shows on a cold
@@ -190,6 +192,67 @@ void main() {
       expect(px.at(ring.left, ring.top), _backgroundColour);
     });
   });
+
+  /// 🐢 Calm motion's loading-screen half. The radar's is in
+  /// `radar_view_test.dart`, the reactions' in `reaction_test.dart`, and the
+  /// badge popup's in `badge_popup_test.dart`.
+  group('🐢 Calm motion', () {
+    testWidgets('slows the ring to a fifth, and keeps it turning', (
+      tester,
+    ) async {
+      // **Both halves are the assertion, and the second is the one that
+      // matters here.** Every other surface Calm motion reaches may legitimately
+      // stop; this one may not. A frozen ring on the one screen whose entire job
+      // is to say "still working" — with no other signal on it, and no way to
+      // retry — reads as a dead app to a child who cannot know better. So the
+      // test asserts a fifth speed *and* that it is not zero, and the second
+      // expect is what a well-meaning "reduced motion means no motion"
+      // simplification would break.
+      await tester.pumpWidget(
+        _app(Completer<AsteroidFeed>().future, calmMotion: true),
+      );
+
+      // Half of the *full* period in: a normal ring would be at 0.5.
+      await tester.pump(kSpinnerPeriod * 0.5);
+      expect(_turns(tester), greaterThan(0), reason: 'a calm ring still turns');
+      expect(_turns(tester), closeTo(0.5 * kCalmDriftScale, 0.001));
+
+      // And it is still a loop, not a single slow turn that saturates: a whole
+      // calm period on from here is back where it started.
+      await tester.pump(kSpinnerCalmPeriod);
+      expect(_turns(tester), closeTo(0.5 * kCalmDriftScale, 0.001));
+    });
+
+    testWidgets('changes speed under a mounted ring without jumping', (
+      tester,
+    ) async {
+      // "No restart required" (`specs/08-settings-about.md:75`) at the one
+      // moment this screen can be on screen while the switch is flipped: never,
+      // in practice — Settings sits behind the gate. It is tested anyway
+      // because the *mechanism* is the shared one, and because the property it
+      // pins is real and easy to lose: `repeat(period:)` resumes from the
+      // controller's current value, so the ring changes pace from wherever it
+      // had turned to. Rebuilding the controller, or calling `repeat()` with a
+      // fresh `duration`, would snap it back to twelve o'clock — a visible jolt
+      // caused by the setting whose whole purpose is to remove them.
+      await tester.pumpWidget(_app(Completer<AsteroidFeed>().future));
+      await tester.pump(const Duration(milliseconds: 400));
+      final double before = _turns(tester);
+      expect(before, closeTo(0.4, 0.001));
+
+      final ProviderContainer container = ProviderScope.containerOf(
+        tester.element(find.byType(LoadingScreen)),
+      );
+      await container.read(reducedMotionProvider.notifier).choose(true);
+      await tester.pump();
+
+      expect(_turns(tester), closeTo(before, 0.01), reason: 'no jump');
+
+      // …and from there it carries on at the calm pace rather than the old one.
+      await tester.pump(kSpinnerPeriod * 0.5);
+      expect(_turns(tester), closeTo(before + 0.5 * kCalmDriftScale, 0.001));
+    });
+  });
 }
 
 /// `#070f1f` (`index.html:165`) — restated rather than imported, because a test
@@ -287,13 +350,23 @@ AsteroidFeed _liveSky() {
 /// [capture] wraps the app in a [RepaintBoundary] so the frame can be read back
 /// as an image. Off by default: it is scaffolding for the pixel test alone, and
 /// the app itself has no such boundary.
-Widget _app(Future<AsteroidFeed> feed, {bool capture = false}) {
+///
+/// [calmMotion] is the child's 🐢 Calm motion choice, and **null is the default
+/// on purpose** — the fresh-install state, which resolves against a
+/// `MediaQuery` that is not asking, so every test outside the Calm motion group
+/// measures the prototype's full-speed ring exactly as before.
+Widget _app(
+  Future<AsteroidFeed> feed, {
+  bool capture = false,
+  bool? calmMotion,
+}) {
   const Widget gate = LoadingGate();
   return ProviderScope(
     // The override list is left to inference: Riverpod 3 does not export the
     // `Override` type, so there is no name to annotate it with.
     overrides: [
       asteroidFeedProvider.overrideWith((Ref ref) => feed),
+      reducedMotionProvider.overrideWith(() => StubCalmMotion(calmMotion)),
       // Once the gate lands on the shell, the radar's home overlay reads the day
       // streak; standing a number in front of it keeps this suite off a Hive box.
       dayStreakProvider.overrideWithValue(0),
