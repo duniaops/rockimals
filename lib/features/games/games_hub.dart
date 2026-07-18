@@ -5,6 +5,7 @@ import 'package:rockimals/features/games/challenge_game.dart';
 import 'package:rockimals/features/games/closer_game.dart';
 import 'package:rockimals/features/games/duel_game.dart';
 import 'package:rockimals/features/games/games_providers.dart';
+import 'package:rockimals/features/games/match_game.dart';
 
 /// The Play hub — a port of the prototype's `openGames` (`index.html:1002-1021`),
 /// the screen the radar's "🎮 Play" CTA opens.
@@ -12,10 +13,8 @@ import 'package:rockimals/features/games/games_providers.dart';
 /// It shows the points total, a persisted sound toggle, and the four game cards
 /// (Today's Challenge featured, then Power Duel / Closer or Farther / Animal
 /// Match, each with its personal best). This is `specs/04`'s "Play hub" item;
-/// the four games it launches are their own items after it, so each card routes
-/// to a kid-toned placeholder ([_ComingSoonGame]) that the matching game item
-/// swaps — the same one-call-site shape the radar's Play CTA used while this hub
-/// was itself a stub.
+/// the four games it launches were their own items after it, and all four have
+/// now landed — [_destinationFor] is the one seam each of them edited.
 class GamesHub extends ConsumerWidget {
   const GamesHub({super.key});
 
@@ -127,10 +126,9 @@ class GamesHub extends ConsumerWidget {
     );
   }
 
-  /// Where each card goes. Each of the four game items (`specs/04`) replaces its
-  /// own branch with the real game; until then a card opens a kid-toned "coming
-  /// soon" screen rather than a dead tap (`CLAUDE.md:63`). Today's Challenge,
-  /// Power Duel, and Closer or Farther have landed; only Animal Match is left.
+  /// Where each card goes. All four games have now landed (`specs/04`), so the
+  /// kid-toned "coming soon" placeholder each card opened while its game was
+  /// still ahead is gone along with the last branch that used it.
   Widget _destinationFor(_GameId id) {
     switch (id) {
       case _GameId.daily:
@@ -140,7 +138,7 @@ class GamesHub extends ConsumerWidget {
       case _GameId.closer:
         return const CloserGame();
       case _GameId.size:
-        return const _ComingSoonGame(title: 'Animal Match');
+        return const MatchGame();
     }
   }
 }
@@ -370,46 +368,6 @@ class _GameCardTile extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// A kid-toned placeholder a game card opens until its game lands (`specs/04`).
-///
-/// Titled with the game's own name so the hub's route-to-game wiring is testable
-/// today — a tap lands on a screen that names the game — and swapped whole by the
-/// matching game item at [GamesHub._destinationFor]. None of this copy is
-/// load-bearing.
-class _ComingSoonGame extends StatelessWidget {
-  const _ComingSoonGame({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Palette.pageBackground,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          _Obar(title: title),
-          const Expanded(
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Text('🎮', style: TextStyle(fontSize: 72)),
-                  SizedBox(height: 12),
-                  Text(
-                    'This game is on its way — coming soon!',
-                    style: TextStyle(color: Palette.muted, fontSize: 14),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
