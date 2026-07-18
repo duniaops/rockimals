@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rockimals/core/a11y/tap_target.dart';
 import 'package:rockimals/core/animals/animal_system.dart';
 import 'package:rockimals/core/mascot/rusty.dart';
 import 'package:rockimals/core/theme/palette.dart';
@@ -278,15 +279,23 @@ class _Toggle extends StatelessWidget {
           child: InkWell(
             borderRadius: const BorderRadius.all(Radius.circular(20)),
             onTap: onTap,
-            child: Padding(
-              // `.toggle{padding:7px 12px}` (`index.html:78`).
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: selected ? Palette.onAccent : Palette.muted,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
+            // The pill stays 31dp — a sort chip padded to 48 would out-weigh
+            // the cards it sorts — and [TapTarget] grows only what answers a
+            // touch. Four of these sit in a row a child has to pick between.
+            child: TapTarget(
+              child: Padding(
+                // `.toggle{padding:7px 12px}` (`index.html:78`).
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 7,
+                ),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: selected ? Palette.onAccent : Palette.muted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ),

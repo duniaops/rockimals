@@ -14,6 +14,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rockimals/core/a11y/tap_target.dart';
 import 'package:rockimals/core/animals/animal_system.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/data/models/asteroid.dart';
@@ -396,27 +397,34 @@ class _OptionButton extends StatelessWidget {
           child: InkWell(
             borderRadius: const BorderRadius.all(Radius.circular(12)),
             onTap: onTap,
-            child: Padding(
-              // `.opt{padding:13px 14px}` (`index.html:221`).
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-              child: ExcludeSemantics(
-                child: Text(
-                  // `${o.emoji}&nbsp;&nbsp;${o.species}` (`index.html:1108`) —
-                  // two **non-breaking** spaces, written as escapes rather than
-                  // typed so the gap is visible in the source. They are not
-                  // decorative: a plain space is a wrap opportunity, and a
-                  // species name that wrapped would strand the emoji alone at
-                  // the end of the line.
-                  '${option.emoji}\u00A0\u00A0${option.species}',
-                  // `text-align:left` — the prototype's one left-aligned
-                  // button, so three species names line up to be compared.
-                  textAlign: TextAlign.left,
-                  style: const TextStyle(
-                    color: Palette.ink,
-                    // `font-size:15px` from the inline override
-                    // (`index.html:1107`), over `.opt`'s 14px.
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
+            // 47dp — one short, and an answer card is the thing a child taps
+            // most in this game.
+            child: TapTarget(
+              child: Padding(
+                // `.opt{padding:13px 14px}` (`index.html:221`).
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 13,
+                ),
+                child: ExcludeSemantics(
+                  child: Text(
+                    // `${o.emoji}&nbsp;&nbsp;${o.species}` (`index.html:1108`) —
+                    // two **non-breaking** spaces, written as escapes rather than
+                    // typed so the gap is visible in the source. They are not
+                    // decorative: a plain space is a wrap opportunity, and a
+                    // species name that wrapped would strand the emoji alone at
+                    // the end of the line.
+                    '${option.emoji}\u00A0\u00A0${option.species}',
+                    // `text-align:left` — the prototype's one left-aligned
+                    // button, so three species names line up to be compared.
+                    textAlign: TextAlign.left,
+                    style: const TextStyle(
+                      color: Palette.ink,
+                      // `font-size:15px` from the inline override
+                      // (`index.html:1107`), over `.opt`'s 14px.
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rockimals/core/a11y/tap_target.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/features/games/games_providers.dart';
 import 'package:rockimals/features/settings/about_block.dart';
@@ -166,10 +167,6 @@ class _ToggleRow extends StatelessWidget {
   final bool value;
   final ValueChanged<bool> onChanged;
 
-  /// The Material/HIG minimum, and this screen's stated bar
-  /// (`specs/08-settings-about.md:82`).
-  static const double _minTarget = 48;
-
   @override
   Widget build(BuildContext context) {
     return Semantics(
@@ -185,7 +182,7 @@ class _ToggleRow extends StatelessWidget {
             onTap: () => onChanged(!value),
             borderRadius: const BorderRadius.all(Radius.circular(14)),
             child: Container(
-              constraints: const BoxConstraints(minHeight: _minTarget),
+              constraints: const BoxConstraints(minHeight: kMinTapTarget),
               decoration: const BoxDecoration(
                 color: Palette.card,
                 borderRadius: BorderRadius.all(Radius.circular(14)),
@@ -295,25 +292,19 @@ class _Obar extends StatelessWidget {
 
 /// The `.back` pill (`index.html:93`).
 ///
-/// **One deliberate difference from the three clones this copies**: the tap
-/// target is 48dp tall while the painted pill stays the prototype's ~30dp. The
-/// item that owns this screen requires every target here to be ≥48dp, and the
-/// pill's own `8px` vertical padding around 14px text cannot reach that without
-/// making it visibly heavier than the 16px title beside it. So the [InkWell]
-/// sits *outside* the pill and is stretched to 48 — the same trick
-/// [IconButton] plays around a 24dp glyph — which grows the region a thumb has
-/// to hit without touching a single painted pixel.
+/// The tap target is [kMinTapTarget] tall while the painted pill stays the
+/// prototype's ~30dp: the pill's `8px` of vertical padding around 14px text
+/// cannot reach 48 without making it visibly heavier than the 16px title beside
+/// it, so the [InkWell] sits *outside* the pill and [TapTarget] stretches the
+/// region a thumb has to find without touching a painted pixel.
 ///
-/// The other three pills are ~30dp targets and are the accessibility-audit
-/// item's problem, not this screen's. When the `.obar` extraction item folds
-/// all four into one widget it should take *this* version: it is the only one
-/// that meets the guideline, and it is visually identical to the ones it
-/// replaces.
+/// This screen invented that trick and the accessibility audit has since made
+/// it [TapTarget] and given it to the other three pills, so all four are now the
+/// same shape. The `.obar` extraction item can therefore fold them into one
+/// widget as a straight rename — which is exactly what this comment used to say
+/// it could not.
 class _BackButton extends StatelessWidget {
   const _BackButton();
-
-  /// The Material/HIG minimum, and this item's stated bar.
-  static const double _minTarget = 48;
 
   @override
   Widget build(BuildContext context) {
@@ -325,16 +316,10 @@ class _BackButton extends StatelessWidget {
       label: 'Back',
       child: InkWell(
         onTap: () => Navigator.of(context).maybePop(),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: _minTarget),
-          child: const Center(
-            // The row is `MainAxisSize.min` so the target is only as wide as
-            // the pill; a 48dp-wide-minimum here would leave dead space beside
-            // a pill that is already wider than 48.
-            widthFactor: 1,
-            child: _BackPill(),
-          ),
-        ),
+        // No `expandWidth`: the row is `MainAxisSize.min` and the pill is
+        // already wider than 48, so a width floor would only leave dead space
+        // beside it.
+        child: const TapTarget(child: _BackPill()),
       ),
     );
   }

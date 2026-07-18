@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:rockimals/core/a11y/tap_target.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/data/models/asteroid.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -133,17 +134,24 @@ class _JplLink extends StatelessWidget {
         type: MaterialType.transparency,
         child: InkWell(
           onTap: onTap,
-          child: const Padding(
-            padding: EdgeInsets.symmetric(vertical: 6),
-            child: ExcludeSemantics(
-              child: Text(
-                'Look it up on NASA/JPL ↗',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Palette.accent2,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  height: 1.2,
+          // A text link, so there is no pill to keep small — the [TapTarget]
+          // goes inside the ink and takes the row from 28dp to 48. This is the
+          // one control in the app that must be *hard* for a child to hit by
+          // accident, but that is the parent gate's job, not a small target's:
+          // a link a grown-up cannot reliably tap is just a broken link.
+          child: const TapTarget(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 6),
+              child: ExcludeSemantics(
+                child: Text(
+                  'Look it up on NASA/JPL ↗',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Palette.accent2,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    height: 1.2,
+                  ),
                 ),
               ),
             ),

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rockimals/core/a11y/tap_target.dart';
 import 'package:rockimals/core/animals/animal_system.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/data/models/asteroid.dart';
@@ -1007,24 +1008,34 @@ class _PlayCta extends StatelessWidget {
           child: InkWell(
             borderRadius: const BorderRadius.all(Radius.circular(14)),
             onTap: onTap,
-            child: const Padding(
-              // `padding:14px` (`index.html:52`). The enclosing [Positioned]
-              // gives the button its full width, so the padded [Text] receives a
-              // tight width and `textAlign` centres it — no [Center] wrapper,
-              // which an unbounded-height [Positioned] child would over-run.
-              padding: EdgeInsets.all(14),
-              child: ExcludeSemantics(
-                child: Text(
-                  '🎮 Play · 4 games',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    // `.btn` — `color:#1a0d05`, `font-weight:800`,
-                    // `letter-spacing:.3px`, `font-size:15px` (`index.html:51-52`).
-                    color: Palette.onAccent,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.3,
-                    height: 1,
+            // 43dp painted (15px type in 14 of padding), 5 short of the bar. The
+            // [TapTarget] is *inside* the ink here rather than outside it, which
+            // is the opposite of the chips above and is right for the same
+            // reason: this button's fill is the whole shape a child aims at, so
+            // there is nothing to keep small — growing it to 48 is growing the
+            // button, and the extra 5dp is invisible against a 366dp bar.
+            child: const TapTarget(
+              child: Padding(
+                // `padding:14px` (`index.html:52`). The enclosing [Positioned]
+                // gives the button its full width, so the padded [Text] receives
+                // a tight width and `textAlign` centres it — no [Center]
+                // wrapper, which an unbounded-height [Positioned] child would
+                // over-run.
+                padding: EdgeInsets.all(14),
+                child: ExcludeSemantics(
+                  child: Text(
+                    '🎮 Play · 4 games',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      // `.btn` — `color:#1a0d05`, `font-weight:800`,
+                      // `letter-spacing:.3px`, `font-size:15px`
+                      // (`index.html:51-52`).
+                      color: Palette.onAccent,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.3,
+                      height: 1,
+                    ),
                   ),
                 ),
               ),
@@ -1252,27 +1263,43 @@ class _RadarChip extends StatelessWidget {
       button: true,
       toggled: on,
       label: label,
+      // The ink sits *outside* the painted chip so [TapTarget] can grow the
+      // region a finger has to find without growing the chip. A chip padded out
+      // to 48 would stand taller than the zoom buttons across the field from it
+      // and would cover more of the sky it floats over; the prototype's 21dp
+      // pill (11px type in `5px 10px`) is what stays on screen.
       child: Material(
-        color: on ? Palette.accent : _chipSurface,
-        shape: RoundedRectangleBorder(
-          borderRadius: const BorderRadius.all(Radius.circular(16)),
-          side: BorderSide(color: on ? Palette.accent : Palette.line),
-        ),
+        type: MaterialType.transparency,
         child: InkWell(
           borderRadius: const BorderRadius.all(Radius.circular(16)),
           onTap: onTap,
-          child: Padding(
-            // `padding:5px 10px` (`index.html:174`).
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            child: ExcludeSemantics(
-              child: Text(
-                label,
-                style: TextStyle(
-                  // `color:var(--muted)` off, `#1a0d05` on (`index.html:174-175`).
-                  color: on ? Palette.onAccent : Palette.muted,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  height: 1,
+          child: TapTarget(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: on ? Palette.accent : _chipSurface,
+                borderRadius: const BorderRadius.all(Radius.circular(16)),
+                border: Border.fromBorderSide(
+                  BorderSide(color: on ? Palette.accent : Palette.line),
+                ),
+              ),
+              child: Padding(
+                // `padding:5px 10px` (`index.html:174`).
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
+                child: ExcludeSemantics(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      // `color:var(--muted)` off, `#1a0d05` on
+                      // (`index.html:174-175`).
+                      color: on ? Palette.onAccent : Palette.muted,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      height: 1,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -1361,25 +1388,37 @@ class _ZoomButton extends StatelessWidget {
     return Semantics(
       button: true,
       label: label,
-      child: SizedBox.square(
-        dimension: _zoomButtonSize,
-        child: Material(
-          color: _zoomButtonSurface,
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(10)),
-            side: BorderSide(color: Palette.line),
-          ),
-          child: InkWell(
-            borderRadius: const BorderRadius.all(Radius.circular(10)),
-            onTap: onTap,
-            child: Center(
-              child: ExcludeSemantics(
-                child: Text(
-                  glyph,
-                  style: const TextStyle(
-                    fontSize: 17,
-                    color: Color(0xFFFFFFFF),
-                    height: 1,
+      // `expandWidth`, unlike every other [TapTarget] in the app: this is the
+      // one control that is short on *both* axes (38×38), so height alone would
+      // leave it 10dp narrow. The buttons stay 38 apart-looking because only the
+      // hit region grows — see [_zoomButtonSize].
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          borderRadius: const BorderRadius.all(Radius.circular(10)),
+          onTap: onTap,
+          child: TapTarget(
+            expandWidth: true,
+            child: SizedBox.square(
+              dimension: _zoomButtonSize,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: _zoomButtonSurface,
+                  borderRadius: const BorderRadius.all(Radius.circular(10)),
+                  border: const Border.fromBorderSide(
+                    BorderSide(color: Palette.line),
+                  ),
+                ),
+                child: Center(
+                  child: ExcludeSemantics(
+                    child: Text(
+                      glyph,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        color: Color(0xFFFFFFFF),
+                        height: 1,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -1394,13 +1433,24 @@ class _ZoomButton extends StatelessWidget {
 /// `width:38px;height:38px` (`index.html:177`, and `:200` for the home view's
 /// square play button).
 ///
-/// Comfortably past the 44px minimum? No — and that is the accessibility item's
-/// to answer for the whole app rather than this file's to decide alone. Noted
-/// here because it is the prototype's number and it is under the bar.
+/// Comfortably past the 44px minimum? No — and the accessibility audit answered
+/// that for the whole app rather than leaving this file to decide alone: the
+/// **painted** button stays the prototype's 38, and [TapTarget] gives it a
+/// [kMinTapTarget] hit region around it. So this constant is now the picture,
+/// not the target, and it is deliberately no longer the number a child has to
+/// hit.
 const double _zoomButtonSize = 38;
 
-/// `gap:6px` (`index.html:176`).
-const double _zoomButtonGap = 6;
+/// `gap:6px` (`index.html:176`) — **spent, and now 0.**
+///
+/// Wrapping each button in a 48dp [TapTarget] already puts 10dp of transparent
+/// overhang between two 38dp pills, which is more air than the prototype's gap
+/// asked for. Keeping `6` on top would have pushed them 16dp apart and grown
+/// the column from 170 to 210dp on the screen it floats over. Zero is also the
+/// right answer independent of looks: adjacent 48dp targets should *abut*, so
+/// that a thumb landing between two zoom buttons hits one of them rather than
+/// the radar behind them.
+const double _zoomButtonGap = 0;
 
 /// `rgba(19,42,77,.85)` (`index.html:177`) — `--card` at .85, the same
 /// translucent chrome the toggle chips and the home strip are made of.

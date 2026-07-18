@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rockimals/core/a11y/tap_target.dart';
 import 'package:rockimals/core/audio/sound_cues.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/features/games/challenge_game.dart';
@@ -278,13 +279,18 @@ class _SoundButton extends StatelessWidget {
         child: InkWell(
           borderRadius: const BorderRadius.all(Radius.circular(12)),
           onTap: onTap,
-          child: Padding(
-            // `padding:8px 12px` (`index.html:244`).
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: ExcludeSemantics(
-              child: Text(
-                on ? '🔊' : '🔇',
-                style: const TextStyle(fontSize: 15, color: Palette.ink),
+          // Short on both axes (39×37), so `expandWidth` as well — the same
+          // pair of shortfalls the radar's zoom buttons have.
+          child: TapTarget(
+            expandWidth: true,
+            child: Padding(
+              // `padding:8px 12px` (`index.html:244`).
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: ExcludeSemantics(
+                child: Text(
+                  on ? '🔊' : '🔇',
+                  style: const TextStyle(fontSize: 15, color: Palette.ink),
+                ),
               ),
             ),
           ),
@@ -457,25 +463,36 @@ class _BackButton extends StatelessWidget {
     return Semantics(
       button: true,
       label: 'Back',
+      // The painted pill stays the prototype's ~30dp and the ink sits outside
+      // it, so [TapTarget] can raise the region a thumb has to find to
+      // [kMinTapTarget] without making the pill heavier than the title beside
+      // it. `settings_screen.dart` found this shape first; all four back pills
+      // now share it, which is also what makes them safe to fold into one
+      // widget when the `.obar` extraction item gets to them.
       child: Material(
-        color: Palette.card,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(11)),
-          side: BorderSide(color: Palette.line),
-        ),
+        type: MaterialType.transparency,
         child: InkWell(
           borderRadius: const BorderRadius.all(Radius.circular(11)),
           onTap: () => Navigator.of(context).maybePop(),
-          child: const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: ExcludeSemantics(
-              child: Text(
-                '‹ Back',
-                style: TextStyle(
-                  color: Palette.ink,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  height: 1,
+          child: const TapTarget(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Palette.card,
+                borderRadius: BorderRadius.all(Radius.circular(11)),
+                border: Border.fromBorderSide(BorderSide(color: Palette.line)),
+              ),
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: ExcludeSemantics(
+                  child: Text(
+                    '‹ Back',
+                    style: TextStyle(
+                      color: Palette.ink,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      height: 1,
+                    ),
+                  ),
                 ),
               ),
             ),

@@ -23,6 +23,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rockimals/core/a11y/tap_target.dart';
 import 'package:rockimals/core/audio/sound_cues.dart';
 import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/core/streak/day_streak.dart';
@@ -634,20 +635,26 @@ class GameButton extends StatelessWidget {
           child: InkWell(
             borderRadius: const BorderRadius.all(Radius.circular(14)),
             onTap: onTap,
-            child: Padding(
-              // `padding:14px` (`index.html:52`).
-              padding: const EdgeInsets.all(14),
-              child: ExcludeSemantics(
-                child: Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    // `.btn{color:#1a0d05}`; `.btn.ghost{color:var(--ink)}`.
-                    color: ghost ? Palette.ink : Palette.onAccent,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.3,
-                    height: 1,
+            // 43dp painted, 5 short of [kMinTapTarget]. Unlike the pills, this
+            // button's fill is the whole shape a child aims at, so there is
+            // nothing to keep small: the [TapTarget] sits inside the ink and
+            // grows the button itself. 5dp is invisible on a full-width bar.
+            child: TapTarget(
+              child: Padding(
+                // `padding:14px` (`index.html:52`).
+                padding: const EdgeInsets.all(14),
+                child: ExcludeSemantics(
+                  child: Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      // `.btn{color:#1a0d05}`; `.btn.ghost{color:var(--ink)}`.
+                      color: ghost ? Palette.ink : Palette.onAccent,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.3,
+                      height: 1,
+                    ),
                   ),
                 ),
               ),
@@ -720,25 +727,36 @@ class _GameBackButton extends StatelessWidget {
     return Semantics(
       button: true,
       label: 'Back',
+      // The painted pill stays the prototype's ~30dp and the ink sits outside
+      // it, so [TapTarget] can raise the region a thumb has to find to
+      // [kMinTapTarget] without making the pill heavier than the title beside
+      // it. `settings_screen.dart` found this shape first; all four back pills
+      // now share it, which is also what makes them safe to fold into one
+      // widget when the `.obar` extraction item gets to them.
       child: Material(
-        color: Palette.card,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(11)),
-          side: BorderSide(color: Palette.line),
-        ),
+        type: MaterialType.transparency,
         child: InkWell(
           borderRadius: const BorderRadius.all(Radius.circular(11)),
           onTap: () => Navigator.of(context).maybePop(),
-          child: const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: ExcludeSemantics(
-              child: Text(
-                '‹ Back',
-                style: TextStyle(
-                  color: Palette.ink,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  height: 1,
+          child: const TapTarget(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Palette.card,
+                borderRadius: BorderRadius.all(Radius.circular(11)),
+                border: Border.fromBorderSide(BorderSide(color: Palette.line)),
+              ),
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: ExcludeSemantics(
+                  child: Text(
+                    '‹ Back',
+                    style: TextStyle(
+                      color: Palette.ink,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      height: 1,
+                    ),
+                  ),
                 ),
               ),
             ),

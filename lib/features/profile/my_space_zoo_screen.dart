@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rockimals/core/a11y/tap_target.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/profile/profile_providers.dart';
@@ -427,11 +428,6 @@ class _StatTile extends StatelessWidget {
 class _SettingsRow extends StatelessWidget {
   const _SettingsRow();
 
-  /// The Material/HIG minimum tap height. The row's own padding around 14px
-  /// text lands at 45, close enough to be missed by eye and short enough to
-  /// matter to a small thumb, so the floor is set rather than assumed.
-  static const double _minTarget = 48;
-
   @override
   Widget build(BuildContext context) {
     return Semantics(
@@ -458,7 +454,7 @@ class _SettingsRow extends StatelessWidget {
           ),
           child: ExcludeSemantics(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: _minTarget),
+              constraints: const BoxConstraints(minHeight: kMinTapTarget),
               child: const Padding(
                 // `.zb{padding:11px}` (`index.html:276`), widened to 13 so the
                 // row's single line of text sits centred in its 48.
