@@ -3,15 +3,16 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-// `Override` lives here in Riverpod 3, not in the main barrel.
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
+import 'package:rockimals/core/audio/sound_engine.dart';
 import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/core/streak/day_streak.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/games/game_shell.dart';
 import 'package:rockimals/features/games/games_providers.dart';
+// `Override` lives here in Riverpod 3, not in the main barrel.
 
 /// The game framework (`specs/04`, "Game framework"): the shared surface, the
 /// score bar, the one `gameOver` end screen, `markPlayed`, and the two seams a
@@ -24,6 +25,8 @@ import 'package:rockimals/features/games/games_providers.dart';
 /// deadlock the `testWidgets` fake clock. A tiny [_StubGame] plays the role of
 /// the four real games — it is the Done-when's "a stub game routes in, awards a
 /// point, and ends through gameOver".
+import '../../support/recording_sound_engine.dart';
+
 void main() {
   group('GameActions writes to the store (real box)', () {
     late Directory tempDir;
@@ -426,6 +429,10 @@ void main() {
         ProviderScope(
           overrides: [
             gameActionsProvider.overrideWithValue(actions),
+            // GameShell listens on `gameReactionProvider` and plays a cue; these
+            // keep that off the audio plugin and off the real store.
+            soundEngineProvider.overrideWithValue(RecordingSoundEngine()),
+            soundOnProvider.overrideWith(() => StubSoundOn(true)),
           ],
           child: MaterialApp(
             home: _Launcher(onReaction: reactions.add),
@@ -466,6 +473,10 @@ void main() {
         ProviderScope(
           overrides: [
             gameActionsProvider.overrideWithValue(actions),
+            // GameShell listens on `gameReactionProvider` and plays a cue; these
+            // keep that off the audio plugin and off the real store.
+            soundEngineProvider.overrideWithValue(RecordingSoundEngine()),
+            soundOnProvider.overrideWith(() => StubSoundOn(true)),
           ],
           child: const MaterialApp(home: _StubGame()),
         ),
@@ -494,6 +505,10 @@ void main() {
         ProviderScope(
           overrides: [
             gameActionsProvider.overrideWithValue(actions),
+            // GameShell listens on `gameReactionProvider` and plays a cue; these
+            // keep that off the audio plugin and off the real store.
+            soundEngineProvider.overrideWithValue(RecordingSoundEngine()),
+            soundOnProvider.overrideWith(() => StubSoundOn(true)),
           ],
           child: MaterialApp(home: _Launcher(onReaction: (_) {})),
         ),

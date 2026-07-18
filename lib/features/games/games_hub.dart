@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rockimals/core/audio/sound_cues.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/features/games/challenge_game.dart';
 import 'package:rockimals/features/games/closer_game.dart';
 import 'package:rockimals/features/games/duel_game.dart';
 import 'package:rockimals/features/games/games_providers.dart';
 import 'package:rockimals/features/games/match_game.dart';
+import 'package:rockimals/features/rewards/sound_controller.dart';
 
 /// The Play hub — a port of the prototype's `openGames` (`index.html:1002-1021`),
 /// the screen the radar's "🎮 Play" CTA opens.
@@ -85,7 +87,27 @@ class GamesHub extends ConsumerWidget {
                       const SizedBox(width: 10),
                       _SoundButton(
                         on: soundOn,
-                        onTap: () => ref.read(soundOnProvider.notifier).toggle(),
+                        // `if(soundOn)playHappy()` (`index.html:1020`) — turning
+                        // sound back on answers with the happy jingle, so the
+                        // child hears that it worked instead of only seeing an
+                        // emoji change. Turning it *off* is silent, which is both
+                        // the prototype's behaviour and the only coherent one.
+                        //
+                        // The blip must be fired *after* the flip, not before:
+                        // the cue is gated on the flag (`SoundController`), so a
+                        // play issued while the flag still reads "off" would be
+                        // swallowed by the very gate it is confirming. Re-reading
+                        // the provider rather than negating the captured `soundOn`
+                        // keeps that true even if the toggle ever gains a reason
+                        // to refuse.
+                        onTap: () async {
+                          await ref.read(soundOnProvider.notifier).toggle();
+                          if (ref.read(soundOnProvider)) {
+                            await ref
+                                .read(soundControllerProvider)
+                                .play(SoundCue.happy);
+                          }
+                        },
                       ),
                     ],
                   ),

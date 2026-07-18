@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rockimals/core/animals/animal_system.dart';
+import 'package:rockimals/core/audio/sound_engine.dart';
 import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/data/models/asteroid_feed.dart';
 import 'package:rockimals/features/data/providers.dart';
@@ -10,6 +11,8 @@ import 'package:rockimals/features/games/game_shell.dart';
 import 'package:rockimals/features/games/games_hub.dart';
 import 'package:rockimals/features/games/games_providers.dart';
 import 'package:rockimals/features/rewards/reaction.dart';
+
+import '../../support/recording_sound_engine.dart';
 
 /// Power Duel end to end (`specs/04`, game 2). The deal and the winner test are
 /// pinned in `duel_pairing_test.dart`; this suite is the screen — answering,
@@ -378,6 +381,10 @@ Future<void> _mount(
       overrides: [
         asteroidFeedProvider.overrideWith((Ref ref) => _feed(sky)),
         gameActionsProvider.overrideWithValue(actions ?? _RecordingActions()),
+        // Nothing here asserts on sound; these keep the audio plugin and the
+        // real store off the answer path. `game_sound_test.dart` owns the cues.
+        soundEngineProvider.overrideWithValue(RecordingSoundEngine()),
+        soundOnProvider.overrideWith(() => StubSoundOn(true)),
       ],
       child: MaterialApp(
         home: _ReactionSpy(onReaction: onReaction, child: const DuelGame()),

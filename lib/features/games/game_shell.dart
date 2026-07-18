@@ -19,13 +19,17 @@
 /// "right/wrong" to, which those two items consume. See its own doc.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rockimals/core/audio/sound_cues.dart';
 import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/core/streak/day_streak.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/games/games_providers.dart';
+import 'package:rockimals/features/rewards/sound_controller.dart';
 
 /// Every store write a game makes as it plays: it counts the play
 /// ([markPlayed]), awards points ([awardPoints]), and banks its records.
@@ -304,7 +308,17 @@ gameReactionProvider = NotifierProvider<GameReactionNotifier, GameReaction?>(
 /// The game supplies [body] and swaps it as it plays — a round, then the next
 /// round, then a [GameOverPanel] — exactly as the prototype rewrites `#gameBody`
 /// (`index.html:1040,1024`). [GameShell] owns only the chrome around it.
-class GameShell extends StatelessWidget {
+/// **It is also where [gameReactionProvider] finally makes a sound.** One
+/// `ref.listen` here covers all four games, because all four render into this
+/// shell — the alternative was the same three lines repeated in each of them, to
+/// drift. Scoping the listener to the shell also scopes it correctly in time: it
+/// is alive exactly while a game is on screen, so a reaction can never be heard
+/// after the child has left.
+///
+/// A `ref.listen` rather than a `ref.watch` because a reaction is an *event*, not
+/// a value to render; see [GameReaction] on why a fresh instance per answer is
+/// what makes two correct answers in a row two audible cheers.
+class GameShell extends ConsumerWidget {
   const GameShell({required this.title, required this.body, super.key});
 
   /// The bar title, emoji included (`⚔️ Power Duel`, `index.html:1035`).
@@ -314,7 +328,25 @@ class GameShell extends StatelessWidget {
   final Widget body;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen<GameReaction?>(gameReactionProvider, (
+      GameReaction? _,
+      GameReaction? next,
+    ) {
+      if (next == null) {
+        return;
+      }
+      // `ok?playHappy():playSad()` (`index.html:968`). Today's Challenge reaches
+      // here too, having already folded its four cards into the round's single
+      // `acc >= 60` verdict (`index.html:939`) — one tone per round is what the
+      // prototype plays there, not one per card.
+      unawaited(
+        ref
+            .read(soundControllerProvider)
+            .play(next.correct ? SoundCue.happy : SoundCue.sad),
+      );
+    });
+
     return Scaffold(
       backgroundColor: Palette.pageBackground,
       body: Column(

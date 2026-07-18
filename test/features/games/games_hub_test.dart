@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
+import 'package:rockimals/core/audio/sound_engine.dart';
 import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/games/games_hub.dart';
@@ -19,6 +20,8 @@ import 'package:rockimals/features/games/games_providers.dart';
 /// async never advances the disk write's real timer. The *persistence* promise
 /// is a store round trip, so it is a plain `test()` against a real box (the
 /// store suite's own pattern), where `await` works.
+import '../../support/recording_sound_engine.dart';
+
 void main() {
   /// The snapshot is provider *state*, and Riverpod asks it whether it changed.
   /// `GameActions` only invalidates after a number moved, so nothing hits the
@@ -116,6 +119,9 @@ void main() {
           overrides: [
             gamesHubStatsProvider.overrideWithValue(stats),
             soundOnProvider.overrideWith(() => _FakeSoundOn(soundOn)),
+            // Turning the toggle on answers with a jingle; keep it off the
+            // plugin. `game_sound_test.dart` asserts the blip itself.
+            soundEngineProvider.overrideWithValue(RecordingSoundEngine()),
           ],
           child: const MaterialApp(home: GamesHub()),
         ),
