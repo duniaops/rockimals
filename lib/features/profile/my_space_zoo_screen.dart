@@ -5,6 +5,7 @@ import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/profile/profile_providers.dart';
 import 'package:rockimals/features/rewards/badge_controller.dart';
 import 'package:rockimals/features/rewards/badges.dart';
+import 'package:rockimals/features/settings/settings_screen.dart';
 
 /// `linear-gradient(150deg,#17325c,#0e2244)` — the `.ptsCard` fill
 /// (`index.html:262`).
@@ -128,8 +129,14 @@ class MySpaceZooScreen extends ConsumerWidget {
             ),
           ),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
             sliver: SliverToBoxAdapter(child: _BadgeShelf(earned: badges)),
+          ),
+          const SliverPadding(
+            // `.sect{margin:16px 2px 8px}`-sized gap above, and the 24 below is
+            // the page's old bottom pad moved down with the last thing on it.
+            padding: EdgeInsets.fromLTRB(16, 16, 16, 24),
+            sliver: SliverToBoxAdapter(child: _SettingsRow()),
           ),
         ],
       ),
@@ -395,6 +402,96 @@ class _StatTile extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The ⚙️ Settings row at the foot of the Profile tab — the app's only entry
+/// point to [SettingsScreen] (`specs/08-settings-about.md:39-43`).
+///
+/// **Here rather than in the bottom nav, and that is spec 08's rule for the
+/// whole app**: the nav is fixed at four tabs, so the grown-up-facing screen
+/// hangs off the tab whose content is already the least kid-facing. Bottom of
+/// the Profile is also the one place a child scrolling for their badges will
+/// never land on by accident — they stop at the shelf.
+///
+/// A [StatelessWidget] with a plain `Navigator.push` rather than anything
+/// routed: [SettingsScreen] has no arguments, no result, and one caller. Pushing
+/// over the whole shell — nav bar included — is deliberate and is what makes it
+/// a screen rather than a fifth tab; the `‹ Back` pill is the only way out, so
+/// there is no state to hold about how it was opened.
+class _SettingsRow extends StatelessWidget {
+  const _SettingsRow();
+
+  /// The Material/HIG minimum tap height. The row's own padding around 14px
+  /// text lands at 45, close enough to be missed by eye and short enough to
+  /// matter to a small thumb, so the floor is set rather than assumed.
+  static const double _minTarget = 48;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      // The visible label is already the whole fact, so this repeats it rather
+      // than embellishing — but it is set explicitly so the ⚙️ and the ›, both
+      // excluded below, cannot creep back into the announcement as "gear
+      // Settings greater-than".
+      label: 'Settings',
+      child: Material(
+        color: Palette.card,
+        shape: const RoundedRectangleBorder(
+          // The badge tiles' radius (`.zb`, `index.html:276`) — this row sits
+          // directly beneath the shelf and reads as one more card on it.
+          borderRadius: BorderRadius.all(Radius.circular(14)),
+          side: BorderSide(color: Palette.line),
+        ),
+        child: InkWell(
+          borderRadius: const BorderRadius.all(Radius.circular(14)),
+          onTap: () => Navigator.of(context).push<void>(
+            MaterialPageRoute<void>(
+              builder: (BuildContext context) => const SettingsScreen(),
+            ),
+          ),
+          child: ExcludeSemantics(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: _minTarget),
+              child: const Padding(
+                // `.zb{padding:11px}` (`index.html:276`), widened to 13 so the
+                // row's single line of text sits centred in its 48.
+                padding: EdgeInsets.symmetric(horizontal: 11, vertical: 13),
+                child: Row(
+                  children: <Widget>[
+                    Text('⚙️', style: TextStyle(fontSize: 18, height: 1)),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Settings',
+                        style: TextStyle(
+                          color: Palette.ink,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          height: 1.2,
+                        ),
+                      ),
+                    ),
+                    // The affordance that says this row opens something rather
+                    // than toggling it — the one thing the label alone cannot
+                    // say. Muted, so it points without competing.
+                    Text(
+                      '›',
+                      style: TextStyle(
+                        color: Palette.muted,
+                        fontSize: 18,
+                        height: 1,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
