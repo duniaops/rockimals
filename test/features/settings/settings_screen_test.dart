@@ -26,6 +26,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rockimals/core/audio/sound_engine.dart';
 import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/features/data/providers.dart';
+import 'package:rockimals/features/games/games_hub.dart';
 import 'package:rockimals/features/profile/my_space_zoo_screen.dart';
 import 'package:rockimals/features/rewards/badge_controller.dart';
 import 'package:rockimals/features/settings/settings_screen.dart';
@@ -222,7 +223,7 @@ void main() {
 
       expect(find.text('Calm motion'), findsOneWidget);
       expect(find.text('🐢'), findsOneWidget);
-      expect(find.byType(Switch), findsOneWidget);
+      expect(_switchFor('Calm motion'), findsOneWidget);
     });
 
     testWidgets('never says "reduced motion" anywhere on the screen', (
@@ -253,7 +254,7 @@ void main() {
     testWidgets('is off on a fresh install with no OS flag set', (tester) async {
       await _openSettings(tester);
 
-      expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
+      expect(tester.widget<Switch>(_switchFor('Calm motion')).value, isFalse);
     });
 
     testWidgets('shows on when the OS asks for it and the child never chose', (
@@ -264,7 +265,7 @@ void main() {
       // with the radar behind it.
       await _openSettings(tester, osDisablesAnimations: true);
 
-      expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
+      expect(tester.widget<Switch>(_switchFor('Calm motion')).value, isTrue);
     });
 
     testWidgets('shows the child\'s "off" even while the OS flag is on', (
@@ -278,7 +279,7 @@ void main() {
         osDisablesAnimations: true,
       );
 
-      expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
+      expect(tester.widget<Switch>(_switchFor('Calm motion')).value, isFalse);
     });
 
     testWidgets('writes the child\'s choice to the store when tapped', (
@@ -297,7 +298,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(store.reducedMotion, isTrue);
-      expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
+      expect(tester.widget<Switch>(_switchFor('Calm motion')).value, isTrue);
     });
 
     testWidgets('turns back off, storing a real false rather than clearing it', (
@@ -318,7 +319,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(store.reducedMotion, isFalse);
-      expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
+      expect(tester.widget<Switch>(_switchFor('Calm motion')).value, isFalse);
     });
 
     testWidgets('takes a tap on the words, not only on the switch', (
@@ -370,6 +371,136 @@ void main() {
       );
     });
   });
+
+  /// The 🔊 Sound toggle (`specs/08-settings-about.md:46`, `:33-35`, and the
+  /// acceptance criterion at `:78`: *"The sound toggle here and the one in the
+  /// Play hub always agree"*).
+  ///
+  /// **The interesting claim is agreement, not that a switch exists**, and it is
+  /// a claim about there being no second copy of the value. Two surfaces reading
+  /// one [soundOnProvider] cannot disagree; two surfaces each caching a `bool`
+  /// would, and only under a sequence nobody runs by hand. So the two tests that
+  /// matter mount **both** surfaces at once, in one container, and flip each
+  /// from the other side.
+  ///
+  /// What the toggle *does* — the gate on every cue — is pinned in
+  /// `sound_controller_test.dart`, and that it survives a restart is pinned
+  /// against a real reopened box in `games_hub_test.dart`. Neither is repeated
+  /// here; this group owns the new surface.
+  group('the 🔊 Sound toggle', () {
+    testWidgets('is on the Settings screen, above Calm motion', (tester) async {
+      // Order is spec 08's own list (`:45-53`), and it is the order a grown-up
+      // scanning for the switch they came for expects to find it in.
+      await _openSettings(tester);
+
+      expect(find.text('Sound'), findsOneWidget);
+      expect(find.text('🔊'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text('Sound')).dy,
+        lessThan(tester.getTopLeft(find.text('Calm motion')).dy),
+      );
+    });
+
+    testWidgets('shows on by default, the way a fresh install sounds', (
+      tester,
+    ) async {
+      // [Store.soundOn] defaults to true — a game that starts silent reads as
+      // broken — so the row must open showing that rather than its own idea.
+      await _openSettings(tester);
+
+      expect(tester.widget<Switch>(_switchFor('Sound')).value, isTrue);
+    });
+
+    testWidgets('shows off when the stored value is off', (tester) async {
+      await _openSettings(tester, soundOn: false);
+
+      expect(tester.widget<Switch>(_switchFor('Sound')).value, isFalse);
+    });
+
+    testWidgets('writes the flip to the store, both ways', (tester) async {
+      // The half of "persists across a restart"
+      // (`specs/08-settings-about.md:73`) this screen owns: the value reaches
+      // the store. Both directions, because a toggle that can only write `false`
+      // strands a child in silence.
+      late final Store store;
+      await _openSettings(tester, onStore: (Store s) => store = s);
+      expect(store.soundOn, isTrue, reason: 'the premise: the default');
+
+      await tester.tap(find.text('Sound'));
+      await tester.pumpAndSettle();
+      expect(store.soundOn, isFalse);
+      expect(tester.widget<Switch>(_switchFor('Sound')).value, isFalse);
+
+      await tester.tap(find.text('Sound'));
+      await tester.pumpAndSettle();
+      expect(store.soundOn, isTrue);
+      expect(tester.widget<Switch>(_switchFor('Sound')).value, isTrue);
+    });
+
+    testWidgets('the Play hub follows a flip made in Settings, at once', (
+      tester,
+    ) async {
+      // `specs/08-settings-about.md:78`. Both surfaces mounted together, so
+      // "immediately" is literal: one pump, no navigation, no reload.
+      await tester.pumpWidget(_bothSurfaces());
+      expect(find.text('🔇'), findsNothing);
+
+      await tester.tap(find.text('Sound'));
+      await tester.pump();
+
+      // The hub's button is the emoji; the Settings row's 🔊 is its own glyph
+      // and does not change with the state, which is why this asserts the
+      // *muted* one appearing rather than the loud one going away.
+      expect(find.text('🔇'), findsOneWidget);
+      expect(tester.widget<Switch>(_switchFor('Sound')).value, isFalse);
+    });
+
+    testWidgets('Settings follows a flip made in the Play hub, at once', (
+      tester,
+    ) async {
+      // The other direction, and not a mirror of the test above: the hub writes
+      // through its own handler, so a regression that made *it* the owner of a
+      // private copy would pass the first test and fail this one.
+      await tester.pumpWidget(_bothSurfaces());
+      expect(tester.widget<Switch>(_switchFor('Sound')).value, isTrue);
+
+      await tester.tap(find.bySemanticsLabel('Sound').first);
+      await tester.pump();
+
+      expect(tester.widget<Switch>(_switchFor('Sound')).value, isFalse);
+      expect(find.text('🔇'), findsOneWidget);
+    });
+
+    testWidgets('is at least 48dp tall, and stays so at 1.5× text', (
+      tester,
+    ) async {
+      // `specs/08-settings-about.md:82`, measured off the rendered box like
+      // every other target in this file.
+      await _openSettings(tester);
+      expect(
+        tester.getSize(_tappableAround(find.text('Sound'))).height,
+        greaterThanOrEqualTo(48),
+      );
+
+      await _openSettings(tester, textScale: 1.5);
+      expect(
+        tester.getSize(_tappableAround(find.text('Sound'))).height,
+        greaterThanOrEqualTo(48),
+      );
+    });
+
+    testWidgets('speaks as one control', (tester) async {
+      await _openSettings(tester);
+
+      expect(
+        find.bySemanticsLabel(
+          'Sound. Plays happy little sounds in the games and when you win a '
+          'badge.',
+        ),
+        findsOneWidget,
+      );
+    });
+  });
 }
 
 /// Opens the Settings screen from the Profile tab, the way a child does.
@@ -390,6 +521,7 @@ Future<void> _openSettings(
   WidgetTester tester, {
   double textScale = 1,
   bool? reducedMotion,
+  bool soundOn = true,
   bool osDisablesAnimations = false,
   void Function(Store store)? onStore,
 }) async {
@@ -403,7 +535,9 @@ Future<void> _openSettings(
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
   }
 
-  await tester.pumpWidget(_app(reducedMotion: reducedMotion, onStore: onStore));
+  await tester.pumpWidget(
+    _app(reducedMotion: reducedMotion, soundOn: soundOn, onStore: onStore),
+  );
   await tester.scrollUntilVisible(find.text('Settings'), 200);
   await tester.tap(find.text('Settings'));
   await tester.pumpAndSettle();
@@ -429,6 +563,18 @@ Future<void> _systemBack(WidgetTester tester) async {
 Finder _tappableAround(Finder inner) =>
     find.ancestor(of: inner, matching: find.byType(InkWell)).first;
 
+/// The [Switch] belonging to the settings row labelled [label].
+///
+/// **Scoped rather than `find.byType(Switch)`**, which is what these assertions
+/// said while Calm motion was the only row. That finder was correct exactly once
+/// and would have silently started measuring whichever switch the tree happened
+/// to lay out first as soon as a second one landed — so it is scoped by the row
+/// a child actually reads, not by index.
+Finder _switchFor(String label) => find.descendant(
+  of: _tappableAround(find.text(label)),
+  matching: find.byType(Switch),
+);
+
 /// The Profile tab under a real [Navigator], because every assertion here is
 /// about pushing off it. The store and the sound engine are faked for the
 /// reason `my_space_zoo_screen_test.dart` states: this screen reads the store in
@@ -438,6 +584,8 @@ Widget _app({
   double textScale = 1,
   /// The child's stored 🐢 Calm motion choice, or null for "never chose".
   bool? reducedMotion,
+  /// The stored 🔊 Sound value. True is [Store.soundOn]'s own default.
+  bool soundOn = true,
   /// Handed back so a test can ask what the toggle wrote.
   void Function(Store store)? onStore,
 }) {
@@ -445,8 +593,51 @@ Widget _app({
     points: 142,
     bestStreak: 7,
     reducedMotion: reducedMotion,
+    soundOn: soundOn,
   );
   onStore?.call(store);
+
+  return UncontrolledProviderScope(
+    container: _container(store),
+    child: MaterialApp(
+      home: MediaQuery(
+        data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
+        child: const Scaffold(body: MySpaceZooScreen()),
+      ),
+    ),
+  );
+}
+
+/// The Play hub and the Settings screen mounted side by side over **one**
+/// container — the only arrangement in which "the two toggles always agree"
+/// (`specs/08-settings-about.md:78`) is a claim a test can make about the same
+/// instant rather than about two runs stitched together.
+///
+/// It is not how a child meets either screen, and that is fine: what is under
+/// test is the wiring behind both, and a route push in between would add a
+/// `pumpAndSettle` that hides whether the second surface reacted on the frame of
+/// the tap or merely rebuilt on arrival.
+Widget _bothSurfaces() {
+  return UncontrolledProviderScope(
+    container: _container(MemoryStore(points: 142, bestStreak: 7)),
+    child: const MaterialApp(
+      home: Column(
+        children: <Widget>[
+          Expanded(child: GamesHub()),
+          Expanded(child: SettingsScreen()),
+        ],
+      ),
+    ),
+  );
+}
+
+/// A container over [store] with the sound engine recorded rather than played.
+///
+/// The engine is faked for the reason `my_space_zoo_screen_test.dart` states:
+/// the Profile reads the store in its first frame, and a badge earned mid-test
+/// would otherwise reach the real one. `badgesProvider` is read eagerly here so
+/// that ledger is warm before anything mounts.
+ProviderContainer _container(Store store) {
   final ProviderContainer container = ProviderContainer(
     overrides: [
       storeProvider.overrideWithValue(store),
@@ -455,14 +646,5 @@ Widget _app({
   );
   addTearDown(container.dispose);
   container.read(badgesProvider);
-
-  return UncontrolledProviderScope(
-    container: container,
-    child: MaterialApp(
-      home: MediaQuery(
-        data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
-        child: const Scaffold(body: MySpaceZooScreen()),
-      ),
-    ),
-  );
+  return container;
 }

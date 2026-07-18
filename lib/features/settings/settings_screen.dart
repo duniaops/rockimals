@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rockimals/core/theme/palette.dart';
+import 'package:rockimals/features/games/games_providers.dart';
 import 'package:rockimals/features/settings/calm_motion.dart';
 
 /// The Settings screen — the app's one home for its grown-up-facing toggles and
@@ -13,10 +14,10 @@ import 'package:rockimals/features/settings/calm_motion.dart';
 /// at the list that would otherwise grow; the entry point is a row at the bottom
 /// of the Profile tab, next door in `my_space_zoo_screen.dart`.
 ///
-/// **The body fills one item at a time, in spec order.** 🐢 Calm motion is the
-/// first row to land; 🔊 Sound, 🧸 Little Kids mode and the About block are each
-/// their own plan item and each adds to the same column. Nothing stands in for
-/// the ones still outstanding — the shell's `_TabStub` was exactly such a
+/// **The body fills one item at a time, in spec order.** 🐢 Calm motion landed
+/// first and 🔊 Sound sits above it now; 🧸 Little Kids mode and the About block
+/// are each their own plan item and each adds to the same column. Nothing stands
+/// in for the ones still outstanding — the shell's `_TabStub` was exactly such a
 /// placeholder and was deleted the moment the last tab landed, so inviting a
 /// second one back would be re-learning the same lesson at the same cost.
 ///
@@ -40,11 +41,36 @@ class SettingsScreen extends ConsumerWidget {
               // `.obody{padding:16px 16px 30px}` (`index.html:95`).
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 30),
               // The toggles and the About block land in this column, in spec
-              // order (`specs/08-settings-about.md:45-65`) — so 🔊 Sound will
-              // insert *above* Calm motion when its item lands, not append.
+              // order (`specs/08-settings-about.md:45-65`) — so 🧸 Little Kids
+              // mode inserts *below* Calm motion and the About block after it.
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
+                  _ToggleRow(
+                    // "🔊 Sound" verbatim (`specs/08-settings-about.md:46`).
+                    // **A mirror, not a second setting**: this row and the Play
+                    // hub's 🔊/🔇 button read and write the one `soundOn` key
+                    // through [soundOnProvider], so neither owns it and the two
+                    // cannot disagree — there is no second copy of the value to
+                    // drift. The hub's button stays where it is, next to the
+                    // games (`specs/08-settings-about.md:33-35`).
+                    emoji: '🔊',
+                    label: 'Sound',
+                    hint: 'Plays happy little sounds in the games and when you '
+                        'win a badge.',
+                    value: ref.watch(soundOnProvider),
+                    // Flips through `toggle()` and discards the row's `next`.
+                    // [SoundOnNotifier] exposes no setter, and asking for one
+                    // would widen the notifier's API for no gain: `toggle()`
+                    // reads the *live* state, so a tap lands on whatever the
+                    // value is at that instant rather than on whatever it was
+                    // when this frame was built.
+                    onChanged: (bool _) =>
+                        ref.read(soundOnProvider.notifier).toggle(),
+                  ),
+                  // `.acard{…margin-bottom:10px}` (`index.html:65`) — the gap
+                  // the prototype puts between stacked rows.
+                  const SizedBox(height: 10),
                   _ToggleRow(
                     // "🐢 Calm motion" verbatim (`specs/08-settings-about.md:47`).
                     // The phrase "reduced motion" is the key's name and the OS
@@ -72,11 +98,12 @@ class SettingsScreen extends ConsumerWidget {
 
 /// One settings row: an emoji, a label, a line of explanation, and a [Switch].
 ///
-/// **Built now for three rows, not one.** 🔊 Sound and 🧸 Little Kids mode are
-/// the next two items and are the same row with different words — the shape is
-/// pinned by spec 08's own list (`:45-53`), so this is not a guess about what
-/// might come. What it buys is that the ≥48dp target and the semantics below get
-/// decided once instead of three times, in three diffs, by three agents.
+/// **Built for three rows before there were two**, and the bet paid: 🔊 Sound
+/// reused it whole, for the cost of five lines in the column above. 🧸 Little
+/// Kids mode is the third and is again the same row with different words — the
+/// shape is pinned by spec 08's own list (`:45-53`). What it buys is that the
+/// ≥48dp target and the semantics below get decided once instead of three times,
+/// in three diffs, by three agents.
 ///
 /// **The whole row is the target, not just the switch.** A [Switch] is ~40dp of
 /// hittable box inside a 48dp one, and it sits at the far edge of the screen; a
