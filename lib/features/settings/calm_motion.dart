@@ -18,7 +18,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/features/data/providers.dart';
 
-/// How much of its normal speed the radar's drift keeps when Calm motion is on.
+/// How much of its normal **speed** motion that never ends keeps when Calm
+/// motion is on — the radar's drift, and the loading spinner.
 ///
 /// Spec 08 allows "drifts slowly **or** holds still" (`:74`). Slowly wins: a
 /// radar frozen at 0 is indistinguishable from the pause button already on the
@@ -26,16 +27,29 @@ import 'package:rockimals/features/data/providers.dart';
 /// the sky is alive, it just stopped hurrying — and a child who turned this on
 /// because the movement bothered them is not left wondering whether the app
 /// broke.
+///
+/// **That last sentence is why the spinner takes this factor rather than
+/// stopping.** The loading screen's one job is to say "still working"; a ring
+/// frozen at an angle says the opposite, on the one screen a child meets before
+/// anything else works and with nothing else on it to disagree. The argument
+/// the radar makes against freezing holds here more strongly, not less.
 const double kCalmDriftScale = 0.2;
 
-/// How much of its normal length a reaction keeps when Calm motion is on
-/// ("reactions shorten", `specs/08-settings-about.md:75`).
+/// How much of its normal **length** a one-shot motion keeps when Calm motion
+/// is on — a reaction's hop ("reactions shorten",
+/// `specs/08-settings-about.md:75`), and the radar HUD card's slide-up.
 ///
 /// Half, not a fifth: this is a *duration*, not a speed, so the same factor that
 /// calms the radar would here stretch the hop to over four seconds — the exact
 /// opposite of shortening it. The motion keeps its full shape and gets out of
 /// the way twice as fast, which is what "shorten" asks for and what keeps a
 /// right answer still feeling like a celebration.
+///
+/// **The split between this and [kCalmDriftScale] is the category, not the
+/// feature.** Anything that runs forever is a speed and takes the fifth;
+/// anything that plays once and ends is a length and takes the half. A third
+/// surface joining either one needs no third constant, which is the whole point
+/// of both living here.
 const double kCalmReactionScale = 0.5;
 
 /// The child's own Calm motion choice, or null if they have never made one.

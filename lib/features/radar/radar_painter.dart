@@ -86,6 +86,19 @@ class RadarPainter extends CustomPainter {
     final double ts = clock.value.inMicroseconds / 1000;
     final double pulse = (math.sin(ts / 300) + 1) / 2;
 
+    // **🐢 Calm motion deliberately does not reach [ts], and so does not reach
+    // the breath below or the planets' bob.** Both read the clock directly
+    // rather than integrating the ticker's step, which is why they are
+    // untouched by the drift factor — but that is an accident of shape, and
+    // this note is here so a later reader does not "fix" it. The reason to
+    // leave them is that they are the setting's own exclusion: an opacity and a
+    // radius that breathe in place, and five pixels of vertical bob, are not
+    // travel across a screen, and the vestibular concern reduced motion serves
+    // is large positional movement. A radar whose Earth stopped breathing under
+    // Calm motion would be a still photograph, which is what a crash looks
+    // like. What *is* calmed is everything fed from the step: the animals, the
+    // Moon and the backdrop's horizontal drift (see `radar_view.dart`'s ticker).
+
     // The prototype's own order (`index.html:818-877`), and every step of it is
     // a decision about what may cover what: the backdrop is scenery and is
     // painted before anything the child can read, the rings are scale and go
