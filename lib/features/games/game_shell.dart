@@ -54,6 +54,36 @@ class GameActions {
   /// the Lift Off badge (`played > 0`) reads.
   Future<void> markPlayed() => _store.setPlayed(_store.played + 1);
 
+  /// The child's lifetime points total (`points`, `index.html:955`) — read, not
+  /// watched, because the one surface that needs it is a [GameOverPanel]
+  /// subtitle the game builds once when a run ends.
+  int get points => _store.points;
+
+  /// The best streak Power Duel has ever reached (`bestDuel`, `aw_duel`,
+  /// `index.html:956`). Read when a game starts, to seed its BEST cell.
+  int get bestDuel => _store.bestDuel;
+
+  /// Persist a new Power Duel best (`gSet("aw_duel", …)`,
+  /// `index.html:1053`). The caller owns the "is this actually a best?" test, as
+  /// the prototype does, because it also has to update what is on screen.
+  Future<void> setBestDuel(int streak) => _store.setBestDuel(streak);
+
+  /// Record a run of correct answers against the profile's all-time best
+  /// (`noteStreak`, `index.html:998`).
+  ///
+  /// **Cross-game and distinct from [bestDuel]**: `aw_bstreak` is the longest
+  /// run of right answers anywhere (the Profile shows it, and the badge system
+  /// will read it), while `aw_duel` is this one game's best. Power Duel happens
+  /// to feed both with the same number; Closer or Farther will feed this one
+  /// with a different tally.
+  ///
+  /// A no-op unless the streak beats the record, so a losing round costs no disk
+  /// write — the same short-circuit [awardPoints] makes.
+  Future<void> noteStreak(int streak) {
+    if (streak <= _store.bestStreak) return Future<void>.value();
+    return _store.setBestStreak(streak);
+  }
+
   /// Award [n] points and persist the new total (`addPoints`,
   /// `index.html:997`). Points only ever go up: [n] is required non-negative, so
   /// there is no path here that lowers the total (spec 05, "Points never

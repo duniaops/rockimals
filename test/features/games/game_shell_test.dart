@@ -83,6 +83,60 @@ void main() {
       );
     });
 
+    test('setBestDuel persists the streak across a restart', () async {
+      final GameActions actions = GameActions(store);
+      expect(actions.bestDuel, 0);
+
+      await actions.setBestDuel(4);
+      expect(actions.bestDuel, 4);
+
+      // The promise Power Duel's item names: force-quit and relaunch, and the
+      // BEST cell still reads 4.
+      await store.close();
+      final Store reopened = await Store.open();
+      expect(GameActions(reopened).bestDuel, 4);
+    });
+
+    test('noteStreak keeps the longest run and never lowers it', () async {
+      final GameActions actions = GameActions(store);
+
+      await actions.noteStreak(3);
+      expect(store.bestStreak, 3);
+
+      // A shorter run later must not overwrite the record
+      // (`if(s>prog.bestStreak)`, `index.html:998`) — an all-time best that
+      // falls back down is not a best.
+      await actions.noteStreak(1);
+      expect(store.bestStreak, 3);
+
+      await actions.noteStreak(5);
+      expect(store.bestStreak, 5);
+
+      await store.close();
+      final Store reopened = await Store.open();
+      expect(reopened.bestStreak, 5);
+    });
+
+    test('a streak that only ties the record costs no disk write', () async {
+      final GameActions actions = GameActions(store);
+
+      // The tie case (`>` not `>=`, `index.html:998`) is invisible through the
+      // value — writing the record back over itself leaves the same number — so
+      // the only way to see it is at the one tie where the key is still absent:
+      // a fresh box, whose record is 0. That makes this the same
+      // absence-of-a-write assertion the zero-award test makes, and for the
+      // same reason: a value check here would pass whether or not the
+      // short-circuit exists.
+      expect(store.bestStreak, 0);
+      await actions.noteStreak(0);
+
+      expect(
+        Hive.box<Object>(Store.boxName).containsKey('aw_bstreak'),
+        isFalse,
+        reason: 'a streak that beats nothing must not write to the box',
+      );
+    });
+
     test('points can never be taken away (a negative award asserts)', () {
       final GameActions actions = GameActions(store);
       expect(
@@ -362,4 +416,17 @@ class _RecordingActions implements GameActions {
 
   @override
   Future<void> awardPoints(int n) async => awarded.add(n);
+
+  // The rest of the surface exists for Power Duel and is unexercised here.
+  @override
+  int get points => 0;
+
+  @override
+  int get bestDuel => 0;
+
+  @override
+  Future<void> setBestDuel(int streak) async {}
+
+  @override
+  Future<void> noteStreak(int streak) async {}
 }

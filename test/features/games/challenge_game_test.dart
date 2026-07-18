@@ -410,6 +410,19 @@ class _RecordingActions implements GameActions {
 
   @override
   Future<void> awardPoints(int n) async => awarded.add(n);
+
+  // The rest of the surface exists for Power Duel; the challenge never calls it.
+  @override
+  int get points => 0;
+
+  @override
+  int get bestDuel => 0;
+
+  @override
+  Future<void> setBestDuel(int streak) async {}
+
+  @override
+  Future<void> noteStreak(int streak) async {}
 }
 
 /// The sound toggle with the store taken out — the hub reads it on build.
