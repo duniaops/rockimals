@@ -14,6 +14,8 @@ import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/loading/loading_screen.dart';
 import 'package:rockimals/main.dart';
 
+import 'support/memory_store.dart';
+
 void main() {
   // What `RockimalsApp` opens onto. It was the scaffold's placeholder, then the
   // task-01 debug list, then the four-tab shell; it is now the loading gate,
@@ -24,10 +26,18 @@ void main() {
   testWidgets('opens onto the loading gate', (tester) async {
     // Needs a scope: the gate watches the feed. Overridden with a
     // never-completing future rather than left to the real repository, which
-    // would build a Dio and a store to answer a question about routing.
+    // would build a Dio to answer a question about routing.
+    //
+    // **And a store, which it did not need until the badge system.** The
+    // celebration popup mounts through `MaterialApp.builder`, above the
+    // `Navigator` — it has to, since a badge is nearly always earned inside a
+    // pushed game route — so it is built in the first frame of *every* launch
+    // and reads the earned ledger there. An in-memory one, because nothing here
+    // is asking whether anything persists.
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          storeProvider.overrideWithValue(MemoryStore()),
           asteroidFeedProvider.overrideWith(
             (Ref ref) => Completer<AsteroidFeed>().future,
           ),
@@ -47,6 +57,9 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            // See the note above: the badge popup reads the store in the first
+            // frame, so mounting the app at all now needs one.
+            storeProvider.overrideWithValue(MemoryStore()),
             asteroidFeedProvider.overrideWith(
               (Ref ref) => Completer<AsteroidFeed>().future,
             ),

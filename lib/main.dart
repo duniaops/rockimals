@@ -9,6 +9,7 @@ import 'package:rockimals/core/streak/day_streak.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/loading/loading_screen.dart';
+import 'package:rockimals/features/rewards/badge_popup.dart';
 
 Future<void> main() async {
   // Explicit rather than left to `Hive.initFlutter()`, which calls it too:
@@ -99,6 +100,15 @@ class RockimalsApp extends StatelessWidget {
         // value generated from a seed nobody chose.
         scaffoldBackgroundColor: Palette.pageBackground,
       ),
+      // **The celebration popup, above the `Navigator` rather than on a
+      // screen.** `.badgePop` is `z-index:60` — over the game overlay, the
+      // detail screen, and the loading gate (`index.html:233-234,165,247`),
+      // i.e. over everything. `MaterialApp.builder` is the one place in a
+      // Flutter app with that reach: a badge is nearly always earned mid-game,
+      // and a popup mounted inside a tab would celebrate underneath the game
+      // the child is looking at. See `badge_popup.dart`.
+      builder: (BuildContext context, Widget? child) =>
+          BadgePopupHost(child: child ?? const SizedBox.shrink()),
       // "Contacting NASA…", and then the four-tab frame behind it. The gate is
       // the app's first widget for the same reason the prototype's overlay is
       // its first element (`index.html:271`): the shell is only built once
