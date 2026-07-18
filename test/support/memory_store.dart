@@ -27,6 +27,10 @@ class MemoryStore implements Store {
     this.perfect = 0,
     this.dayStreak = 0,
     this.soundOn = true,
+    // Null by default because that is the fresh-install state and the one the
+    // Calm motion resolver treats specially — "never chosen, ask the OS". A
+    // test that wants a *chosen* value has to say so.
+    this.reducedMotion,
     this.badges = const <String>[],
     this.follows = const <String>[],
   });

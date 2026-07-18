@@ -207,6 +207,206 @@ void main() {
       );
     });
   });
+
+  /// The 🐢 Calm motion toggle (`specs/08-settings-about.md:47-50`). What the
+  /// setting *does* is pinned where it does it — `radar_view_test.dart` for the
+  /// drift, `reaction_test.dart` for the hop — and what it survives is pinned in
+  /// `store_test.dart` against a real reopened box. This group owns the surface:
+  /// the row exists, it says the right words, it is big enough, it shows the
+  /// right state, and a tap reaches the store.
+  group('the 🐢 Calm motion toggle', () {
+    testWidgets('is on the Settings screen, labelled for a child', (
+      tester,
+    ) async {
+      await _openSettings(tester);
+
+      expect(find.text('Calm motion'), findsOneWidget);
+      expect(find.text('🐢'), findsOneWidget);
+      expect(find.byType(Switch), findsOneWidget);
+    });
+
+    testWidgets('never says "reduced motion" anywhere on the screen', (
+      tester,
+    ) async {
+      // `specs/08-settings-about.md:47-48` and `CLAUDE.md`'s gentle-tone rule.
+      // The phrase names the key and the OS flag and belongs in neither the
+      // label nor the hint. Asserted by sweeping every string the screen
+      // renders, so it also catches the About block's copy when that lands.
+      await _openSettings(tester);
+
+      final Iterable<String> copy = tester
+          .widgetList<Text>(
+            find.descendant(
+              of: find.byType(SettingsScreen),
+              matching: find.byType(Text),
+            ),
+          )
+          .map((Text t) => (t.data ?? '').toLowerCase());
+
+      expect(copy, isNotEmpty, reason: 'the sweep must have something to sweep');
+      for (final String line in copy) {
+        expect(line, isNot(contains('reduced motion')));
+        expect(line, isNot(contains('reduce motion')));
+      }
+    });
+
+    testWidgets('is off on a fresh install with no OS flag set', (tester) async {
+      await _openSettings(tester);
+
+      expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
+    });
+
+    testWidgets('shows on when the OS asks for it and the child never chose', (
+      tester,
+    ) async {
+      // `specs/08-settings-about.md:76` — the first-run default *is* the OS
+      // flag, and the switch has to show that rather than quietly disagreeing
+      // with the radar behind it.
+      await _openSettings(tester, osDisablesAnimations: true);
+
+      expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
+    });
+
+    testWidgets('shows the child\'s "off" even while the OS flag is on', (
+      tester,
+    ) async {
+      // `:77`, and the reason [Store.reducedMotion] keeps a third state: a
+      // stored `false` is a decision, not an absence, and it outranks the OS.
+      await _openSettings(
+        tester,
+        reducedMotion: false,
+        osDisablesAnimations: true,
+      );
+
+      expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
+    });
+
+    testWidgets('writes the child\'s choice to the store when tapped', (
+      tester,
+    ) async {
+      // The half of "persists across a restart"
+      // (`specs/08-settings-about.md:73`) that this screen owns: the value
+      // reaches the store. That the store then survives a reopen is
+      // `store_test.dart`'s question, asked there against a real Hive box —
+      // a `MemoryStore` could not answer it honestly.
+      late final Store store;
+      await _openSettings(tester, onStore: (Store s) => store = s);
+      expect(store.reducedMotion, isNull, reason: 'the premise: never chosen');
+
+      await tester.tap(find.text('Calm motion'));
+      await tester.pumpAndSettle();
+
+      expect(store.reducedMotion, isTrue);
+      expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
+    });
+
+    testWidgets('turns back off, storing a real false rather than clearing it', (
+      tester,
+    ) async {
+      // Off must be written, not erased. Were the "off" tap to reset the key to
+      // null, a child on a phone with the OS flag on could never turn Calm
+      // motion off — it would come straight back on the next build.
+      late final Store store;
+      await _openSettings(
+        tester,
+        reducedMotion: true,
+        osDisablesAnimations: true,
+        onStore: (Store s) => store = s,
+      );
+
+      await tester.tap(find.text('Calm motion'));
+      await tester.pumpAndSettle();
+
+      expect(store.reducedMotion, isFalse);
+      expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
+    });
+
+    testWidgets('takes a tap on the words, not only on the switch', (
+      tester,
+    ) async {
+      // A [Switch] is a small target at the far edge of the screen. A child
+      // aiming at the label — which is what reads as the button — would
+      // otherwise hit nothing at all.
+      late final Store store;
+      await _openSettings(tester, onStore: (Store s) => store = s);
+
+      await tester.tap(find.text('Slows the radar down and keeps the animals '
+          'calmer.'));
+      await tester.pumpAndSettle();
+
+      expect(store.reducedMotion, isTrue);
+    });
+
+    testWidgets('is at least 48dp tall, and stays so at 1.5× text', (
+      tester,
+    ) async {
+      // `specs/08-settings-about.md:82`, measured off the rendered box the same
+      // way the two targets above are.
+      await _openSettings(tester);
+      expect(
+        tester.getSize(_tappableAround(find.text('Calm motion'))).height,
+        greaterThanOrEqualTo(48),
+      );
+
+      await _openSettings(tester, textScale: 1.5);
+      expect(
+        tester.getSize(_tappableAround(find.text('Calm motion'))).height,
+        greaterThanOrEqualTo(48),
+      );
+    });
+
+    testWidgets('speaks as one control, not an emoji and a stray switch', (
+      tester,
+    ) async {
+      // A screen reader walking an emoji, two strings and an unlabelled switch
+      // never says which setting the switch belongs to.
+      await _openSettings(tester);
+
+      expect(
+        find.bySemanticsLabel(
+          'Calm motion. Slows the radar down and keeps the animals calmer.',
+        ),
+        findsOneWidget,
+      );
+    });
+  });
+}
+
+/// Opens the Settings screen from the Profile tab, the way a child does.
+///
+/// Scrolled to first, as every test in this file must: the row is the last thing
+/// on a tab taller than any phone, so a default finder looks straight past it.
+///
+/// **Both the OS flag and the text scale are set on the platform dispatcher
+/// rather than by wrapping the tree in a [MediaQuery], and that is not a style
+/// choice.** Settings is a *pushed route*: it hangs off the [Navigator], which
+/// is an ancestor of `home`, so a `MediaQuery` placed under `home` — the way
+/// [_app] sets the scale for the Profile row — is nowhere in this screen's
+/// ancestry and reaches nothing it renders. The only copy it can see is
+/// `MaterialApp`'s own `MediaQuery.fromView`, and the way to move that is to
+/// move what the view reports. An assertion written the other way passes while
+/// measuring the default.
+Future<void> _openSettings(
+  WidgetTester tester, {
+  double textScale = 1,
+  bool? reducedMotion,
+  bool osDisablesAnimations = false,
+  void Function(Store store)? onStore,
+}) async {
+  if (osDisablesAnimations) {
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+  }
+  if (textScale != 1) {
+    tester.platformDispatcher.textScaleFactorTestValue = textScale;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+  }
+
+  await tester.pumpWidget(_app(reducedMotion: reducedMotion, onStore: onStore));
+  await tester.scrollUntilVisible(find.text('Settings'), 200);
+  await tester.tap(find.text('Settings'));
+  await tester.pumpAndSettle();
 }
 
 /// Android's system back, delivered the way the platform delivers it — the
@@ -234,8 +434,19 @@ Finder _tappableAround(Finder inner) =>
 /// reason `my_space_zoo_screen_test.dart` states: this screen reads the store in
 /// its first frame, and a badge earned mid-test would otherwise reach the real
 /// engine.
-Widget _app({double textScale = 1}) {
-  final Store store = MemoryStore(points: 142, bestStreak: 7);
+Widget _app({
+  double textScale = 1,
+  /// The child's stored 🐢 Calm motion choice, or null for "never chose".
+  bool? reducedMotion,
+  /// Handed back so a test can ask what the toggle wrote.
+  void Function(Store store)? onStore,
+}) {
+  final Store store = MemoryStore(
+    points: 142,
+    bestStreak: 7,
+    reducedMotion: reducedMotion,
+  );
+  onStore?.call(store);
   final ProviderContainer container = ProviderContainer(
     overrides: [
       storeProvider.overrideWithValue(store),

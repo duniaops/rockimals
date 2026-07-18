@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rockimals/core/theme/palette.dart';
+import 'package:rockimals/features/settings/calm_motion.dart';
 
 /// The Settings screen — the app's one home for its grown-up-facing toggles and
 /// its NASA attribution (`specs/08-settings-about.md`).
@@ -11,41 +13,160 @@ import 'package:rockimals/core/theme/palette.dart';
 /// at the list that would otherwise grow; the entry point is a row at the bottom
 /// of the Profile tab, next door in `my_space_zoo_screen.dart`.
 ///
-/// **The body is deliberately empty in this commit.** This item is scoped to the
-/// entry point and the frame; the three toggles (🔊 Sound, 🐢 Calm motion, 🧸
-/// Little Kids mode) and the About block are each their own plan item and each
-/// fills the body column in turn. No "coming soon" placeholder stands in —
-/// the shell's `_TabStub` was exactly that and was deleted the moment the last
-/// tab landed, so inviting a second one back would be re-learning the same
-/// lesson. An empty grown-up screen inside an unreleased app costs a child
-/// nothing; a placeholder costs the next three items a deletion each.
+/// **The body fills one item at a time, in spec order.** 🐢 Calm motion is the
+/// first row to land; 🔊 Sound, 🧸 Little Kids mode and the About block are each
+/// their own plan item and each adds to the same column. Nothing stands in for
+/// the ones still outstanding — the shell's `_TabStub` was exactly such a
+/// placeholder and was deleted the moment the last tab landed, so inviting a
+/// second one back would be re-learning the same lesson at the same cost.
 ///
 /// Chrome is the prototype's `.obar` + `.obody` (`index.html:92-95`, `322-324`)
 /// — the flat back-bar over a scrolling body that the detail screen, the Play
 /// hub, and the game framework all wear — rather than a Material [AppBar], which
 /// would be the only Material-shaped screen in the app.
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Scaffold(
       backgroundColor: Palette.pageBackground,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          _Obar(title: 'Settings'),
+          const _Obar(title: 'Settings'),
           Expanded(
             child: SingleChildScrollView(
               // `.obody{padding:16px 16px 30px}` (`index.html:95`).
-              padding: EdgeInsets.fromLTRB(16, 16, 16, 30),
-              // The three toggles and the About block land in this column, in
-              // spec order (`specs/08-settings-about.md:45-65`). It is childless
-              // rather than holding a placeholder — see the class doc.
-              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 30),
+              // The toggles and the About block land in this column, in spec
+              // order (`specs/08-settings-about.md:45-65`) — so 🔊 Sound will
+              // insert *above* Calm motion when its item lands, not append.
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  _ToggleRow(
+                    // "🐢 Calm motion" verbatim (`specs/08-settings-about.md:47`).
+                    // The phrase "reduced motion" is the key's name and the OS
+                    // flag's name and appears nowhere a child can read it.
+                    emoji: '🐢',
+                    label: 'Calm motion',
+                    // Written for the grown-up who will actually flip this,
+                    // in the kid-safe register the whole screen keeps
+                    // (`specs/08-settings-about.md:67-69`) — it says what
+                    // changes, not what an accessibility flag is.
+                    hint: 'Slows the radar down and keeps the animals calmer.',
+                    value: calmMotionOf(context, ref),
+                    onChanged: (bool next) =>
+                        ref.read(reducedMotionProvider.notifier).choose(next),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// One settings row: an emoji, a label, a line of explanation, and a [Switch].
+///
+/// **Built now for three rows, not one.** 🔊 Sound and 🧸 Little Kids mode are
+/// the next two items and are the same row with different words — the shape is
+/// pinned by spec 08's own list (`:45-53`), so this is not a guess about what
+/// might come. What it buys is that the ≥48dp target and the semantics below get
+/// decided once instead of three times, in three diffs, by three agents.
+///
+/// **The whole row is the target, not just the switch.** A [Switch] is ~40dp of
+/// hittable box inside a 48dp one, and it sits at the far edge of the screen; a
+/// child aiming at the words would otherwise hit nothing at all. So the tap
+/// falls through to the same [onChanged], and the [Switch] itself is handed the
+/// callback too so that a *drag* across it still works.
+class _ToggleRow extends StatelessWidget {
+  const _ToggleRow({
+    required this.emoji,
+    required this.label,
+    required this.hint,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String emoji;
+  final String label;
+  final String hint;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  /// The Material/HIG minimum, and this screen's stated bar
+  /// (`specs/08-settings-about.md:82`).
+  static const double _minTarget = 48;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      toggled: value,
+      // The row speaks as one control. Without this, a screen reader walks an
+      // emoji, two strings and an unlabelled switch and never says which
+      // setting the switch belongs to.
+      label: '$label. $hint',
+      child: ExcludeSemantics(
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            onTap: () => onChanged(!value),
+            borderRadius: const BorderRadius.all(Radius.circular(14)),
+            child: Container(
+              constraints: const BoxConstraints(minHeight: _minTarget),
+              decoration: const BoxDecoration(
+                color: Palette.card,
+                borderRadius: BorderRadius.all(Radius.circular(14)),
+                border: Border.fromBorderSide(BorderSide(color: Palette.line)),
+              ),
+              padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+              child: Row(
+                children: <Widget>[
+                  Text(emoji, style: const TextStyle(fontSize: 22)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Text(
+                          label,
+                          style: const TextStyle(
+                            color: Palette.ink,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            height: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          hint,
+                          style: const TextStyle(
+                            color: Palette.muted,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            height: 1.3,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Switch(
+                    value: value,
+                    onChanged: onChanged,
+                    activeThumbColor: Palette.ink,
+                    activeTrackColor: Palette.accent,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
