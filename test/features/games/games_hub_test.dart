@@ -9,6 +9,7 @@ import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/games/games_hub.dart';
 import 'package:rockimals/features/games/games_providers.dart';
+import 'package:rockimals/features/settings/calm_motion.dart';
 
 /// The Play hub (`specs/04`, "Build the Play hub"): the four game cards with
 /// their bests, and the sound toggle that must survive a restart.
@@ -21,6 +22,7 @@ import 'package:rockimals/features/games/games_providers.dart';
 /// is a store round trip, so it is a plain `test()` against a real box (the
 /// store suite's own pattern), where `await` works.
 import '../../support/recording_sound_engine.dart';
+import '../../support/stub_settings.dart';
 
 void main() {
   /// The snapshot is provider *state*, and Riverpod asks it whether it changed.
@@ -119,6 +121,7 @@ void main() {
           overrides: [
             gamesHubStatsProvider.overrideWithValue(stats),
             soundOnProvider.overrideWith(() => _FakeSoundOn(soundOn)),
+            reducedMotionProvider.overrideWith(StubCalmMotion.new),
             // Turning the toggle on answers with a jingle; keep it off the
             // plugin. `game_sound_test.dart` asserts the blip itself.
             soundEngineProvider.overrideWithValue(RecordingSoundEngine()),

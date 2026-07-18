@@ -11,8 +11,10 @@ import 'package:rockimals/features/games/game_shell.dart';
 import 'package:rockimals/features/games/games_hub.dart';
 import 'package:rockimals/features/games/games_providers.dart';
 import 'package:rockimals/features/rewards/reaction.dart';
+import 'package:rockimals/features/settings/calm_motion.dart';
 
 import '../../support/recording_sound_engine.dart';
+import '../../support/stub_settings.dart';
 
 /// Closer or Farther end to end (`specs/04`, game 3). The deal and the
 /// comparison are pinned in `closer_pairing_test.dart`; this suite is the screen
@@ -358,6 +360,10 @@ void main() {
             ),
           ),
           soundOnProvider.overrideWith(_StubSound.new),
+          // The avatars resolve 🐢 Calm motion to time their hop, and the real
+          // notifier reads the store. Held at "never chose", so these tests
+          // measure the full-length reaction as they did before the setting.
+          reducedMotionProvider.overrideWith(StubCalmMotion.new),
         ],
         child: const MaterialApp(home: GamesHub()),
       ),
@@ -490,6 +496,7 @@ Future<void> _mount(
         // real store off the answer path. `game_sound_test.dart` owns the cues.
         soundEngineProvider.overrideWithValue(RecordingSoundEngine()),
         soundOnProvider.overrideWith(() => StubSoundOn(true)),
+        reducedMotionProvider.overrideWith(StubCalmMotion.new),
       ],
       child: MaterialApp(
         home: _ReactionSpy(onReaction: onReaction, child: const CloserGame()),

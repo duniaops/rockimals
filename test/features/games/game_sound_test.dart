@@ -23,8 +23,10 @@ import 'package:rockimals/features/games/game_shell.dart';
 import 'package:rockimals/features/games/games_hub.dart';
 import 'package:rockimals/features/games/games_providers.dart';
 import 'package:rockimals/features/rewards/sound_controller.dart';
+import 'package:rockimals/features/settings/calm_motion.dart';
 
 import '../../support/recording_sound_engine.dart';
+import '../../support/stub_settings.dart';
 
 void main() {
   group('a game answer makes the matching sound', () {
@@ -199,6 +201,7 @@ Future<ProviderContainer> _pumpShell(
     overrides: [
       soundEngineProvider.overrideWithValue(engine),
       soundOnProvider.overrideWith(() => StubSoundOn(soundOn)),
+      reducedMotionProvider.overrideWith(StubCalmMotion.new),
     ],
   );
   addTearDown(container.dispose);
@@ -238,6 +241,7 @@ Future<void> _pumpHub(
           SoundController(engine, () => true),
         ),
         soundOnProvider.overrideWith(() => _FlippingSoundOn(startOn)),
+        reducedMotionProvider.overrideWith(StubCalmMotion.new),
         gamesHubStatsProvider.overrideWithValue(
           const GamesHubStats(points: 0, bestDuel: 0, bestCloser: 0, bestSize: 0),
         ),

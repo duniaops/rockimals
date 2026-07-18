@@ -11,8 +11,10 @@ import 'package:rockimals/features/games/game_shell.dart';
 import 'package:rockimals/features/games/games_hub.dart';
 import 'package:rockimals/features/games/games_providers.dart';
 import 'package:rockimals/features/rewards/reaction.dart';
+import 'package:rockimals/features/settings/calm_motion.dart';
 
 import '../../support/recording_sound_engine.dart';
+import '../../support/stub_settings.dart';
 
 /// Today's Challenge end to end (`specs/04`, game 1). The scoring itself is
 /// pinned in `challenge_grader_test.dart` against the prototype's own output;
@@ -407,6 +409,11 @@ Future<void> _mount(
         // real store off the answer path. `game_sound_test.dart` owns the cues.
         soundEngineProvider.overrideWithValue(RecordingSoundEngine()),
         soundOnProvider.overrideWith(() => StubSoundOn(true)),
+        // The avatars resolve 🐢 Calm motion to time their hop, and the real
+        // notifier reads the store. Held at "never chose", which resolves
+        // against a `MediaQuery` that is not asking — so these tests measure the
+        // full-length reaction exactly as they did before the setting existed.
+        reducedMotionProvider.overrideWith(StubCalmMotion.new),
       ],
       child: MaterialApp(
         home: _ReactionSpy(
@@ -444,6 +451,7 @@ Future<void> _mountFromHub(
           ),
         ),
         soundOnProvider.overrideWith(_StubSound.new),
+        reducedMotionProvider.overrideWith(StubCalmMotion.new),
       ],
       child: const MaterialApp(home: _RadarStub()),
     ),

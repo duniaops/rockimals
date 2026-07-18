@@ -9,6 +9,9 @@ import 'package:rockimals/features/detail/detail_screen.dart';
 import 'package:rockimals/features/radar/radar_geometry.dart';
 import 'package:rockimals/features/radar/radar_painter.dart';
 import 'package:rockimals/features/radar/radar_view.dart';
+import 'package:rockimals/features/settings/calm_motion.dart';
+
+import '../../support/stub_settings.dart';
 
 /// The selected-animal HUD card — the panel that slides up when a child taps an
 /// animal (`radarSelect`, `index.html:715-726`).
@@ -201,6 +204,11 @@ Future<void> _mount(
         asteroidFeedProvider.overrideWith((Ref ref) => feed),
         dayStreakProvider.overrideWithValue(0),
         followsProvider.overrideWith(() => _MemFollows(followed)),
+        // The radar field resolves 🐢 Calm motion each build, and the real
+        // notifier reads the store. Held at "never chose", which resolves
+        // against a `MediaQuery` that is not asking — so the sky drifts at full
+        // speed here exactly as it did before the setting existed.
+        reducedMotionProvider.overrideWith(StubCalmMotion.new),
       ],
       child: const MaterialApp(home: RadarView()),
     ),

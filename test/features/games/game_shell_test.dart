@@ -12,6 +12,7 @@ import 'package:rockimals/core/streak/day_streak.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/games/game_shell.dart';
 import 'package:rockimals/features/games/games_providers.dart';
+import 'package:rockimals/features/settings/calm_motion.dart';
 // `Override` lives here in Riverpod 3, not in the main barrel.
 
 /// The game framework (`specs/04`, "Game framework"): the shared surface, the
@@ -26,6 +27,7 @@ import 'package:rockimals/features/games/games_providers.dart';
 /// the four real games — it is the Done-when's "a stub game routes in, awards a
 /// point, and ends through gameOver".
 import '../../support/recording_sound_engine.dart';
+import '../../support/stub_settings.dart';
 
 void main() {
   group('GameActions writes to the store (real box)', () {
@@ -508,6 +510,7 @@ void main() {
             // keep that off the audio plugin and off the real store.
             soundEngineProvider.overrideWithValue(RecordingSoundEngine()),
             soundOnProvider.overrideWith(() => StubSoundOn(true)),
+            reducedMotionProvider.overrideWith(StubCalmMotion.new),
           ],
           child: MaterialApp(
             home: _Launcher(onReaction: reactions.add),
@@ -552,6 +555,7 @@ void main() {
             // keep that off the audio plugin and off the real store.
             soundEngineProvider.overrideWithValue(RecordingSoundEngine()),
             soundOnProvider.overrideWith(() => StubSoundOn(true)),
+            reducedMotionProvider.overrideWith(StubCalmMotion.new),
           ],
           child: const MaterialApp(home: _StubGame()),
         ),
@@ -584,6 +588,7 @@ void main() {
             // keep that off the audio plugin and off the real store.
             soundEngineProvider.overrideWithValue(RecordingSoundEngine()),
             soundOnProvider.overrideWith(() => StubSoundOn(true)),
+            reducedMotionProvider.overrideWith(StubCalmMotion.new),
           ],
           child: MaterialApp(home: _Launcher(onReaction: (_) {})),
         ),

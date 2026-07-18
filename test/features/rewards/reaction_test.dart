@@ -1,6 +1,14 @@
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+// `Override` moved here in Riverpod 3; `game_shell_test.dart` needs the same
+// pair of imports.
+import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/rewards/reaction.dart';
+import 'package:rockimals/features/settings/calm_motion.dart';
+
+import '../../support/memory_store.dart';
 
 /// The reaction animations (`specs/05`, "Reactions (juice)") — the port of the
 /// prototype's `hop` and `wob` keyframes (`index.html:237-240`).
@@ -264,6 +272,98 @@ void main() {
       await tester.pumpAndSettle();
     });
   });
+
+  /// 🐢 Calm motion's half of `specs/08-settings-about.md:75` — *"reactions
+  /// shorten"*. The radar's half is pinned in `radar_view_test.dart`.
+  group('ReactionAvatar under Calm motion', () {
+    testWidgets('shortens the hop instead of removing it', (
+      WidgetTester tester,
+    ) async {
+      // **Both halves matter and the second is the one worth having.** That the
+      // hop is *shorter* is the spec line; that it still *runs* is the product
+      // judgement — a child with Calm motion on and sound off would otherwise
+      // answer correctly into nothing at all (`CLAUDE.md:70`).
+      await tester.pumpWidget(_harness(null, chosen: true));
+      await tester.pumpWidget(_harness(Reaction.happy, chosen: true));
+
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(
+        tester.hasRunningAnimations,
+        isTrue,
+        reason: 'Calm motion shortens the celebration, it does not delete it',
+      );
+
+      await tester.pump(kHappyDuration * kCalmReactionScale + _aFrame);
+      expect(tester.hasRunningAnimations, isFalse);
+    });
+
+    testWidgets('is over well before the full-length hop would have been', (
+      WidgetTester tester,
+    ) async {
+      // The crisp comparison, framed the way the two-durations test above is:
+      // at the calm length the calm hop is done and the ordinary one is not.
+      // This is what stops a future refactor from "shortening" by 5ms.
+      await tester.pumpWidget(_harness(null, chosen: true));
+      await tester.pumpWidget(_harness(Reaction.happy, chosen: true));
+      await tester.pump(kHappyDuration * kCalmReactionScale + _aFrame);
+      expect(tester.hasRunningAnimations, isFalse);
+
+      await tester.pumpWidget(_harness(null));
+      await tester.pumpWidget(_harness(Reaction.happy));
+      await tester.pump(kHappyDuration * kCalmReactionScale + _aFrame);
+      expect(tester.hasRunningAnimations, isTrue);
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('shortens the wobble too, so a wrong answer is calm as well', (
+      WidgetTester tester,
+    ) async {
+      // The sad path is the one an agent shortening durations is most likely to
+      // miss, because it is the second `case` in the switch.
+      await tester.pumpWidget(_harness(null, chosen: true));
+      await tester.pumpWidget(_harness(Reaction.sad, chosen: true));
+      await tester.pump(kSadDuration * kCalmReactionScale + _aFrame);
+      expect(tester.hasRunningAnimations, isFalse);
+    });
+
+    testWidgets('follows the OS accessibility flag when nothing was chosen', (
+      WidgetTester tester,
+    ) async {
+      // First run on a phone with "reduce motion" already on: the child never
+      // opened Settings, and the app is calm anyway
+      // (`specs/08-settings-about.md:76`).
+      await tester.pumpWidget(_harness(null, osDisablesAnimations: true));
+      await tester.pumpWidget(
+        _harness(Reaction.happy, osDisablesAnimations: true),
+      );
+
+      await tester.pump(kHappyDuration * kCalmReactionScale + _aFrame);
+      expect(tester.hasRunningAnimations, isFalse);
+    });
+
+    testWidgets('lets a deliberate "off" beat the OS flag', (
+      WidgetTester tester,
+    ) async {
+      // The other half of `:77`, and the reason [Store.reducedMotion] is a
+      // tri-state: a child who turned Calm motion *off* on a phone whose OS
+      // flag is on must get full-length motion. Collapse the null into a plain
+      // `false` and this is the test that fails.
+      await tester.pumpWidget(
+        _harness(null, chosen: false, osDisablesAnimations: true),
+      );
+      await tester.pumpWidget(
+        _harness(Reaction.happy, chosen: false, osDisablesAnimations: true),
+      );
+
+      await tester.pump(kHappyDuration * kCalmReactionScale + _aFrame);
+      expect(
+        tester.hasRunningAnimations,
+        isTrue,
+        reason: 'the child overrode the OS, so the hop runs its full length',
+      );
+      await tester.pumpAndSettle();
+    });
+  });
 }
 
 /// How far a keyframe assertion may miss by.
@@ -284,13 +384,31 @@ final Finder _avatar = find.byKey(const Key('avatar'));
 
 /// One avatar, centred, with a fixed size so its resting position is a stable
 /// thing to measure motion against.
-Widget _harness(Reaction? reaction) {
-  return Directionality(
-    textDirection: TextDirection.ltr,
-    child: Center(
-      child: ReactionAvatar(
-        reaction: reaction,
-        child: const SizedBox(key: Key('avatar'), width: 40, height: 40),
+///
+/// **The [ProviderScope] and the [MediaQuery] are both load-bearing now that
+/// Calm motion sets the duration**: the avatar resolves the setting from a
+/// provider that reads the store, and from the OS accessibility flag. Both
+/// default to "off" here, so every test above this line measures the full-length
+/// motion exactly as it did before the setting existed.
+Widget _harness(
+  Reaction? reaction, {
+  bool? chosen,
+  bool osDisablesAnimations = false,
+}) {
+  return ProviderScope(
+    overrides: <Override>[
+      storeProvider.overrideWithValue(MemoryStore(reducedMotion: chosen)),
+    ],
+    child: MediaQuery(
+      data: MediaQueryData(disableAnimations: osDisablesAnimations),
+      child: Directionality(
+        textDirection: TextDirection.ltr,
+        child: Center(
+          child: ReactionAvatar(
+            reaction: reaction,
+            child: const SizedBox(key: Key('avatar'), width: 40, height: 40),
+          ),
+        ),
       ),
     ),
   );

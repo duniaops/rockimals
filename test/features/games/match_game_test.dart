@@ -12,8 +12,10 @@ import 'package:rockimals/features/games/games_providers.dart';
 import 'package:rockimals/features/games/match_game.dart';
 import 'package:rockimals/features/games/match_round.dart';
 import 'package:rockimals/features/rewards/reaction.dart';
+import 'package:rockimals/features/settings/calm_motion.dart';
 
 import '../../support/recording_sound_engine.dart';
+import '../../support/stub_settings.dart';
 
 /// Animal Match end to end (`specs/04`, game 4). The deal is pinned in
 /// `match_round_test.dart`; this suite is the screen — answering, the 1400ms
@@ -377,6 +379,7 @@ void main() {
             ),
           ),
           soundOnProvider.overrideWith(_StubSound.new),
+          reducedMotionProvider.overrideWith(StubCalmMotion.new),
         ],
         child: const MaterialApp(home: GamesHub()),
       ),
@@ -508,6 +511,7 @@ Future<void> _mount(
         // real store off the answer path. `game_sound_test.dart` owns the cues.
         soundEngineProvider.overrideWithValue(RecordingSoundEngine()),
         soundOnProvider.overrideWith(() => StubSoundOn(true)),
+        reducedMotionProvider.overrideWith(StubCalmMotion.new),
       ],
       child: MaterialApp(
         home: _ReactionSpy(onReaction: onReaction, child: const MatchGame()),

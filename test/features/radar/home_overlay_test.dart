@@ -6,6 +6,9 @@ import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/data/models/asteroid_feed.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/radar/radar_view.dart';
+import 'package:rockimals/features/settings/calm_motion.dart';
+
+import '../../support/stub_settings.dart';
 
 /// The home overlay: the wordmark, the streak flame, and the `todayList`-based
 /// stat strip laid over the radar. `radar_view_test.dart` owns the field and
@@ -128,6 +131,11 @@ Future<void> _mount(
       overrides: [
         asteroidFeedProvider.overrideWith((Ref ref) => feed),
         dayStreakProvider.overrideWithValue(streak),
+        // The radar field resolves 🐢 Calm motion each build, and the real
+        // notifier reads the store. Held at "never chose", which resolves
+        // against a `MediaQuery` that is not asking — so the sky drifts at full
+        // speed here exactly as it did before the setting existed.
+        reducedMotionProvider.overrideWith(StubCalmMotion.new),
       ],
       child: const MaterialApp(home: RadarView()),
     ),

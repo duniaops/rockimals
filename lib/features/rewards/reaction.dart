@@ -12,6 +12,8 @@ library;
 import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rockimals/features/settings/calm_motion.dart';
 
 /// How long the happy hop runs (`.happy{animation:hop .85s ease}`,
 /// `index.html:238`).
@@ -152,7 +154,13 @@ final Animatable<double> kWobbleLift = TweenSequence<double>(
 /// The child is passed to [AnimatedBuilder] rather than rebuilt inside it, so a
 /// frame of this animation re-runs two [Transform]s and nothing else — the
 /// low-allocation shape `CLAUDE.md:80` asks for, and free here.
-class ReactionAvatar extends StatefulWidget {
+/// **🐢 Calm motion shortens the hop and the wobble** rather than removing them
+/// (`specs/08-settings-about.md:75`, which asks for exactly that word). The
+/// alternative — no reaction at all — was refused: a wrong answer's wobble is
+/// half of how this app stays encouraging (`CLAUDE.md:70`), and a child who
+/// turned Calm motion on would be answering into silence with the sound off too.
+/// A shorter hop is still a celebration.
+class ReactionAvatar extends ConsumerStatefulWidget {
   const ReactionAvatar({
     required this.reaction,
     required this.child,
@@ -174,24 +182,42 @@ class ReactionAvatar extends StatefulWidget {
   final Widget child;
 
   @override
-  State<ReactionAvatar> createState() => _ReactionAvatarState();
+  ConsumerState<ReactionAvatar> createState() => _ReactionAvatarState();
 }
 
-class _ReactionAvatarState extends State<ReactionAvatar>
+class _ReactionAvatarState extends ConsumerState<ReactionAvatar>
     with SingleTickerProviderStateMixin {
   /// One controller per avatar, as `specs/05` asks. Its duration is set at each
   /// play, because the happy and sad motions are different lengths.
   late final AnimationController _controller = AnimationController(vsync: this);
 
+  /// Whether the mount-time [_play] has happened yet. See
+  /// [didChangeDependencies].
+  bool _played = false;
+
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
     // An avatar mounted already carrying a reaction plays it. Unreachable from
     // the four games as they stand — they all mount a round unanswered — but
     // "a non-null reaction animates" should not depend on whether the element
     // happened to be reused, which is the sort of thing a later layout change
     // silently flips.
-    _play();
+    //
+    // **This was `initState` until Calm motion landed**, and it had to move:
+    // [_play] now asks [calmMotionOf] for the duration, which reads a
+    // `MediaQuery`, and an inherited-widget lookup in `initState` asserts. This
+    // is the first callback where a dependency is legal.
+    //
+    // It fires again whenever a dependency changes — including when Calm motion
+    // itself is flipped — so it is guarded to the first call. Re-playing a
+    // finished hop because the OS accessibility flag changed would make an
+    // avatar jump for no answer at all; the *next* reaction picks up the new
+    // duration, which is where a length change belongs.
+    if (!_played) {
+      _played = true;
+      _play();
+    }
   }
 
   @override
@@ -201,6 +227,11 @@ class _ReactionAvatarState extends State<ReactionAvatar>
   }
 
   void _play() {
+    // Resolved at each play, never captured — the same rule [SoundController]
+    // follows for the sound toggle. A child can flip Calm motion between one
+    // answer and the next, and the very next hop has to obey the new value.
+    final double scale = calmMotionOf(context, ref) ? kCalmReactionScale : 1.0;
+
     switch (widget.reaction) {
       case null:
         // Back to an open question: stop wherever the motion got to and sit
@@ -208,10 +239,10 @@ class _ReactionAvatarState extends State<ReactionAvatar>
         _controller.stop();
         _controller.value = 0;
       case Reaction.happy:
-        _controller.duration = kHappyDuration;
+        _controller.duration = kHappyDuration * scale;
         _controller.forward(from: 0);
       case Reaction.sad:
-        _controller.duration = kSadDuration;
+        _controller.duration = kSadDuration * scale;
         _controller.forward(from: 0);
     }
   }

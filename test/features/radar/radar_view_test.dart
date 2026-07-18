@@ -11,6 +11,9 @@ import 'package:rockimals/features/radar/radar_geometry.dart';
 import 'package:rockimals/features/radar/radar_layers.dart';
 import 'package:rockimals/features/radar/radar_painter.dart';
 import 'package:rockimals/features/radar/radar_view.dart';
+import 'package:rockimals/features/settings/calm_motion.dart';
+
+import '../../support/stub_settings.dart';
 
 /// The wiring between the sky and the canvas: which list the radar is scaled
 /// to, and that something is driving its clock.
@@ -518,6 +521,106 @@ void main() {
     });
   });
 
+  /// 🐢 Calm motion's radar half — *"the radar drifts slowly or holds still"*
+  /// (`specs/08-settings-about.md:74`). The reactions half is pinned in
+  /// `reaction_test.dart`.
+  group('Calm motion', () {
+    testWidgets('slows the drift to a fifth, without stopping it', (
+      tester,
+    ) async {
+      // **Both halves are the assertion.** Slower is the spec line; still
+      // moving is the choice [kCalmDriftScale] documents — a radar frozen at 0
+      // is indistinguishable from the pause button already on this screen.
+      await _mount(tester, _sky(<double>[3]), calmMotion: true);
+      await tester.pump(const Duration(seconds: 1));
+      final double calm = _view(tester).orbits.orbits.single.phase;
+
+      await _unmount(tester);
+      await _mount(tester, _sky(<double>[3]));
+      await tester.pump(const Duration(seconds: 1));
+      final double full = _view(tester).orbits.orbits.single.phase;
+
+      expect(calm, greaterThan(0), reason: 'a calm sky still drifts');
+      expect(calm, closeTo(full * kCalmDriftScale, full * 0.02));
+    });
+
+    testWidgets('slows the Moon and the planets by the same step, not just the '
+        'animals', (tester) async {
+      // The regression this exists for: scaling `dt` at the one call site the
+      // eye notices — `_orbits.advance` — and leaving the Moon and the backdrop
+      // at full speed, so a "calm" sky has three things moving at two speeds.
+      // Scaling the step itself is what makes that impossible; this is the test
+      // that says so.
+      await _mount(tester, _sky(<double>[3]), calmMotion: true);
+      await tester.pump(const Duration(seconds: 1));
+      final double calmMoon = _view(tester).orbits.moonPhase;
+
+      await _unmount(tester);
+      await _mount(tester, _sky(<double>[3]));
+      await tester.pump(const Duration(seconds: 1));
+      final double fullMoon = _view(tester).orbits.moonPhase;
+
+      expect(calmMoon, greaterThan(0));
+      expect(calmMoon, closeTo(fullMoon * kCalmDriftScale, fullMoon * 0.02));
+    });
+
+    testWidgets('takes hold without leaving the screen', (tester) async {
+      // The acceptance criterion in as many words: *"Toggle on Calm motion and
+      // watch the radar settle without leaving the screen"*
+      // (`specs/08-settings-about.md:86`, `:75`'s "No restart required"). The
+      // radar is never rebuilt from scratch here — the provider flips
+      // underneath a mounted field, exactly as it does when the child taps the
+      // switch on a route pushed over the top of it.
+      await _mount(tester, _sky(<double>[3]));
+      await tester.pump(const Duration(seconds: 1));
+      final double before = _view(tester).orbits.orbits.single.phase;
+
+      final ProviderContainer container = ProviderScope.containerOf(
+        tester.element(find.byType(RadarView)),
+      );
+      await container.read(reducedMotionProvider.notifier).choose(true);
+      await tester.pump();
+
+      await tester.pump(const Duration(seconds: 1));
+      final double travelled =
+          _view(tester).orbits.orbits.single.phase - before;
+      expect(
+        travelled,
+        lessThan(before * 0.5),
+        reason: 'the second second is calm, on the same mounted radar',
+      );
+      expect(travelled, greaterThan(0));
+    });
+
+    testWidgets('follows the OS accessibility flag when nothing was chosen', (
+      tester,
+    ) async {
+      // First run on a phone with "reduce motion" already on
+      // (`specs/08-settings-about.md:76`). `calmMotion` stays null — the child
+      // has never opened Settings — and the flag alone calms the sky.
+      await _mount(tester, _sky(<double>[3]));
+      // The OS flag reaches the app through `MediaQuery.fromView`, which
+      // `MaterialApp` inserts itself — so it cannot be faked by wrapping the
+      // tree in a `MediaQuery`, only by moving the platform value underneath it.
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      final double calm = _view(tester).orbits.orbits.single.phase;
+
+      await _unmount(tester);
+      await _mount(tester, _sky(<double>[3]), calmMotion: false);
+      await tester.pump(const Duration(seconds: 1));
+      final double overridden = _view(tester).orbits.orbits.single.phase;
+
+      // And the other half of `:77`: a deliberate "off" beats the OS flag,
+      // which is the whole reason the stored setting is a tri-state.
+      expect(calm, lessThan(overridden));
+      expect(calm, closeTo(overridden * kCalmDriftScale, overridden * 0.02));
+    });
+  });
+
   group('the Play button', () {
     testWidgets('opens the games hub and comes back', (tester) async {
       // The item's Done-when, whole: the CTA is on the home view, tapping it
@@ -641,7 +744,25 @@ Future<void> _pinch(
   await tester.pump();
 }
 
-Future<void> _mount(WidgetTester tester, AsteroidFeed feed) async {
+/// Tears the radar out of the tree, so the next [_mount] gets a **new**
+/// `_RadarFieldState`.
+///
+/// **Two `_mount`s in one test do not otherwise give two radars.** Flutter
+/// reuses a `State` when the widget at a position keeps its type, so a second
+/// `pumpWidget` of a `RadarView` — even under a fresh `ProviderScope` — lands on
+/// the *same* `RadarOrbits`, whose phases are accumulators and are still holding
+/// everything the first run advanced. Any test that compares one mount's drift
+/// against another's is silently measuring the sum of both without this.
+Future<void> _unmount(WidgetTester tester) =>
+    tester.pumpWidget(const SizedBox.shrink());
+
+Future<void> _mount(
+  WidgetTester tester,
+  AsteroidFeed feed, {
+  /// The child's 🐢 Calm motion choice, or null for "never chose" — the
+  /// fresh-install state every test but the Calm motion group runs on.
+  bool? calmMotion,
+}) async {
   tester.view
     ..physicalSize = const Size(390, 700)
     ..devicePixelRatio = 1;
@@ -668,6 +789,13 @@ Future<void> _mount(WidgetTester tester, AsteroidFeed feed) async {
           const GamesHubStats(points: 0, bestDuel: 0, bestCloser: 0, bestSize: 0),
         ),
         soundOnProvider.overrideWith(_SoundOn.new),
+        // The field resolves 🐢 Calm motion every build, and the real notifier
+        // reads the store. Stand the choice in front of it for the same reason
+        // as every override above — and note the *default* is null, so the
+        // resolver falls through to `MediaQuery.disableAnimations`, which is
+        // false under a plain `MaterialApp`. Every test outside the Calm motion
+        // group therefore measures full-speed drift exactly as before.
+        reducedMotionProvider.overrideWith(() => StubCalmMotion(calmMotion)),
       ],
       child: const MaterialApp(home: RadarView()),
     ),
@@ -760,6 +888,7 @@ class _SoundOn extends SoundOnNotifier {
   @override
   bool build() => true;
 }
+
 
 /// Nothing but `missLunar` reaches the radar's base layer, so the rest is
 /// plausible filler rather than a real capture.

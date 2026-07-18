@@ -17,6 +17,7 @@ import 'package:rockimals/features/radar/radar_geometry.dart';
 import 'package:rockimals/features/radar/radar_layers.dart';
 import 'package:rockimals/features/radar/radar_orbits.dart';
 import 'package:rockimals/features/radar/radar_painter.dart';
+import 'package:rockimals/features/settings/calm_motion.dart';
 
 /// The live approach radar — Earth, the rings around it, the Moon, and the
 /// animals orbiting on them.
@@ -113,8 +114,16 @@ class _RadarFieldState extends ConsumerState<_RadarField>
   /// `ts`, because "paused" means the sky has stopped *going* anywhere, not that
   /// the app has frozen. Stepping [_frame] even while paused is what stops the
   /// frame play is pressed on from being a clamped 50ms lurch (see [FrameClock]).
+  ///
+  /// **Calm motion scales the step, not the loop** (`specs/08-settings-about.md:74`).
+  /// One multiplication on `dt` reaches the animals, the Moon and the planets'
+  /// drift at once, because all three are integrators fed from this single step
+  /// — the same property that makes pausing "stop calling advance". Slowing them
+  /// anywhere else would mean three constants to keep in agreement, and the Moon
+  /// would be the one that got forgotten.
   late final Ticker _ticker = createTicker((Duration elapsed) {
-    final double dt = _frame.step(elapsed);
+    final double dt =
+        _frame.step(elapsed) * (_calmMotion ? kCalmDriftScale : 1.0);
     if (_playing) {
       _orbits.advance(dt);
 
@@ -180,6 +189,22 @@ class _RadarFieldState extends ConsumerState<_RadarField>
   /// radar keeps drawing and keeps breathing (see the ticker below), it just
   /// stops orbiting. Starts true; the play/pause button flips it.
   bool _playing = true;
+
+  /// Whether 🐢 Calm motion is on, as of the last [build].
+  ///
+  /// **A mirrored field rather than a read inside the ticker**, which is the one
+  /// thing here worth justifying. The resolved setting is a function of a
+  /// provider *and* a `MediaQuery` ([calmMotionOf]), and a `Ticker` callback is
+  /// not a build — it has no business depending on an [InheritedWidget], and
+  /// asking for one sixty times a second to get an answer that changes twice a
+  /// year would be paying a lookup for a constant. So [build] — which already
+  /// depends on both halves, and so already re-runs the instant either changes —
+  /// leaves the answer here for the next frame to read.
+  ///
+  /// The one-frame lag that implies is the correct amount of wrong: the child
+  /// taps the switch on the Settings screen, and the radar behind it is calm
+  /// before it is ever shown again.
+  bool _calmMotion = false;
 
   // ── Pointer bookkeeping — `Radar.pointers`, `dragAng`, `pinchDist`, `moved`,
   // `downT`, `downXY` (`index.html:627`).
@@ -439,6 +464,12 @@ class _RadarFieldState extends ConsumerState<_RadarField>
 
   @override
   Widget build(BuildContext context) {
+    // Both halves of the setting are dependencies of this build, so a flip of
+    // either the child's switch or the OS flag rebuilds and the next frame is
+    // already calm — "no restart required" (`specs/08-settings-about.md:75`).
+    // See [_calmMotion] for why the ticker reads a field instead of this call.
+    _calmMotion = calmMotionOf(context, ref);
+
     // **Show-on-radar's radar half** (`specs/03-meet-animal.md:23`). The detail
     // screen publishes a focus request; this selects the animal and re-centres
     // the field ([_focusOnRadar]). Listened here rather than in [RadarView]
