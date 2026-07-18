@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/features/games/games_providers.dart';
+import 'package:rockimals/features/settings/about_block.dart';
 import 'package:rockimals/features/settings/calm_motion.dart';
 
 /// The Settings screen — the app's one home for its grown-up-facing toggles and
@@ -15,11 +16,16 @@ import 'package:rockimals/features/settings/calm_motion.dart';
 /// of the Profile tab, next door in `my_space_zoo_screen.dart`.
 ///
 /// **The body fills one item at a time, in spec order.** 🐢 Calm motion landed
-/// first and 🔊 Sound sits above it now; 🧸 Little Kids mode and the About block
-/// are each their own plan item and each adds to the same column. Nothing stands
-/// in for the ones still outstanding — the shell's `_TabStub` was exactly such a
-/// placeholder and was deleted the moment the last tab landed, so inviting a
-/// second one back would be re-learning the same lesson at the same cost.
+/// first, then 🔊 Sound above it, and now the [AboutBlock] at the foot. 🧸
+/// Little Kids mode is the last outstanding item and inserts *between* them,
+/// below Calm motion, per spec 08's own list (`:45-53`). Nothing stands in for
+/// it — the shell's `_TabStub` was exactly such a placeholder and was deleted
+/// the moment the last tab landed, so inviting a second one back would be
+/// re-learning the same lesson at the same cost.
+///
+/// **Nothing on this screen may be an outbound link** (`:64-65`); the rule and
+/// the tests that hold it live on [AboutBlock], which is where the only text a
+/// link would plausibly attach to sits.
 ///
 /// Chrome is the prototype's `.obar` + `.obody` (`index.html:92-95`, `322-324`)
 /// — the flat back-bar over a scrolling body that the detail screen, the Play
@@ -86,6 +92,11 @@ class SettingsScreen extends ConsumerWidget {
                     onChanged: (bool next) =>
                         ref.read(reducedMotionProvider.notifier).choose(next),
                   ),
+                  // A wider gap than the 10px between stacked rows: this is a
+                  // change of subject, from switches a grown-up flips to
+                  // statements they read.
+                  const SizedBox(height: 22),
+                  const AboutBlock(),
                 ],
               ),
             ),
