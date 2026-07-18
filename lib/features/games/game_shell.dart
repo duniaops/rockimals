@@ -29,6 +29,7 @@ import 'package:rockimals/core/streak/day_streak.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/games/games_providers.dart';
+import 'package:rockimals/features/rewards/badge_controller.dart';
 import 'package:rockimals/features/rewards/sound_controller.dart';
 
 /// Every store write a game makes as it plays: it counts the play
@@ -62,13 +63,14 @@ import 'package:rockimals/features/rewards/sound_controller.dart';
 /// failure — which reverts the keystore in the same place — could make the
 /// refreshed snapshot a lie.
 ///
-/// **`checkBadges()` is deliberately still not called.** The prototype's
-/// `markPlayed`/`addPoints` both end in `checkBadges()` (`index.html:997,999`),
-/// but the badge system does not exist (`specs/05`, "Build the badge system").
-/// Rather than half-build it here, this leaves the seam to that item, which will
-/// run a badge check after these writes land — every badge condition it cares
-/// about (Lift Off is `played > 0`, the points badges read the total) is already
-/// persisted by the time it does.
+/// **[_onProgressChanged] is `checkBadges()`** (`index.html:997-999`), and it
+/// fires after every write that can move a badge condition: the play count (Lift
+/// Off), the points total (the five tiers), the best streak (On Fire), and a
+/// perfect run (Perfect Match). It is a callback rather than a direct call for
+/// the reason the other two are — this class stays a store-writer that knows
+/// nothing about who is listening. The ninth badge, Zoo Keeper, is earned by
+/// following an animal and never passes through here; `BadgeController` watches
+/// the follow set itself.
 ///
 /// **[markPlayed] is also where a game touches the home flame**, and the trigger
 /// question decision 14 left open is settled in that method's doc: opening the
@@ -79,7 +81,8 @@ class GameActions {
   const GameActions(
     this._store,
     this._onStatsChanged,
-    this._onDayStreakChanged, {
+    this._onDayStreakChanged,
+    this._onProgressChanged, {
     DateTime Function() now = DateTime.now,
     // An initializing formal cannot be private *and* named, and the two call
     // sites read far better as `now:` than as a fourth positional argument.
@@ -95,6 +98,16 @@ class GameActions {
   /// Called only when [markPlayed] actually *moved* the consecutive-days-played
   /// streak, so the home flame re-reads it. See [markPlayed].
   final void Function() _onDayStreakChanged;
+
+  /// Called after a write that can earn a badge — the port of the trailing
+  /// `checkBadges()` on the prototype's `addPoints`, `noteStreak`, and
+  /// `markPlayed` (`index.html:997-999`). See the class doc.
+  ///
+  /// **Only after a write that actually landed**, which is why it is not folded
+  /// into [_refreshingWrite]: the three game bests go through that helper and
+  /// no badge reads them, so checking there would ask nine conditions on every
+  /// new personal best for nothing.
+  final void Function() _onProgressChanged;
 
   /// Today, injectable so a test can play a game "tomorrow" without waiting a
   /// day. Production passes nothing and gets [DateTime.now].
@@ -127,6 +140,9 @@ class GameActions {
   /// across midnight, where the child plays on a day `bootstrap()` never saw.
   Future<void> markPlayed() async {
     await _store.setPlayed(_store.played + 1);
+    // Lift Off (`played > 0`) — the first badge a child can earn, and the only
+    // one that fires before they have answered anything.
+    _onProgressChanged();
     final int before = _store.dayStreak;
     final int after = await DayStreak.record(_store, _now());
     // Only on a real move: a same-day replay must not repaint the flame, for the
@@ -179,7 +195,15 @@ class GameActions {
   /// — it is a read-modify-write with no display half, the same shape as
   /// [markPlayed], and a game that had to fetch the tally only to add one to it
   /// would be handling a number it never shows.
-  Future<void> notePerfectRun() => _store.setPerfect(_store.perfect + 1);
+  Future<void> notePerfectRun() {
+    final Future<void> write = _store.setPerfect(_store.perfect + 1);
+    // Perfect Match, celebrated on the run that earned it. The prototype checks
+    // nothing here (`index.html:1092`), so its ⭐ waits for the *next* points
+    // award or the Profile — a badge that arrives detached from the 8/8 that won
+    // it. Spec 05 asks for the popup on the unlock.
+    _onProgressChanged();
+    return write;
+  }
 
   /// Record a run of correct answers against the profile's all-time best
   /// (`noteStreak`, `index.html:998`).
@@ -196,7 +220,11 @@ class GameActions {
   /// write — the same short-circuit [awardPoints] makes.
   Future<void> noteStreak(int streak) {
     if (streak <= _store.bestStreak) return Future<void>.value();
-    return _store.setBestStreak(streak);
+    final Future<void> write = _store.setBestStreak(streak);
+    // On Fire (`bestStreak >= 5`) — reached only on a write, so a losing round
+    // asks nothing (`noteStreak`, `index.html:998`).
+    _onProgressChanged();
+    return write;
   }
 
   /// Award [n] points and persist the new total (`addPoints`,
@@ -209,7 +237,13 @@ class GameActions {
     // not cost a disk write for nothing — nor a hub repaint, since the total
     // it shows has not moved.
     if (n <= 0) return Future<void>.value();
-    return _refreshingWrite(_store.setPoints(_store.points + n));
+    final Future<void> write = _refreshingWrite(
+      _store.setPoints(_store.points + n),
+    );
+    // The five point tiers. After the write, so the check reads the new total —
+    // the same synchronous-keystore guarantee `_refreshingWrite` rests on.
+    _onProgressChanged();
+    return write;
   }
 
   /// Tell the Play hub its snapshot is stale, then hand back [write] unchanged.
@@ -244,6 +278,10 @@ final Provider<GameActions> gameActionsProvider = Provider<GameActions>(
     // And the same trick for the home flame — `dayStreakProvider` memoises its
     // read of the store exactly as the hub's snapshot did.
     () => ref.invalidate(dayStreakProvider),
+    // `checkBadges()` (`index.html:997-999`). A `read` of the notifier rather
+    // than a `watch` of the provider: this must not rebuild `GameActions` — and
+    // therefore hand every game a new one mid-run — each time a badge is earned.
+    () => ref.read(badgesProvider.notifier).check(),
     now: ref.watch(gameClockProvider),
   ),
   name: 'gameActions',

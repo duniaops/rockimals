@@ -33,13 +33,19 @@ void main() {
     late Store store;
     late List<int> refreshedAt;
     late List<int> flameRefreshedAt;
+
+    /// The points total at each `checkBadges()` — the badge system's seam. What
+    /// it pins is that a badge check follows every write that can earn one, and
+    /// *only* those: the three per-game bests must not trigger it.
+    late List<int> badgeChecks;
     late DateTime today;
 
-    /// A [GameActions] whose two "your snapshot is stale" callbacks record the
-    /// number they were told about — the points total for the Play hub, the day
-    /// streak for the home flame. The lists are the assertion surface for
-    /// *which* writes are live: a write that must repaint a surface appends, one
-    /// that must not stays silent.
+    /// A [GameActions] whose three "your snapshot is stale" callbacks record
+    /// what they were told about — the points total for the Play hub, the day
+    /// streak for the home flame, and the badge check. The lists are the
+    /// assertion surface for *which* writes are live: a write that must repaint
+    /// a surface (or ask the badge system a question) appends, one that must not
+    /// stays silent.
     ///
     /// The clock is [today], a mutable field rather than `DateTime.now`, so a
     /// test can play a game "tomorrow" without waiting a day.
@@ -47,6 +53,7 @@ void main() {
       s,
       () => refreshedAt.add(s.points),
       () => flameRefreshedAt.add(s.dayStreak),
+      () => badgeChecks.add(s.points),
       now: () => today,
     );
 
@@ -56,6 +63,7 @@ void main() {
       store = await Store.open();
       refreshedAt = <int>[];
       flameRefreshedAt = <int>[];
+      badgeChecks = <int>[];
       today = DateTime(2026, 7, 18);
     });
 
@@ -232,6 +240,57 @@ void main() {
         await actions.awardPoints(0);
 
         expect(refreshedAt, isEmpty);
+      });
+    });
+
+    /// Which writes ask the badge system a question — the port of the trailing
+    /// `checkBadges()` on the prototype's `addPoints`, `noteStreak`, and
+    /// `markPlayed` (`index.html:997-999`).
+    ///
+    /// **Exact in both directions, and the two failures are not symmetrical.**
+    /// A missing check is a badge that never pops — the child earned something
+    /// and the app said nothing, and nothing anywhere reports it. A spurious one
+    /// is nine cheap comparisons that find nothing. So the "must" list is the
+    /// one that matters, and the "must not" list is here to keep the check on
+    /// the four writes that can actually earn something rather than on every
+    /// write there is.
+    group('asking the badge system whether something was earned', () {
+      test('every write that can earn a badge asks', () async {
+        final GameActions actions = actionsOn(store);
+
+        await actions.markPlayed(); // Lift Off
+        await actions.awardPoints(10); // the five point tiers
+        await actions.noteStreak(5); // On Fire
+        await actions.notePerfectRun(); // Perfect Match
+
+        expect(badgeChecks, hasLength(4));
+      });
+
+      test('the points check sees the new total, not the old one', () async {
+        // The ordering the whole badge system rests on: crossing 50 points must
+        // pop Mouse Scout on *that* answer. A check that ran before the write
+        // landed would read 40 here and defer every tier by one answer.
+        await store.setPoints(40);
+        final GameActions actions = actionsOn(store);
+
+        await actions.awardPoints(10);
+
+        expect(badgeChecks, <int>[50]);
+      });
+
+      test('a write that can earn nothing does not ask', () async {
+        final GameActions actions = actionsOn(store);
+
+        // The three per-game bests: no badge reads any of them.
+        await actions.setBestDuel(3);
+        await actions.setBestCloser(2);
+        await actions.setBestSize(8);
+        // A zero award moves no total, so there is nothing new to check.
+        await actions.awardPoints(0);
+        // And a streak that is not a record writes nothing at all.
+        await actions.noteStreak(0);
+
+        expect(badgeChecks, isEmpty);
       });
     });
 
