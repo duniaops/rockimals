@@ -7,6 +7,7 @@ import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/data/models/asteroid_feed.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/games/games_providers.dart';
+import 'package:rockimals/features/radar/radar_capacity.dart';
 import 'package:rockimals/features/radar/radar_geometry.dart';
 import 'package:rockimals/features/radar/radar_layers.dart';
 import 'package:rockimals/features/radar/radar_painter.dart';
@@ -44,6 +45,40 @@ void main() {
       hasLength(5),
       reason: 'maxLd 42 reaches 1×, 2×, 5×, 10× and 20×',
     );
+  });
+
+  testWidgets('caps an unusually busy day, and scales itself to what it drew', (
+    tester,
+  ) async {
+    // `specs/06-title-polish-safety.md:39`. Two hundred animals is not a real
+    // NeoWs day, it is the synthetic one the plan item names — every animal on
+    // the field costs a fresh radial shader per frame, so the count is the
+    // frame budget.
+    //
+    // Asserted on the seeded orbits rather than on the pixels because that one
+    // list is what the painter draws *and* what the hit test walks
+    // (`RadarOrbits.visible`), so proving it is sixty proves both. The frame
+    // rate itself still needs the device the plan's human-gated item is about,
+    // and is not claimed here.
+    await _mount(tester, _busySky(200));
+
+    final RadarPainter painter = _view(tester);
+    expect(painter.orbits.orbits, hasLength(kMaxRadarAnimals));
+
+    // **And the field is scaled to the sixty it kept, not the two hundred it
+    // was handed.** `maxLdFor` runs on the capped list, so the outer ring is
+    // the outermost *drawn* animal's. Scaling to the full sky would leave the
+    // rings sized for animals that are not on the screen — the same class of
+    // wrongness as scaling to `todayList` above, and just as invisible.
+    expect(painter.maxLd, RadarGeometry.maxLdFor(_busySky(200).asteroids.take(kMaxRadarAnimals).toList()));
+  });
+
+  testWidgets('leaves an ordinary day uncapped', (tester) async {
+    // The contrast that keeps the test above honest: the cap must not be
+    // trimming skies that were never busy.
+    await _mount(tester, _busySky(12));
+
+    expect(_view(tester).orbits.orbits, hasLength(12));
   });
 
   testWidgets('keeps drawing after the first frame', (tester) async {
@@ -887,6 +922,20 @@ AsteroidFeed _skyWhereTodayIsCloser() {
   return AsteroidFeed(
     asteroids: <Asteroid>[...today, ..._rocks(<double>[40])],
     todayList: today,
+    feedRange: '2026-07-15 → 2026-07-17',
+    provenance: FeedProvenance.today,
+  );
+}
+
+/// A sky of [count] animals spread across the whole field — the busy day the
+/// cap exists for, and at small counts an ordinary one.
+AsteroidFeed _busySky(int count) {
+  final List<Asteroid> rocks = _rocks(<double>[
+    for (int i = 0; i < count; i++) 0.2 + i * 0.5,
+  ]);
+  return AsteroidFeed(
+    asteroids: rocks,
+    todayList: rocks.take(4).toList(),
     feedRange: '2026-07-15 → 2026-07-17',
     provenance: FeedProvenance.today,
   );

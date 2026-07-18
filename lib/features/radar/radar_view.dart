@@ -12,6 +12,7 @@ import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/detail/detail_screen.dart';
 import 'package:rockimals/features/games/games_hub.dart';
 import 'package:rockimals/features/radar/planet_backdrop.dart';
+import 'package:rockimals/features/radar/radar_capacity.dart';
 import 'package:rockimals/features/radar/radar_clock.dart';
 import 'package:rockimals/features/radar/radar_focus.dart';
 import 'package:rockimals/features/radar/radar_geometry.dart';
@@ -31,6 +32,11 @@ import 'package:rockimals/features/settings/calm_motion.dart';
 /// sky. Feeding it `todayList` would quietly re-scale the field to a handful of
 /// the animals it is drawing.
 ///
+/// **The one thing trimmed off that list is the busy-day cap**
+/// ([capRadarAnimals]) — a frame-budget guard that does nothing on an ordinary
+/// day and is the radar's alone; every list surface still shows the whole
+/// window.
+///
 /// [asteroidsProvider] is read with `requireValue` because this only ever
 /// builds behind the loading gate, which is the licence that gate exists to
 /// grant (`lib/features/loading/loading_screen.dart`). That licence is now
@@ -45,7 +51,13 @@ class RadarView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final List<Asteroid> asteroids = ref.watch(asteroidsProvider).requireValue;
+    // Capped before anything else reads it, so the geometry, the seeds, the
+    // painter and the hit test all agree on one list — an animal drawn but not
+    // tappable, or scaled for but not drawn, would be worse than one left off
+    // (`radar_capacity.dart`).
+    final List<Asteroid> asteroids = capRadarAnimals(
+      ref.watch(asteroidsProvider).requireValue,
+    );
 
     // Sized and seeded once per load rather than per frame, matching the
     // prototype: `MAXLD` and `Radar.seeds` are both set in `homeInit()`
