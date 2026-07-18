@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:rockimals/core/animals/animal_system.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/data/models/asteroid.dart';
+import 'package:rockimals/features/detail/detail_panel.dart';
 
 /// The detail screen's **size-comparison module** (`index.html:542-590`) — the
 /// "How big is it?" panel that stands the asteroid next to a familiar object
@@ -106,116 +107,70 @@ class SizeComparison extends StatelessWidget {
     final double ratio = asteroid.diaMax / ref.meters;
     final String ratioStr = ratio.toStringAsFixed(ratio < 10 ? 1 : 0);
 
-    return DecoratedBox(
-      // `.panel` — `background:var(--card);border:1px solid var(--line);
-      // border-radius:16px;padding:14px` (`index.html:105`).
-      decoration: const BoxDecoration(
-        color: Palette.card,
-        borderRadius: BorderRadius.all(Radius.circular(16)),
-        border: Border.fromBorderSide(BorderSide(color: Palette.line)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            // `<h4>How big is it? — ${sizeLabel(a.diaMax)}</h4>` (`index.html:583`).
-            _PanelHeader(text: 'How big is it? — ${sizeLabel(asteroid.diaMax)}'),
-            // `.panel h4{margin-bottom:10px}` (`index.html:106`).
-            const SizedBox(height: 10),
-            // `.cmp{align-items:flex-end;justify-content:center;gap:20px;
-            // min-height:120px}` (`index.html:109`) — the two columns share a
-            // bottom edge, so the bigger shape rises higher.
-            ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 120),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: <Widget>[
-                  // The asteroid: a grey disc (`.cmp .ast .shape`,
-                  // `index.html:112`).
-                  _ComparisonObject(
-                    shape: Container(
-                      width: astW,
-                      height: astW,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: RadialGradient(
-                          center: Alignment(-0.3, -0.4),
-                          radius: 0.9,
-                          colors: <Color>[_astLight, _astDark],
-                        ),
-                      ),
+    return DetailPanel(
+      // `<h4>How big is it? — ${sizeLabel(a.diaMax)}</h4>` (`index.html:583`).
+      heading: 'How big is it? — ${sizeLabel(asteroid.diaMax)}',
+      children: <Widget>[
+        // `.cmp{align-items:flex-end;justify-content:center;gap:20px;
+        // min-height:120px}` (`index.html:109`) — the two columns share a
+        // bottom edge, so the bigger shape rises higher.
+        ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 120),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: <Widget>[
+              // The asteroid: a grey disc (`.cmp .ast .shape`,
+              // `index.html:112`).
+              _ComparisonObject(
+                shape: Container(
+                  width: astW,
+                  height: astW,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      center: Alignment(-0.3, -0.4),
+                      radius: 0.9,
+                      colors: <Color>[_astLight, _astDark],
                     ),
-                    boldCaption: '${asteroid.diaMax.round()} m',
-                    subCaption: 'this asteroid',
                   ),
-                  const SizedBox(width: 20),
-                  // The reference: a grey slab (`.cmp .shape`, `index.html:111`).
-                  _ComparisonObject(
-                    shape: Container(
-                      width: refW,
-                      height: refH,
-                      decoration: const BoxDecoration(
-                        borderRadius: BorderRadius.all(Radius.circular(6)),
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: <Color>[_refLight, _refDark],
-                        ),
-                      ),
+                ),
+                boldCaption: '${asteroid.diaMax.round()} m',
+                subCaption: 'this asteroid',
+              ),
+              const SizedBox(width: 20),
+              // The reference: a grey slab (`.cmp .shape`, `index.html:111`).
+              _ComparisonObject(
+                shape: Container(
+                  width: refW,
+                  height: refH,
+                  decoration: const BoxDecoration(
+                    borderRadius: BorderRadius.all(Radius.circular(6)),
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: <Color>[_refLight, _refDark],
                     ),
-                    boldCaption: '${ref.emoji} ${ref.title}',
-                    subCaption: '${_refMeters(ref.meters)} m',
                   ),
-                ],
+                ),
+                boldCaption: '${ref.emoji} ${ref.title}',
+                subCaption: '${_refMeters(ref.meters)} m',
               ),
-            ),
-            // The ratio line — `margin-top:8px`, muted, centred (`index.html:588`).
-            const SizedBox(height: 8),
-            Text(
-              '≈ $ratioStr× the ${ref.title.toLowerCase()}',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Palette.muted,
-                fontSize: 12,
-                height: 1.3,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// The uppercase muted panel title (`.panel h4`, `index.html:106`).
-///
-/// Same `text-transform:uppercase` treatment the stat tiles use: the glyphs show
-/// caps, but the [Semantics] label stays natural case so a screen reader says
-/// "How big is it? — car-sized", not the spelled-out letters.
-class _PanelHeader extends StatelessWidget {
-  const _PanelHeader({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      header: true,
-      label: text,
-      child: ExcludeSemantics(
-        child: Text(
-          text.toUpperCase(),
-          style: const TextStyle(
-            color: Palette.muted,
-            fontSize: 13,
-            letterSpacing: 0.5,
-            fontWeight: FontWeight.w700,
-            height: 1.2,
+            ],
           ),
         ),
-      ),
+        // The ratio line — `margin-top:8px`, muted, centred (`index.html:588`).
+        const SizedBox(height: 8),
+        Text(
+          '≈ $ratioStr× the ${ref.title.toLowerCase()}',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Palette.muted,
+            fontSize: 12,
+            height: 1.3,
+          ),
+        ),
+      ],
     );
   }
 }

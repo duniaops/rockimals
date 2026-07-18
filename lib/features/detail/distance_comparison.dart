@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:rockimals/core/animals/animal_system.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/data/models/asteroid.dart';
+import 'package:rockimals/features/detail/detail_panel.dart';
 
 /// The detail screen's **distance-comparison track** (`index.html:564-566,
 /// 590-602`) — the "How close does it pass?" panel that lays Earth, the Moon, and
@@ -95,32 +96,12 @@ class DistanceComparison extends StatelessWidget {
     // tile above it.
     final String astLabel = distLabel(asteroid.missLunar);
 
-    return DecoratedBox(
-      // `.panel` — `background:var(--card);border:1px solid var(--line);
-      // border-radius:16px;padding:14px` (`index.html:105`).
-      decoration: const BoxDecoration(
-        color: Palette.card,
-        borderRadius: BorderRadius.all(Radius.circular(16)),
-        border: Border.fromBorderSide(BorderSide(color: Palette.line)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            // `<h4>How close does it pass? — ${moonCompare(a.missLunar)}</h4>`
-            // (`index.html:591`). Announces its own natural-case label, as the
-            // size panel's header does.
-            _PanelHeader(
-              text: 'How close does it pass? — '
-                  '${moonCompare(asteroid.missLunar)}',
-            ),
-            // `.panel h4{margin-bottom:10px}` (`index.html:106`).
-            const SizedBox(height: 10),
-            _Track(positions: track, astLabel: astLabel),
-          ],
-        ),
-      ),
+    return DetailPanel(
+      // `<h4>How close does it pass? — ${moonCompare(a.missLunar)}</h4>`
+      // (`index.html:591`). Announces its own natural-case label, as the
+      // size panel's header does.
+      heading: 'How close does it pass? — ${moonCompare(asteroid.missLunar)}',
+      children: <Widget>[_Track(positions: track, astLabel: astLabel)],
     );
   }
 }
@@ -306,36 +287,3 @@ class _Track extends StatelessWidget {
   }
 }
 
-/// The uppercase muted panel title (`.panel h4`, `index.html:106`).
-///
-/// A local twin of the `_PanelHeader` in `size_comparison.dart`: now that a
-/// second `.panel` wears the same header, the shared shell is worth extracting —
-/// tracked as its own plan item (the same way `FlybyBadge` was extracted only
-/// once the detail became its second caller), so this stays a faithful clone
-/// until then. Same `text-transform:uppercase` treatment: caps on screen, the
-/// [Semantics] label kept natural-case above.
-class _PanelHeader extends StatelessWidget {
-  const _PanelHeader({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      header: true,
-      label: text,
-      child: ExcludeSemantics(
-        child: Text(
-          text.toUpperCase(),
-          style: const TextStyle(
-            color: Palette.muted,
-            fontSize: 13,
-            letterSpacing: 0.5,
-            fontWeight: FontWeight.w700,
-            height: 1.2,
-          ),
-        ),
-      ),
-    );
-  }
-}

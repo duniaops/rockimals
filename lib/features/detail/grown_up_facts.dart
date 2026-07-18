@@ -3,6 +3,7 @@ import 'package:rockimals/core/a11y/tap_target.dart';
 import 'package:rockimals/core/safety/parent_gate.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/data/models/asteroid.dart';
+import 'package:rockimals/features/detail/detail_panel.dart';
 
 /// The grown-up facts panel (`.panel`, `index.html:608-612`) — the **only**
 /// place the real NASA designation and the external NASA/JPL link appear
@@ -62,55 +63,48 @@ class GrownUpFacts extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      // `.panel{background:var(--card);border:1px solid var(--line);
-      // border-radius:16px;padding:14px}` (`index.html:105`), `text-align:center`
-      // (`index.html:608`).
-      padding: const EdgeInsets.all(14),
-      decoration: const BoxDecoration(
-        color: Palette.card,
-        borderRadius: BorderRadius.all(Radius.circular(16)),
-        border: Border.fromBorderSide(BorderSide(color: Palette.line)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          // `🔭 Grown-up fact — its real space name is` — `font-size:12px;
-          // color:var(--muted)` (`index.html:609`).
-          const Text(
-            '🔭 Grown-up fact — its real space name is',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Palette.muted, fontSize: 12, height: 1.3),
+    // The `.panel` shell (`index.html:105`) comes from [DetailPanel]; this is
+    // the one panel on the screen the prototype gives **no** `h4`
+    // (`index.html:608`) — its own first line is the introduction — so it
+    // passes no heading. `text-align:center` (`index.html:608`) stays here,
+    // per-line, because it is this panel's alone.
+    return DetailPanel(
+      children: <Widget>[
+        // `🔭 Grown-up fact — its real space name is` — `font-size:12px;
+        // color:var(--muted)` (`index.html:609`).
+        const Text(
+          '🔭 Grown-up fact — its real space name is',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Palette.muted, fontSize: 12, height: 1.3),
+        ),
+        // The real designation, verbatim — `font-weight:800;font-size:15px;
+        // margin:3px 0 6px` (`index.html:610`).
+        const SizedBox(height: 3),
+        Text(
+          asteroid.name,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Palette.ink,
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            height: 1.2,
           ),
-          // The real designation, verbatim — `font-weight:800;font-size:15px;
-          // margin:3px 0 6px` (`index.html:610`).
-          const SizedBox(height: 3),
-          Text(
-            asteroid.name,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Palette.ink,
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              height: 1.2,
+        ),
+        // No link at all when the URL is not openable, rather than a link
+        // that swallows the tap. A grown-up who taps and gets nothing has no
+        // way to tell that from a broken app.
+        if (_jplUri case final Uri url) ...<Widget>[
+          const SizedBox(height: 6),
+          _JplLink(
+            onTap: () => openExternalLink(
+              context,
+              url,
+              launcher: launcher,
+              challenge: challenge,
             ),
           ),
-          // No link at all when the URL is not openable, rather than a link
-          // that swallows the tap. A grown-up who taps and gets nothing has no
-          // way to tell that from a broken app.
-          if (_jplUri case final Uri url) ...<Widget>[
-            const SizedBox(height: 6),
-            _JplLink(
-              onTap: () => openExternalLink(
-                context,
-                url,
-                launcher: launcher,
-                challenge: challenge,
-              ),
-            ),
-          ],
         ],
-      ),
+      ],
     );
   }
 }
