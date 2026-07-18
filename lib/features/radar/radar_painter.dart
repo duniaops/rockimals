@@ -71,7 +71,8 @@ class RadarPainter extends CustomPainter {
   final double viewRot;
 
   /// The animal a child has tapped, if any (`Radar.selected`,
-  /// `index.html:624`) — it wears a white ring that breathes and says its name.
+  /// `index.html:624`) — it wears a white ring that breathes, a caret pointing
+  /// up at it from below, and says its name.
   final Asteroid? selected;
 
   /// Which of the five toggle layers are on (`Radar.showHaz`/`showLabels`/
@@ -314,10 +315,12 @@ class RadarPainter extends CustomPainter {
       canvas.drawCircle(at, chip, stroke);
 
       if (isSelected) {
+        final double halo = chip + 3 + pulse * 3;
         stroke
           ..strokeWidth = 2.5
           ..color = _selectedRing;
-        canvas.drawCircle(at, chip + 3 + pulse * 3, stroke);
+        canvas.drawCircle(at, halo, stroke);
+        _paintSelectionCaret(canvas, at, chip: chip, halo: halo);
       }
 
       _emoji(orbit.critter.animal.emoji, orbit.emojiSize).paintCentred(canvas, at);
@@ -360,6 +363,53 @@ class RadarPainter extends CustomPainter {
     }
 
     fill.shader = null;
+  }
+
+  /// The arrowhead under the selected animal — the second channel the white
+  /// halo does not have.
+  ///
+  /// **Why a shape and not another colour.** The halo is the prototype's mark
+  /// (`index.html:855-857`) and it is kept, but on its own it says "selected"
+  /// in hue alone, which `specs/06-title-polish-safety.md:23` forbids. In
+  /// greyscale — the check that spec asks for — a white halo, a close flyby's
+  /// orange ring and a resting animal's blue-grey one are all just light rings
+  /// around a token, so a child who cannot separate those hues cannot tell
+  /// which animal the HUD card is about. That is the whole job of this mark:
+  /// the card names the animal, and this says *which token the card belongs
+  /// to*. A filled triangle is the one thing on this field that is not a ring,
+  /// a disc or a glyph, so it survives being read as a grey blob.
+  ///
+  /// It is the same fix the 👋 above is, in the same shape: keep the colour,
+  /// add a channel that does not need it. It is **not** label-gated for the
+  /// same reason either — turning names off must not drop selection back to
+  /// colour alone.
+  ///
+  /// **Below, pointing up**, because below is the only clear side: the name
+  /// sits above the token and the wave on its upper-right shoulder. It hangs
+  /// off [halo] rather than off [chip], so it breathes on the same sine and the
+  /// two read as one mark instead of a ring with a sticker next to it.
+  ///
+  /// One [Path] per frame, for the at-most-one selected animal — the [Paint] is
+  /// the file-level [_selectionCaretFill] because it never varies, which is the
+  /// allocation `CLAUDE.md:80` actually cares about.
+  void _paintSelectionCaret(
+    Canvas canvas,
+    Offset at, {
+    required double chip,
+    required double halo,
+  }) {
+    final double half = chip * _caretHalfWidth;
+    final double apex = at.dy + halo + _caretGap;
+    final double base = apex + chip * _caretHeight;
+
+    canvas.drawPath(
+      Path()
+        ..moveTo(at.dx, apex)
+        ..lineTo(at.dx - half, base)
+        ..lineTo(at.dx + half, base)
+        ..close(),
+      _selectionCaretFill,
+    );
   }
 
   /// Earth: a glow that breathes, the planet, and its name
@@ -533,8 +583,27 @@ const Color _closeFlybyRing = Color.fromRGBO(232, 140, 60, 0.95);
 const Color _restingRing = Color.fromRGBO(120, 150, 200, 0.45);
 
 /// `#fff` (`index.html:856`) — the animal being looked at. White because it is
-/// the only colour on this field that means nothing else.
+/// the only colour on this field that means nothing else. What it does *not*
+/// carry on its own is the state — see [RadarPainter._paintSelectionCaret].
 const Color _selectedRing = Color(0xFFFFFFFF);
+
+/// The selection caret's fill. A top-level `final`, so the one shape the
+/// painter draws per frame does not also cost a [Paint] per frame.
+final Paint _selectionCaretFill = Paint()..color = _selectedRing;
+
+/// The caret, against the token it points at. Half the arrowhead's width and
+/// its full height, both as a fraction of `chipRadius` — which spans only
+/// 10.8–20.7px across every animal the ladder can produce
+/// (`chipSizeFor`, `radar_geometry.dart:187-191`), so the mark stays a
+/// readable arrowhead on a Mouse without becoming a second animal on a Whale.
+/// No floor is needed at that range, and one would be dead code if it were.
+const double _caretHalfWidth = 0.42;
+const double _caretHeight = 0.5;
+
+/// The gap between the breathing halo and the caret's apex. Small enough that
+/// they read as one mark, big enough that the apex is never swallowed by the
+/// 2.5px stroke it sits under.
+const double _caretGap = 1.5;
 
 /// `rgba(255,206,140,.9)` (`index.html:865`) — a close flyby's name.
 const Color _flybyNameColour = Color.fromRGBO(255, 206, 140, 0.9);

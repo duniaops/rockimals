@@ -561,6 +561,33 @@ Offset _animalAt(Asteroid rock) {
   tester,
 ).singleWhere((({Offset at, double radius, Paint paint}) c) => c.paint.strokeWidth == 2.5);
 
+/// The selection caret — the only **filled** path on the whole frame, which is
+/// what lets it be found without knowing where the animal has orbited to.
+///
+/// That identifier is checked, not assumed: every other `drawPath` in the app's
+/// radar layers is stroked — the distance rings (`radar_painter.dart:204`,
+/// `239`) and Saturn's three arcs (`planet_painters.dart:379-384`) — and
+/// `the caret is the only filled path` below fails if that ever stops being
+/// true, rather than letting this helper quietly pick up someone else's shape.
+({Path path, Paint paint}) _caret(WidgetTester tester) =>
+    _filledPaths(tester).single;
+
+List<({Path path, Paint paint})> _filledPaths(WidgetTester tester) {
+  final List<({Path path, Paint paint})> paths = <({Path path, Paint paint})>[];
+  final Matcher collector = (paints
+    ..something((Symbol method, List<dynamic> arguments) {
+      if (method == #drawPath) {
+        final Paint paint = arguments[1] as Paint;
+        if (paint.style == PaintingStyle.fill) {
+          paths.add((path: arguments[0] as Path, paint: paint));
+        }
+      }
+      return false;
+    })) as Matcher;
+  collector.matches(_painterOf(tester), <dynamic, dynamic>{});
+  return paths;
+}
+
 /// A rock with only what the radar reads. [ld] and [diaMax] are the two inputs
 /// that decide everything on screen: where it orbits and how big it is drawn.
 Asteroid _rock({
@@ -717,6 +744,130 @@ void _animalTests() {
       // nothing else on the field uses rather than by where it used to be.
       await tester.pump(const Duration(milliseconds: 471));
       expect(_halo(tester).radius, closeTo(chip + 6, 0.001));
+    });
+
+    testWidgets('points at the selected animal, so selection is not hue alone', (
+      tester,
+    ) async {
+      // `specs/06-title-polish-safety.md:23` — never colour alone. The halo
+      // above is white, a close flyby's ring is orange and a resting animal's
+      // is blue-grey, and in the greyscale check that spec asks for all three
+      // are just light rings round a token. The caret is the second channel:
+      // the one mark on this field that is not a ring, a disc or a glyph, so a
+      // child who cannot separate those hues can still tell which animal the
+      // HUD card is about.
+      final Asteroid rock = _rock(name: '2020 AA', ld: 5);
+      await _radar(tester, sky: <Asteroid>[rock], selected: rock);
+
+      final Offset at = _animalAt(rock);
+      final double chip = RadarOrbits.seed(<Asteroid>[rock]).orbits[0].chipRadius;
+      final Rect bounds = _caret(tester).path.getBounds();
+
+      expect(
+        _caret(tester).paint.color,
+        isSameColorAs(const Color(0xFFFFFFFF)),
+        reason: 'no new colour is introduced — the shape is the new channel',
+      );
+      expect(
+        bounds.center.dx,
+        closeTo(at.dx, 0.001),
+        reason: 'it points along the token\'s own axis, not off to one side',
+      );
+      // Apex up, base down: the top edge is a point and the bottom is the full
+      // width. Asserted as a *shape*, because a triangle drawn the other way up
+      // would satisfy every bound below and point at empty space.
+      expect(bounds.width, closeTo(chip * 0.42 * 2, 0.001));
+      expect(bounds.height, closeTo(chip * 0.5, 0.001));
+      expect(
+        _caret(tester).path.contains(Offset(at.dx, bounds.top + 0.5)),
+        isTrue,
+        reason: 'the apex is on the token\'s axis',
+      );
+      expect(
+        _caret(tester).path.contains(Offset(bounds.left + 0.5, bounds.top + 0.5)),
+        isFalse,
+        reason: 'the wide edge is the far one — the arrow points up at the animal',
+      );
+    });
+
+    testWidgets('hangs the caret off the breathing halo, clear of its stroke', (
+      tester,
+    ) async {
+      // The two are one mark, not a ring with a sticker beside it, so the caret
+      // rides the same sine the halo does. If it were anchored to `chip`
+      // instead, the halo would breathe *through* it at full stretch.
+      final Asteroid rock = _rock(name: '2020 AA', ld: 5);
+      await _radar(tester, sky: <Asteroid>[rock], selected: rock);
+
+      final Offset at = _animalAt(rock);
+      final double chip = RadarOrbits.seed(<Asteroid>[rock]).orbits[0].chipRadius;
+
+      // At rest the sine is 0, so pulse is 0.5 and the halo is mid-breath — the
+      // same frame `gives the selected animal a white ring that breathes` pins.
+      expect(_caret(tester).path.getBounds().top, closeTo(at.dy + chip + 3 + 1.5 + 1.5, 0.001));
+
+      // A quarter period on the halo is at full stretch, and the caret has
+      // moved out with it — found by the fill rather than by where it was,
+      // since the animal has orbited in the meantime.
+      await tester.pump(const Duration(milliseconds: 471));
+      final ({Path path, Paint paint}) moved = _caret(tester);
+      expect(
+        moved.path.getBounds().top - _halo(tester).at.dy,
+        closeTo(chip + 6 + 1.5, 0.001),
+        reason: 'still 1.5px outside the halo, wherever the breath has taken it',
+      );
+    });
+
+    testWidgets('the caret is the only filled path on the frame', (tester) async {
+      // `_caret` finds the mark by its fill, which is only a safe identifier
+      // while every other path on this canvas is stroked — the distance rings
+      // and Saturn's arcs. This is that claim, held where it will fail loudly
+      // if a later layer lands a filled path and starts being mistaken for the
+      // selection mark.
+      final Asteroid rock = _rock(name: '2020 AA', ld: 5);
+
+      await _radar(tester, sky: <Asteroid>[rock]);
+      expect(_filledPaths(tester), isEmpty, reason: 'nothing is selected');
+
+      await _radar(tester, sky: <Asteroid>[rock], selected: rock);
+      expect(_filledPaths(tester), hasLength(1));
+    });
+
+    testWidgets('gives the caret to the selected animal and to no one else', (
+      tester,
+    ) async {
+      // One caret on a sky of three: a mark that appeared on every animal would
+      // point at nothing, which is the failure this rules out.
+      final Asteroid a = _rock(name: '2020 AA', ld: 5);
+      final Asteroid b = _rock(name: '2020 BB', ld: 6);
+      final Asteroid c = _rock(name: '2020 CC', ld: 0.4, hazardous: true);
+      await _radar(tester, sky: <Asteroid>[a, b, c], selected: b);
+
+      const RadarGeometry geometry = RadarGeometry(size: _size, maxLd: 60);
+      final RadarOrbits orbits = RadarOrbits.seed(<Asteroid>[a, b, c]);
+      final Offset at =
+          orbits.positionOf(orbits.orbits[1], geometry: geometry, zoom: 1, viewRot: 0);
+
+      final List<({Path path, Paint paint})> carets = _filledPaths(tester);
+      expect(carets, hasLength(1));
+      expect(carets.single.path.getBounds().center.dx, closeTo(at.dx, 0.001));
+    });
+
+    testWidgets('keeps the caret when names are switched off', (tester) async {
+      // The wave's rule, for the same reason (`radar_painter.dart`'s caret
+      // doc): with the Labels chip off the HUD card is still the only text
+      // naming the animal, so dropping the caret would leave selection as a
+      // white ring and nothing else — colour alone, exactly what this mark
+      // exists to stop.
+      final Asteroid rock = _rock(name: '2020 AA', ld: 5);
+      await _radar(
+        tester,
+        sky: <Asteroid>[rock],
+        selected: rock,
+        layers: const RadarLayers(labels: false),
+      );
+
+      expect(_filledPaths(tester), hasLength(1));
     });
 
     testWidgets('leaves every other animal ringless', (tester) async {
