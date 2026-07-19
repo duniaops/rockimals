@@ -102,24 +102,22 @@ class SettingsScreen extends ConsumerWidget {
                     // (`specs/08-settings-about.md:51`).
                     emoji: '🧸',
                     label: 'Little Kids mode',
-                    // **The hint says it is not here yet, and that is the
-                    // decision this row turns on.** Spec 08 requires the toggle
-                    // to ship *visible* and persisted while allowing its body to
-                    // be a no-op (`:51-53`), so for one release a grown-up can
-                    // flip a switch that changes nothing they can see. Copy
-                    // describing the finished feature in the present tense would
-                    // make that read as a broken app — the one impression a kids
-                    // app can least afford — and copy describing nothing would
-                    // leave the row meaningless. Naming what is coming, and
-                    // saying plainly that it is coming, is the only version that
-                    // is true on the day it ships. The three things listed are
-                    // `specs/06-title-polish-safety.md:26`'s own list, in the
-                    // order a grown-up would notice them.
-                    // **Drop the last four words when v1.1 lands** — see
-                    // `little_kids_mode.dart`, and the plan item that owns it.
+                    // **The hint names exactly what the switch does, and no
+                    // more.** For one release it ended "— coming soon", because
+                    // spec 08 lets the body be a no-op (`:51-53`) and a row
+                    // promising nothing would have been meaningless. The first
+                    // affordance has now shipped, so the promise is replaced by
+                    // a description in the present tense.
+                    // **Read-aloud and bigger buttons are deliberately not
+                    // mentioned.** They are still standard answers
+                    // (`LittleKidsExperience` says why per member), and a hint
+                    // that listed them would put this row back to advertising
+                    // features a grown-up cannot get — the thing the "coming
+                    // soon" wording was carefully avoiding. Naming the two games
+                    // instead lets them predict the change before they flip it.
                     hint:
-                        'Read-aloud names, bigger buttons and simpler games — '
-                        'coming soon.',
+                        'Keeps the Play screen to the two simplest games: '
+                        'Power Duel and Closer or Farther.',
                     value: ref.watch(littleKidsModeProvider),
                     // `choose(next)` rather than the 🔊 row's `toggle()`: this
                     // notifier has no "unset" state to flip relative to, so the

@@ -595,18 +595,24 @@ void main() {
       );
     });
 
-    testWidgets('says plainly that it is not here yet', (tester) async {
-      // **The honesty check, and it is a product requirement rather than a
-      // copy preference.** For one release this switch changes nothing a child
-      // can see (`specs/08-settings-about.md:51-53` allows the no-op body). A
-      // hint written in the present tense would make a working app read as a
-      // broken one, and `specs/08-settings-about.md:69` forbids dead ends. This
-      // fails the day someone describes the feature as live without shipping
-      // it — and it is *meant* to be deleted by the v1.1 item, which is why the
-      // words are asserted rather than merely their absence.
+    testWidgets('promises nothing that has not shipped', (tester) async {
+      // **The honesty check, and it is a product requirement rather than a copy
+      // preference** (`specs/08-settings-about.md:69` forbids dead ends).
+      //
+      // Its first form was the mirror of this one: while the mode was a no-op
+      // the hint *had* to end "coming soon", and the words were asserted present
+      // so that shipping the behaviour would fail here and force the copy to be
+      // rewritten. It did. Now the switch does something, so the assertion turns
+      // over: no promise of a feature a grown-up cannot get. Read-aloud and
+      // bigger buttons are still standard answers, so the hint must not name
+      // them either — this catches a well-meant re-listing of all three.
       await _openSettings(tester);
 
-      expect(find.textContaining('coming soon'), findsOneWidget);
+      expect(find.textContaining('coming soon'), findsNothing);
+      expect(find.textContaining('Read-aloud'), findsNothing);
+      expect(find.textContaining('bigger buttons'), findsNothing);
+      // What it says instead: the thing that actually happens.
+      expect(find.textContaining('two simplest games'), findsOneWidget);
     });
 
     testWidgets('is off on a fresh install', (tester) async {
@@ -676,8 +682,8 @@ void main() {
 
       expect(
         find.bySemanticsLabel(
-          'Little Kids mode. Read-aloud names, bigger buttons and simpler '
-          'games — coming soon.',
+          'Little Kids mode. Keeps the Play screen to the two simplest games: '
+          'Power Duel and Closer or Farther.',
         ),
         findsOneWidget,
       );
