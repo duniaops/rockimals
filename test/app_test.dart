@@ -382,6 +382,11 @@ void main() {
 /// The retry interceptor's sleeps are stubbed out: they are real durations
 /// (400ms, then 800ms) that `neows_client_test.dart` already owns, and leaving
 /// them in would only make this test wait out a schedule it is not asking about.
+///
+/// The clock comes from `dayClockProvider`, exactly as the real provider builds
+/// it. Before `now` was required this call site omitted it and got its own
+/// `DateTime.now`, so the doc above was quietly false — the swapped adapter was
+/// *not* the only difference from the composition this stands in for.
 AsteroidRepository _offlineRepository(Ref ref) {
   final Dio dio = Dio()..httpClientAdapter = _RefusedAdapter();
   return AsteroidRepository(
@@ -389,6 +394,7 @@ AsteroidRepository _offlineRepository(Ref ref) {
       NeoWsClient(dio: dio, sleep: (Duration _) async {}),
       ref.watch(storeProvider),
     ),
+    now: ref.watch(dayClockProvider),
   );
 }
 

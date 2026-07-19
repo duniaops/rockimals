@@ -555,11 +555,15 @@ AsteroidFeed _liveFeed({
 /// repository would drag its clock, its window, and its ceiling into tests
 /// about Riverpod.
 class _FakeRepository extends AsteroidRepository {
-  _FakeRepository(AsteroidFeed feed) : next = feed, super(_UnusedSource());
+  _FakeRepository(AsteroidFeed feed)
+    : next = feed,
+      super(_UnusedSource(), now: _unusedClock);
 
   /// A repository that breaks its own "never throws" promise. Only the retry
   /// tests use it — it is the bug, staged, not a state the real app reaches.
-  _FakeRepository.throwing() : next = null, super(_UnusedSource());
+  _FakeRepository.throwing()
+    : next = null,
+      super(_UnusedSource(), now: _unusedClock);
 
   AsteroidFeed? next;
   int loadCount = 0;
@@ -608,6 +612,12 @@ class _LoadFailure implements Exception {
 /// and this throws rather than returning an empty list so that a future edit
 /// which accidentally calls through fails loudly instead of quietly resolving
 /// to the sample set.
+/// The clock half of [_UnusedSource], for the same reason and with the same
+/// teeth: [_FakeRepository] overrides both methods that read a clock, so one
+/// that answers a date would let a partial override pass silently.
+DateTime _unusedClock() =>
+    throw StateError('the fake repository never reaches its clock');
+
 class _UnusedSource implements AsteroidFeedSource {
   @override
   Future<FeedWindow> fetchFeed({

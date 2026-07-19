@@ -16,17 +16,35 @@ import 'package:rockimals/data/neows_client.dart';
 class AsteroidRepository {
   AsteroidRepository(
     this._source, {
-    DateTime Function()? now,
+    required DateTime Function() now,
     Duration? loadCeiling,
-  }) : _now = now ?? DateTime.now,
+  }) : // An initializing formal cannot be private *and* named, and `now:` is
+       // what reads at the call site — the same trade `Badge` and `GameActions`
+       // make.
+       // ignore: prefer_initializing_formals
+       _now = now,
        _loadCeiling = loadCeiling ?? _defaultLoadCeiling;
 
   final AsteroidFeedSource _source;
 
-  /// Injectable so tests can pin a date against a fixed fixture. The clock is
-  /// read once per load and used for both ends of the window *and* for today's
-  /// key, so a load that straddles midnight cannot ask for one window and then
-  /// filter against the next day.
+  /// The clock is read once per load and used for both ends of the window *and*
+  /// for today's key, so a load that straddles midnight cannot ask for one
+  /// window and then filter against the next day.
+  ///
+  /// **Required, and deliberately so — it used to default to the wall clock.**
+  /// That default was not a bug while `asteroidRepositoryProvider` was the only
+  /// caller, because the provider always passes the app's day clock. It was the
+  /// shape of one: a second provider or a new entry point constructing a
+  /// repository without `now` would silently put a *second* clock in the feed
+  /// path, and nothing would fail — which is precisely the split the sky had
+  /// before `dayClockProvider` became its one answer to "what day is it".
+  /// Requiring the parameter makes that regression a compile error instead of a
+  /// date that disagrees with itself.
+  ///
+  /// Note this is a **calendar**, not a stopwatch, which is why
+  /// `CachingFeedSource`'s own `now` is still legitimately optional: it measures
+  /// an entry's age against a TTL, and freezing it to a chosen day would make
+  /// every cached entry eternally fresh. See `dayClockProvider` for the split.
   final DateTime Function() _now;
 
   /// How long a child may be asked to watch "Contacting NASA…" before the app
