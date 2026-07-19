@@ -86,7 +86,19 @@ class RockimalsApp extends ConsumerWidget {
       // Unawaited because a lifecycle callback is synchronous. The write is a
       // Hive put of two small fields and nothing paints off its completion; the
       // flame repaints through the provider invalidation inside.
-      onResume: () => unawaited(ref.read(recordEngagementProvider)()),
+      onResume: () {
+        unawaited(ref.read(recordEngagementProvider)());
+        // The second thing a launch computes that a locked phone never
+        // recomputes: the sky itself. `loadData()` runs once per process, so
+        // without this the child above — the one whose flame has just rolled
+        // over to a new day — is looking at yesterday's animals under a Sky tab
+        // captioned today. The provider owns the "only if the day changed"
+        // guard and the reason a refresh does not flash the loading screen.
+        //
+        // Synchronous and not unawaited, unlike the line above: this starts a
+        // load and does not wait for one, so there is no future here to drop.
+        ref.read(refreshSkyForNewDayProvider)();
+      },
       child: MaterialApp(
         title: 'Rockimals',
         theme: ThemeData(

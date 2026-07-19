@@ -242,6 +242,98 @@ final Provider<Future<void> Function()> recordEngagementProvider =
       );
     }, name: 'recordEngagement');
 
+/// The local calendar day the sky on screen was fetched on.
+///
+/// **Why a stamp exists at all.** [asteroidFeedProvider] loads exactly once per
+/// process (plan decision 13), and a phone is locked rather than quit. So a
+/// child who leaves Rockimals open overnight wakes up to yesterday's animals
+/// under a Sky tab whose footer says today — the same once-per-process gap the
+/// day streak had, on the other thing a launch computes.
+///
+/// **It re-stamps when a sky lands, and it has to do so eagerly — which is why
+/// this is a [Notifier] and not the one-line derived [Provider] it looks like.**
+/// A plain `Provider` that watched the feed would be marked dirty by a landing
+/// sky and then recompute *at its next read*, which is the resume itself: it
+/// would read the clock a day later than the sky it is describing, stamp today,
+/// and report the stale sky as fresh — the exact bug this exists to catch, with
+/// no symptom anywhere else. `ref.listen` is what makes the stamp happen when
+/// the feed moves rather than when someone asks. That covers the refreshed sky
+/// too, so no caller has to remember to move it.
+///
+/// [DayStreak.keyOf] rather than a second day comparison, and its **local** day
+/// is the right one for the same reason the flame needs it: this question is
+/// "has the child crossed midnight", not "has UTC". The feed's own window keys
+/// are UTC and deliberately are not what this compares.
+///
+/// **It must be created at launch, and `TitleScreen` is what does that.** This
+/// is not `autoDispose`, so once created it holds the launch day and its
+/// subscription for the life of the process — but created *late*, by a resume
+/// that is its first reader, it would seed from that resume's own day. The
+/// failure if some future entry point forgets is a refresh that does not happen,
+/// not a crash — see [refreshSkyForNewDayProvider].
+class SkyDay extends Notifier<String> {
+  @override
+  String build() {
+    // The subscription, not a `watch`: this must be told, not asked. See the
+    // class doc — a lazily-recomputed stamp reads the clock at the wrong moment
+    // by construction.
+    ref.listen<AsyncValue<AsteroidFeed>>(
+      asteroidFeedProvider,
+      (AsyncValue<AsteroidFeed>? _, AsyncValue<AsteroidFeed> _) =>
+          state = _today(),
+    );
+    return _today();
+  }
+
+  String _today() => DayStreak.keyOf(ref.read(dayClockProvider)());
+}
+
+/// The day the sky on screen was fetched on. See [SkyDay].
+final NotifierProvider<SkyDay, String> skyDayProvider =
+    NotifierProvider<SkyDay, String>(SkyDay.new, name: 'skyDay');
+
+/// Re-ask NASA for the sky, but only if the child has crossed midnight since the
+/// one they are looking at arrived. Called from the resume hook (`lib/main.dart`).
+///
+/// **The guard is the whole item, not an optimisation.**
+/// `ref.invalidate(asteroidFeedProvider)` is the one gesture that re-hits the
+/// network, and every screen behind the loading gate reads that feed with
+/// `.requireValue`. Firing it on *every* unlock would spend a request against a
+/// key a household shares, dozens of times a day, to re-fetch a window whose
+/// contents cannot have changed — NASA's feed is keyed by calendar day, which is
+/// exactly what [skyDayProvider] compares.
+///
+/// **Nothing on screen is torn down while the new sky is in flight**, and that
+/// is a property of Riverpod that was verified rather than assumed. An
+/// invalidation with listeners attached emits `AsyncData(isLoading: true, value:
+/// the old sky)`, not a bare `AsyncLoading` — so `.requireValue` on the radar
+/// and the Sky tab keeps answering the animals already on screen, `whenData`
+/// carries the previous value through the four derived providers, and
+/// `LoadingGate`'s `.when` skips its loading branch on a refresh
+/// (`skipLoadingOnRefresh` defaults to true). A child gets the new sky when it
+/// lands and never sees "Contacting NASA…" a second time.
+///
+/// **And an offline resume leaves them on the animals they had.** That falls out
+/// of the layer below: `AsteroidRepository.loadData` never throws, and the feed
+/// cache answers the last window NASA really served when the network is gone
+/// (plan decision 13), so a refresh with no signal returns the same real rocks
+/// rather than dropping the child into the sample sky.
+///
+/// If [skyDayProvider] has never been created, it stamps *now* on this read and
+/// this returns having done nothing. That is the safe direction to fail: a sky
+/// that is not refreshed, rather than one refreshed on every unlock.
+final Provider<void Function()>
+refreshSkyForNewDayProvider = Provider<void Function()>((Ref ref) {
+  return () {
+    final String today = DayStreak.keyOf(ref.read(dayClockProvider)());
+    if (ref.read(skyDayProvider) == today) return;
+    // The stamp moves on its own: [SkyDay] is subscribed to the feed, so
+    // this line is what re-dates it — including for the second unlock of the
+    // morning, which must then find nothing to do.
+    ref.invalidate(asteroidFeedProvider);
+  };
+}, name: 'refreshSkyForNewDay');
+
 /// The animals a child follows, live — the persisted set of designations
 /// (plan decision 4), read as `state` and changed through [toggle].
 ///

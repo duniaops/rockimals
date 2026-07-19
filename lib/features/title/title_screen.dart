@@ -71,6 +71,12 @@ class _TitleScreenState extends ConsumerState<TitleScreen> {
     // nothing, and it is a `read` rather than a `watch` because nothing here
     // renders the result — the gate does, one route later.
     ref.read(asteroidFeedProvider);
+    // And stamp which day that sky is for, here, while the answer is still the
+    // day it was asked on. A resume compares against this stamp to decide
+    // whether the child has crossed midnight; created lazily at that resume
+    // instead — it is nothing else's dependency — it would stamp *then* and
+    // report a two-day-old sky as today's. See `skyDayProvider`'s own docs.
+    ref.read(skyDayProvider);
   }
 
   /// Play, or a tap anywhere (`title.html:131-132`).
