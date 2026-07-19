@@ -34,6 +34,17 @@ import '../support/tap_target_audit.dart';
 /// padding was tuned by eye. See `test/support/tap_target_audit.dart` for how a
 /// hittable region is identified and why the rule is one report per region.
 ///
+/// **Screen coverage is not the whole of the question, and this file used to
+/// claim it was.** A screen is not one tree; it is a tree per state it can be
+/// in, and a walk that reaches tabs by tapping their labels only ever sees the
+/// state each tab opens in. That is not hypothetical — the radar's HUD card is a
+/// *state* of the radar tab, and two 31dp buttons lived in it, one of them the
+/// primary route into the detail screen, for as long as this doc said "every
+/// screen a child can reach" and meant it. The `on the selected-animal card`
+/// arm below is that hole, closed next to the walk that missed it;
+/// `tap_target_states_test.dart` is the general form — the named list of the
+/// other states, from a game's revealed answer to the panel it ends on.
+///
 /// **Both text scales are audited, and the second one is the point.** A target
 /// that clears 48 only because its label happens to be 15px is not a target that
 /// clears 48 — a child whose grown-up has turned the system font up is the child
