@@ -165,6 +165,47 @@ void main() {
             '— the cross-feature dependency moving it here removed',
       );
     });
+
+    test('only the gate and the toggle itself reach the engine', () {
+      // `sound_engine.dart` has always *said* "nothing should call
+      // `soundEngineProvider` directly; go through `SoundController`" — the rule
+      // that stops a fifth cue being added that ignores the child's setting. It
+      // was a comment, and comments do not fail.
+      //
+      // The confirmation blip is the first sanctioned exception (it has just
+      // written the flag the gate would ask about, and routing through the gate
+      // would make settings and rewards import each other), so this is the
+      // moment to make the rule enforceable instead of widening it on trust.
+      // Any third library that reads the engine fails here, and whoever adds it
+      // has to argue the case in this list rather than in a comment nobody runs.
+      const List<String> allowed = <String>[
+        // The declaration and its own doc comment.
+        'core/audio/sound_engine.dart',
+        // The gate every other cue in the app goes through.
+        'features/rewards/sound_controller.dart',
+        // The confirmation blip — see `SoundOnNotifier.toggle`.
+        'features/settings/sound.dart',
+      ];
+
+      final List<String> offenders = <String>[];
+      for (final FileSystemEntity entity in Directory(
+        'lib',
+      ).listSync(recursive: true)) {
+        if (entity is! File || !entity.path.endsWith('.dart')) continue;
+        if (allowed.any((String ok) => entity.path.endsWith(ok))) continue;
+        if (entity.readAsStringSync().contains('soundEngineProvider')) {
+          offenders.add(entity.path);
+        }
+      }
+
+      expect(
+        offenders,
+        isEmpty,
+        reason:
+            'these files reach the sound engine without passing the toggle '
+            'gate — route the cue through `SoundController` instead',
+      );
+    });
   });
 }
 

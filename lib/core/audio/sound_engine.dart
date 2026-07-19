@@ -120,6 +120,14 @@ final Provider<SoundEngine> soundEngineProvider = Provider<SoundEngine>((
 /// **The toggle gate is deliberately not here** — it is `SoundController`
 /// (`lib/features/rewards/sound_controller.dart`). This library stays free of any
 /// `features/` import so `core/` never depends on a feature, and the sound
-/// on/off flag currently lives with the Play hub's providers. The practical
-/// consequence: nothing should call [soundEngineProvider] directly; go through
-/// the controller, which is the single place the toggle is honoured.
+/// on/off flag is a persisted setting (`lib/features/settings/sound.dart`). The
+/// practical consequence: nothing should call [soundEngineProvider] directly; go
+/// through the controller, which is the single place the toggle is honoured.
+///
+/// **There is exactly one sanctioned exception, and it is enforced rather than
+/// trusted**: `SoundOnNotifier.toggle` plays the confirmation blip that answers
+/// "sound on" straight through this provider, because it has just set the flag
+/// the gate would ask about and routing through the gate would knot
+/// `features/settings` and `features/rewards` together. `sound_test.dart` greps
+/// `lib/` for reads of [soundEngineProvider] and fails on any third library, so
+/// a new direct caller cannot appear unnoticed.
