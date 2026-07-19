@@ -18,6 +18,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rockimals/core/theme/featured_gradient.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/features/rewards/badge_controller.dart';
 import 'package:rockimals/features/rewards/badges.dart';
@@ -50,20 +51,9 @@ const double _scrimBlur = 3;
 /// `linear-gradient(150deg,#17325c,#0e2244)` the Play hub's points card and
 /// featured tile wear.
 ///
-/// **A third local copy of that gradient** (`games_hub.dart` holds the other
-/// two, as `_featGradient`). Left duplicated rather than hoisted, for the reason
-/// the `.obar` stayed copied until its own item came round: the natural home
-/// would be `Palette`, whose membership test is "the prototype named it", and
-/// the prototype does not name this — it restates the two hex values at every use
-/// (`index.html:210,249,262`). The Profile's `.ptsCard` is the fourth and lands
-/// with the next item; extracting it is an appended plan item rather than a
-/// reach across two features from here.
+/// The gradient is `kFeaturedGradient` (`core/theme/featured_gradient.dart`),
+/// shared with the Play hub's two cards and the Profile's points hero.
 const double _cardWidth = 260;
-const LinearGradient _cardGradient = LinearGradient(
-  begin: Alignment.topLeft,
-  end: Alignment.bottomRight,
-  colors: <Color>[Color(0xFF17325C), Color(0xFF0E2244)],
-);
 
 /// Wraps the app and lays the celebration popup over it. See the library doc for
 /// why this is a wrapper rather than a widget on a screen.
@@ -276,7 +266,7 @@ class _BadgeCard extends StatelessWidget {
         // `padding:26px 30px` (`index.html:249`).
         padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 26),
         decoration: BoxDecoration(
-          gradient: _cardGradient,
+          gradient: kFeaturedGradient,
           borderRadius: const BorderRadius.all(Radius.circular(22)),
           // `border:1px solid var(--accent)` — the popup is the one card in the
           // app outlined in the interactive orange rather than `--line`, which

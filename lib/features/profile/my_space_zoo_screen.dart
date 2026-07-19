@@ -1,32 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rockimals/core/a11y/tap_target.dart';
+import 'package:rockimals/core/theme/featured_gradient.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/profile/profile_providers.dart';
 import 'package:rockimals/features/rewards/badge_controller.dart';
 import 'package:rockimals/features/rewards/badges.dart';
 import 'package:rockimals/features/settings/settings_screen.dart';
-
-/// `linear-gradient(150deg,#17325c,#0e2244)` — the `.ptsCard` fill
-/// (`index.html:262`).
-///
-/// **The fourth copy of this gradient in the app**, after the Play hub's points
-/// card, the hub's featured daily card, and the badge popup. That is exactly the
-/// threshold the plan's "Extract the featured-card gradient" item is waiting on
-/// — it exists because the third copy was not yet enough to know whether the
-/// shared thing is the colour or the coincidence. It is now: four surfaces, one
-/// meaning ("this panel is the special one"). Left duplicated here rather than
-/// extracted inline, because hoisting it is that item's job and doing it from
-/// inside this one would bury a cross-feature move in a screen's diff.
-///
-/// `topLeft → bottomRight` approximates CSS's 150°, the same approximation
-/// `games_hub.dart` makes.
-const LinearGradient _pointsGradient = LinearGradient(
-  begin: Alignment.topLeft,
-  end: Alignment.bottomRight,
-  colors: <Color>[Color(0xFF17325C), Color(0xFF0E2244)],
-);
 
 /// `.xpbar{background:#0a1830}` (`index.html:147`) — the unfilled part of the
 /// progress bar, darker than any panel so the fill reads as light in a groove.
@@ -162,7 +143,7 @@ class _PointsCard extends StatelessWidget {
 
     return DecoratedBox(
       decoration: const BoxDecoration(
-        gradient: _pointsGradient,
+        gradient: kFeaturedGradient,
         border: Border.fromBorderSide(BorderSide(color: Palette.line)),
         // `.ptsCard{border-radius:20px}` (`index.html:262`).
         borderRadius: BorderRadius.all(Radius.circular(20)),

@@ -20,6 +20,15 @@ import 'package:flutter/painting.dart';
 /// membership here is that the prototype named it, not that two Dart files
 /// happen to want it.
 ///
+/// **That rule has been held once against a real candidate**, which is worth
+/// recording so the next one is decided the same way. The featured-card gradient
+/// is restated five times in `index.html` and wanted by three separate features,
+/// and it still did not come in here — because the prototype names it nothing,
+/// and admitting it would have quietly rewritten the test above into "enough
+/// files want it". It sits beside this file instead, as `kFeaturedGradient` in
+/// `featured_gradient.dart`: same directory, own library, membership rule
+/// untouched.
+///
 /// **Two of the eleven are dead and are not ported**, per the plan's
 /// decision 1 ("do not port the prototype's dead state"): `--navy` (`#0B1F3A`)
 /// and `--card2` (`#0f2242`) are declared on lines 9-10 and then referenced

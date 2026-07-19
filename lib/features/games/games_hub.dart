@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rockimals/core/a11y/tap_target.dart';
 import 'package:rockimals/core/audio/sound_cues.dart';
 import 'package:rockimals/core/chrome/obar.dart';
+import 'package:rockimals/core/theme/featured_gradient.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/features/games/challenge_game.dart';
 import 'package:rockimals/features/games/closer_game.dart';
@@ -189,19 +190,6 @@ class _GameCard {
   final bool featured;
 }
 
-/// The featured gradient the points card and the daily card share
-/// (`linear-gradient(150deg,#17325c,#0e2244)`, `index.html:210,262`).
-///
-/// `topLeft → bottomRight` approximates CSS's 150° (a line pointing down and
-/// slightly right); the two stops are one-off literals the prototype does not
-/// name, so they stay here rather than in [Palette] (see the palette's note on
-/// one-off colours).
-const LinearGradient _featGradient = LinearGradient(
-  begin: Alignment.topLeft,
-  end: Alignment.bottomRight,
-  colors: <Color>[Color(0xFF17325C), Color(0xFF0E2244)],
-);
-
 /// The points tile (`.ptsCard` with its `openGames` inline overrides,
 /// `index.html:1010-1012`): the star, the big accent number, and the "points"
 /// caption, laid out in a row.
@@ -214,7 +202,7 @@ class _PointsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        gradient: _featGradient,
+        gradient: kFeaturedGradient,
         border: Border.all(color: Palette.line),
         // `.ptsCard{border-radius:20px}` (`index.html:262`).
         borderRadius: const BorderRadius.all(Radius.circular(20)),
@@ -327,7 +315,7 @@ class _GameCardTile extends StatelessWidget {
           child: Ink(
             decoration: card.featured
                 ? const BoxDecoration(
-                    gradient: _featGradient,
+                    gradient: kFeaturedGradient,
                     borderRadius: BorderRadius.all(Radius.circular(16)),
                   )
                 : null,
