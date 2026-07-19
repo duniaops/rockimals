@@ -281,12 +281,6 @@ void main() {
   });
 }
 
-/// Mounts [home] with the feed, streak and store all stood in front of, so no
-/// screen in this file touches the network or a Hive box.
-///
-/// The feed is [AsteroidFeed.fallback] — the 14 bundled sample rocks — rather
-/// than a one-rock stub, because a tap target is a layout question and layout is
-/// what a realistic list changes. It also resolves immediately, which is what
 /// Taps the first animal on the live radar and lets its card finish sliding up,
 /// so the HUD buttons are measured where a finger would actually find them.
 ///
@@ -318,6 +312,12 @@ Future<void> _selectAnimal(WidgetTester tester) async {
   ); // finish the 200ms slide
 }
 
+/// Mounts [home] with the feed, streak and store all stood in front of, so no
+/// screen in this file touches the network or a Hive box.
+///
+/// The feed is [AsteroidFeed.fallback] — the 14 bundled sample rocks — rather
+/// than a one-rock stub, because a tap target is a layout question and layout is
+/// what a realistic list changes. It also resolves immediately, which is what
 /// anything under [AppShell] needs: the shell reads `requireValue`, so a pending
 /// override would throw on the first build (see the plan's note on this trap).
 Future<void> _pump(
