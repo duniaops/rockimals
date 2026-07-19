@@ -209,6 +209,24 @@ class _ChallengeInstruction extends StatelessWidget {
 }
 
 /// The 2×2 board (`.ch-grid`, `index.html:130`).
+///
+/// **Rows are as tall as their contents, which is what the prototype does and
+/// what the first port got wrong.** `.ch-grid` is
+/// `grid-template-columns:1fr 1fr;gap:10px` with no `aspect-ratio`, no height
+/// and no `grid-auto-rows`, so a browser sizes each row to its tallest card and
+/// a larger font simply makes the cards taller. This was ported as a
+/// `GridView.count` with `childAspectRatio: 0.82` — a number with no source in
+/// the prototype, invented to look right — which pins a card's height to its
+/// *width*. Since width does not move when the system font does, the card's
+/// contents overflowed the box at 1.5× text: a revealed card wants ~180dp of a
+/// height that stays ~212dp at 800dp wide but shrinks with the screen, and at
+/// 390dp it no longer fits.
+///
+/// [IntrinsicHeight] around each row is the direct translation of auto rows
+/// plus CSS's default `align-items:stretch`: the row takes the height of the
+/// tallest card in it, and every card in that row is given that height, so the
+/// two halves of a row still line up. It costs one extra layout pass over four
+/// static cards, which is not the radar's render loop.
 class _ChallengeGrid extends StatelessWidget {
   const _ChallengeGrid({
     required this.cards,
@@ -224,30 +242,46 @@ class _ChallengeGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GridView.count(
-      // Inside the shell's scroll view, so the grid sizes to its content
-      // instead of competing for the scroll.
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      // `gap:10px` (`index.html:130`).
-      crossAxisSpacing: 10,
-      mainAxisSpacing: 10,
-      // Taller than square: the card carries an avatar, a name, two stat lines
-      // and (after the reveal) the power line, and the rank badge overhangs the
-      // top edge.
-      childAspectRatio: 0.82,
+    final int rows = (cards.length + _columns - 1) ~/ _columns;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        for (int i = 0; i < cards.length; i++)
-          _ChallengeCard(
-            asteroid: cards[i],
-            pickedRank: picks.indexOf(i),
-            trueRank: grade?.truthRank[i],
-            onTap: () => onPick(i),
+        for (int row = 0; row < rows; row++) ...<Widget>[
+          // `gap:10px` (`index.html:130`) — between rows, not around them.
+          if (row > 0) const SizedBox(height: _gap),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                for (int col = 0; col < _columns; col++) ...<Widget>[
+                  if (col > 0) const SizedBox(width: _gap),
+                  // `1fr` each: equal columns whatever the card holds. A final
+                  // odd card leaves its neighbour empty rather than stretching
+                  // to the full width, which is what `1fr 1fr` does too.
+                  Expanded(
+                    child: row * _columns + col < cards.length
+                        ? _ChallengeCard(
+                            asteroid: cards[row * _columns + col],
+                            pickedRank: picks.indexOf(row * _columns + col),
+                            trueRank: grade?.truthRank[row * _columns + col],
+                            onTap: () => onPick(row * _columns + col),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                ],
+              ],
+            ),
           ),
+        ],
       ],
     );
   }
+
+  /// `grid-template-columns:1fr 1fr` (`index.html:130`).
+  static const int _columns = 2;
+
+  /// `gap:10px` (`index.html:130`), on both axes as the shorthand implies.
+  static const double _gap = 10;
 }
 
 /// One animal in the grid (`.chcard`, `index.html:131-142`).
@@ -317,80 +351,89 @@ class _ChallengeCard extends StatelessWidget {
           // The rank badge overhangs the card's corner (`top:-9px;right:-9px`,
           // `index.html:137`), so it must not be clipped away.
           clipBehavior: Clip.none,
+          // **The card body is the unpositioned child, and the badge is the
+          // only positioned one** — which is what makes the card measurable.
+          // Both used to be positioned (`Positioned.fill` on the body), so the
+          // [Stack] had nothing to take its size from and depended entirely on
+          // the tight height `childAspectRatio` handed it. Now that
+          // [_ChallengeGrid] sizes rows to their contents, the body is what
+          // reports that height. `passthrough` hands it the [Stack]'s own
+          // constraints, so it still fills the row once the row has settled on
+          // one — the CSS is `position:absolute` on `.rankbadge` alone
+          // (`index.html:137`), with `.chcard` an ordinary block.
+          fit: StackFit.passthrough,
           children: <Widget>[
-            Positioned.fill(
-              child: Material(
-                color: Palette.card,
-                shape: RoundedRectangleBorder(
-                  // `.chcard{border-radius:16px}` (`index.html:131`).
-                  borderRadius: const BorderRadius.all(Radius.circular(16)),
-                  side: BorderSide(color: borderColour),
-                ),
-                child: InkWell(
-                  borderRadius: const BorderRadius.all(Radius.circular(16)),
-                  onTap: onTap,
-                  child: Padding(
-                    // `.chcard{padding:12px 10px}` (`index.html:131`).
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 12,
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: <Widget>[
-                        // Each card reacts to **its own** placement, not to
-                        // the round's verdict: `ok = userPos === truePos` per
-                        // card (`index.html:937`). So a 3-of-4 reveal is three
-                        // hops and one wobble at once — the child sees exactly
-                        // which animal they misjudged.
-                        ReactionAvatar(
-                          reaction: reactionFor(isCorrect),
-                          child: _ChallengeAvatar(emoji: c.animal.emoji),
+            Material(
+              color: Palette.card,
+              shape: RoundedRectangleBorder(
+                // `.chcard{border-radius:16px}` (`index.html:131`).
+                borderRadius: const BorderRadius.all(Radius.circular(16)),
+                side: BorderSide(color: borderColour),
+              ),
+              child: InkWell(
+                borderRadius: const BorderRadius.all(Radius.circular(16)),
+                onTap: onTap,
+                child: Padding(
+                  // `.chcard{padding:12px 10px}` (`index.html:131`).
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 12,
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      // Each card reacts to **its own** placement, not to
+                      // the round's verdict: `ok = userPos === truePos` per
+                      // card (`index.html:937`). So a 3-of-4 reveal is three
+                      // hops and one wobble at once — the child sees exactly
+                      // which animal they misjudged.
+                      ReactionAvatar(
+                        reaction: reactionFor(isCorrect),
+                        child: _ChallengeAvatar(emoji: c.animal.emoji),
+                      ),
+                      // `.chcard .mini{margin:0 auto 8px}`.
+                      const SizedBox(height: 8),
+                      // `.chcard .nm{font-size:13px;font-weight:700}` on one
+                      // ellipsised line.
+                      Text(
+                        c.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Palette.ink,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          height: 1.2,
                         ),
-                        // `.chcard .mini{margin:0 auto 8px}`.
-                        const SizedBox(height: 8),
-                        // `.chcard .nm{font-size:13px;font-weight:700}` on one
-                        // ellipsised line.
+                      ),
+                      // `.chcard .st{font-size:11px;margin-top:3px}`.
+                      const SizedBox(height: 3),
+                      Text(
+                        '$size\n$journey',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Palette.muted,
+                          fontSize: 11,
+                          height: 1.3,
+                        ),
+                      ),
+                      if (revealed != null) ...<Widget>[
+                        // `.chcard .reveal{margin-top:6px;font-size:11px;
+                        // font-weight:700}` (`index.html:140`).
+                        const SizedBox(height: 6),
                         Text(
-                          c.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                          'power ⭐ ${powerStars(asteroid)} · #${revealed + 1}',
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Palette.ink,
-                            fontSize: 13,
+                          style: TextStyle(
+                            color: isCorrect! ? Palette.good : Palette.bad,
+                            fontSize: 11,
                             fontWeight: FontWeight.w700,
                             height: 1.2,
                           ),
                         ),
-                        // `.chcard .st{font-size:11px;margin-top:3px}`.
-                        const SizedBox(height: 3),
-                        Text(
-                          '$size\n$journey',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Palette.muted,
-                            fontSize: 11,
-                            height: 1.3,
-                          ),
-                        ),
-                        if (revealed != null) ...<Widget>[
-                          // `.chcard .reveal{margin-top:6px;font-size:11px;
-                          // font-weight:700}` (`index.html:140`).
-                          const SizedBox(height: 6),
-                          Text(
-                            'power ⭐ ${powerStars(asteroid)} · #${revealed + 1}',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: isCorrect! ? Palette.good : Palette.bad,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              height: 1.2,
-                            ),
-                          ),
-                        ],
                       ],
-                    ),
+                    ],
                   ),
                 ),
               ),
