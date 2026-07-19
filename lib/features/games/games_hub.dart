@@ -9,6 +9,7 @@ import 'package:rockimals/features/games/closer_game.dart';
 import 'package:rockimals/features/games/duel_game.dart';
 import 'package:rockimals/features/games/games_providers.dart';
 import 'package:rockimals/features/games/match_game.dart';
+import 'package:rockimals/features/settings/little_kids_mode.dart';
 import 'package:rockimals/features/settings/sound.dart';
 
 /// The Play hub — a port of the prototype's `openGames` (`index.html:1002-1021`),
@@ -19,6 +20,11 @@ import 'package:rockimals/features/settings/sound.dart';
 /// Match, each with its personal best). This is `specs/04`'s "Play hub" item;
 /// the four games it launches were their own items after it, and all four have
 /// now landed — [_destinationFor] is the one seam each of them edited.
+///
+/// **This screen is also the only door to any game**, which is what lets 🧸
+/// Little Kids mode narrow the offering here and nowhere else: no other widget
+/// in the app constructs a game, so a card that is not drawn is a game that
+/// cannot be reached. See [_GameCard.simplest].
 class GamesHub extends ConsumerWidget {
   const GamesHub({super.key});
 
@@ -46,6 +52,7 @@ class GamesHub extends ConsumerWidget {
         description:
             'Two space animals — tap the one with more power! Keep your streak going.',
         badge: 'Best ${stats.bestDuel}',
+        simplest: true,
       ),
       _GameCard(
         id: _GameId.closer,
@@ -54,6 +61,7 @@ class GamesHub extends ConsumerWidget {
         description:
             'Will the next animal fly closer to Earth, or farther away? You decide!',
         badge: 'Best ${stats.bestCloser}',
+        simplest: true,
       ),
       _GameCard(
         id: _GameId.size,
@@ -64,6 +72,14 @@ class GamesHub extends ConsumerWidget {
         badge: 'Best ${stats.bestSize}/8',
       ),
     ];
+
+    // 🧸 Little Kids mode offers the two simplest games only
+    // (`specs/06-title-polish-safety.md:26`). The hub asks the experience *what
+    // to do* and never what the child chose — the split `little_kids_mode.dart`
+    // exists for.
+    final bool simplestOnly = ref
+        .watch(littleKidsExperienceProvider)
+        .simplestGamesOnly;
 
     return Scaffold(
       backgroundColor: Palette.pageBackground,
@@ -115,10 +131,11 @@ class GamesHub extends ConsumerWidget {
                     ),
                   ),
                   for (final _GameCard card in cards)
-                    _GameCardTile(
-                      card: card,
-                      onTap: () => _launch(context, card.id),
-                    ),
+                    if (!simplestOnly || card.simplest)
+                      _GameCardTile(
+                        card: card,
+                        onTap: () => _launch(context, card.id),
+                      ),
                 ],
               ),
             ),
@@ -168,6 +185,7 @@ class _GameCard {
     required this.description,
     required this.badge,
     this.featured = false,
+    this.simplest = false,
   });
 
   final _GameId id;
@@ -176,6 +194,23 @@ class _GameCard {
   final String description;
   final String badge;
   final bool featured;
+
+  /// Whether 🧸 Little Kids mode keeps this card
+  /// ([LittleKidsMode.simplestGamesOnly], `specs/06-title-polish-safety.md:26`).
+  ///
+  /// **Power Duel and Closer or Farther — and the *rule* is the thing to carry
+  /// forward, not the pair.** Neither spec says which two are simplest, so this
+  /// is a product judgment, made rather than guessed: the games kept are the two
+  /// whose whole interaction is *tap one of two things*, answerable from what is
+  /// already on the screen. Today's Challenge asks a child to order four animals
+  /// against each other. Animal Match poses its question as a width in metres —
+  /// it is the app's best teacher of the size ladder and, for the same reason,
+  /// the one game a child who cannot yet read numbers can only guess at.
+  ///
+  /// A fifth game answers that rule rather than reopening the argument, and a
+  /// grown-up reading the Settings row is told the pair by name, so this is not
+  /// a hidden choice.
+  final bool simplest;
 }
 
 /// The points tile (`.ptsCard` with its `openGames` inline overrides,

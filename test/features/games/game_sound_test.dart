@@ -24,6 +24,7 @@ import 'package:rockimals/features/games/game_shell.dart';
 import 'package:rockimals/features/games/games_hub.dart';
 import 'package:rockimals/features/games/games_providers.dart';
 import 'package:rockimals/features/settings/calm_motion.dart';
+import 'package:rockimals/features/settings/little_kids_mode.dart';
 import 'package:rockimals/features/settings/sound.dart';
 
 import '../../support/memory_store.dart';
@@ -247,6 +248,9 @@ Future<void> _pumpHub(
         soundEngineProvider.overrideWithValue(engine),
         storeProvider.overrideWithValue(MemoryStore(soundOn: startOn)),
         reducedMotionProvider.overrideWith(StubCalmMotion.new),
+        // The hub resolves 🧸 Little Kids mode to pick its card list. Held off,
+        // so these tests see all four cards as they did before the setting.
+        littleKidsModeProvider.overrideWith(StubLittleKids.new),
         gamesHubStatsProvider.overrideWithValue(
           const GamesHubStats(
             points: 0,

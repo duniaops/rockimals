@@ -12,6 +12,7 @@ import 'package:rockimals/features/games/games_hub.dart';
 import 'package:rockimals/features/games/games_providers.dart';
 import 'package:rockimals/features/rewards/reaction.dart';
 import 'package:rockimals/features/settings/calm_motion.dart';
+import 'package:rockimals/features/settings/little_kids_mode.dart';
 import 'package:rockimals/features/settings/sound.dart';
 
 import '../../support/recording_sound_engine.dart';
@@ -460,6 +461,11 @@ Future<void> _mountFromHub(
         // for the same reason.
         soundEngineProvider.overrideWithValue(RecordingSoundEngine()),
         reducedMotionProvider.overrideWith(StubCalmMotion.new),
+        // The hub resolves 🧸 Little Kids mode to pick its card list, and this
+        // route passes through the hub. Held off — Today's Challenge is one of
+        // the two cards the mode hides, so without this the route has no card
+        // to tap and the failure would read as a routing bug.
+        littleKidsModeProvider.overrideWith(StubLittleKids.new),
       ],
       child: const MaterialApp(home: _RadarStub()),
     ),

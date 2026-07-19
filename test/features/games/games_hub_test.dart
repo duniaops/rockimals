@@ -10,6 +10,7 @@ import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/games/games_hub.dart';
 import 'package:rockimals/features/games/games_providers.dart';
 import 'package:rockimals/features/settings/calm_motion.dart';
+import 'package:rockimals/features/settings/little_kids_mode.dart';
 import 'package:rockimals/features/settings/sound.dart';
 
 /// The Play hub (`specs/04`, "Build the Play hub"): the four game cards with
@@ -116,6 +117,7 @@ void main() {
         bestSize: 0,
       ),
       bool soundOn = true,
+      bool littleKidsMode = false,
     }) async {
       await tester.pumpWidget(
         ProviderScope(
@@ -123,6 +125,12 @@ void main() {
             gamesHubStatsProvider.overrideWithValue(stats),
             soundOnProvider.overrideWith(() => _FakeSoundOn(soundOn)),
             reducedMotionProvider.overrideWith(StubCalmMotion.new),
+            // Stubbed rather than left real: the hub resolves this setting to
+            // pick its card list, and the real notifier reads a store this
+            // suite deliberately does not open (see the file's header).
+            littleKidsModeProvider.overrideWith(
+              () => StubLittleKids(littleKidsMode),
+            ),
             // Turning the toggle on answers with a jingle; keep it off the
             // plugin. `game_sound_test.dart` asserts the blip itself.
             soundEngineProvider.overrideWithValue(RecordingSoundEngine()),
@@ -171,6 +179,74 @@ void main() {
         expect(find.text('0'), findsOneWidget); // points
         expect(find.text('Best 0'), findsNWidgets(2)); // Duel + Closer
         expect(find.text('Best 0/8'), findsOneWidget); // Animal Match
+      });
+    });
+
+    /// 🧸 Little Kids mode narrows the hub to "the simplest two games"
+    /// (`specs/06-title-polish-safety.md:26`).
+    ///
+    /// **Asserted here rather than only on the experience object**, because the
+    /// promise a grown-up is making when they flip that switch is about what a
+    /// child can reach, and the hub is the only door to any game — no other
+    /// widget in the app constructs one. A card that is not drawn is a game that
+    /// cannot be started, and that is the claim worth pinning.
+    group('🧸 Little Kids mode', () {
+      testWidgets('keeps only Power Duel and Closer or Farther', (
+        tester,
+      ) async {
+        await pumpHub(tester, littleKidsMode: true);
+
+        expect(find.text('Power Duel'), findsOneWidget);
+        expect(find.text('Closer or Farther'), findsOneWidget);
+
+        // The two dropped, and *why* they are the two: Today's Challenge asks a
+        // child to order four animals against each other, and Animal Match poses
+        // its question as a width in metres. See `_GameCard.simplest`.
+        expect(find.text("Today's Challenge"), findsNothing);
+        expect(find.text('Animal Match'), findsNothing);
+      });
+
+      testWidgets('drops the featured card without breaking the screen', (
+        tester,
+      ) async {
+        // Today's Challenge is the only `featured: true` card, so turning the
+        // mode on removes the one gradient tile from the list. The points card
+        // above still carries the accent, and nothing overflows — worth a look
+        // because the hub's layout was built around a featured card existing.
+        await pumpHub(tester, littleKidsMode: true);
+
+        expect(tester.takeException(), isNull);
+        expect(find.text('Daily'), findsNothing);
+        expect(find.text('Best 0'), findsNWidgets(2), reason: 'Duel + Closer');
+        expect(
+          find.text('Best 0/8'),
+          findsNothing,
+          reason: 'Animal Match went',
+        );
+      });
+
+      testWidgets('narrows and widens without a restart', (tester) async {
+        // `specs/08-settings-about.md:75`'s bar for the toggle beside this one,
+        // and the reason the hub watches the experience rather than reading it
+        // once: a grown-up flipping the switch in Settings expects the Play
+        // screen to have changed by the time they walk back to it.
+        await pumpHub(tester);
+        expect(find.text('Animal Match'), findsOneWidget);
+
+        final ProviderContainer container = ProviderScope.containerOf(
+          tester.element(find.byType(GamesHub)),
+        );
+        await container.read(littleKidsModeProvider.notifier).choose(true);
+        await tester.pump();
+
+        expect(find.text('Animal Match'), findsNothing);
+        expect(find.text('Power Duel'), findsOneWidget);
+
+        await container.read(littleKidsModeProvider.notifier).choose(false);
+        await tester.pump();
+
+        expect(find.text('Animal Match'), findsOneWidget);
+        expect(find.text("Today's Challenge"), findsOneWidget);
       });
     });
 

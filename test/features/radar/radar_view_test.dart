@@ -13,6 +13,7 @@ import 'package:rockimals/features/radar/radar_layers.dart';
 import 'package:rockimals/features/radar/radar_painter.dart';
 import 'package:rockimals/features/radar/radar_view.dart';
 import 'package:rockimals/features/settings/calm_motion.dart';
+import 'package:rockimals/features/settings/little_kids_mode.dart';
 import 'package:rockimals/features/settings/sound.dart';
 
 import '../../support/stub_settings.dart';
@@ -912,6 +913,11 @@ Future<void> _mount(
         // false under a plain `MaterialApp`. Every test outside the Calm motion
         // group therefore measures full-speed drift exactly as before.
         reducedMotionProvider.overrideWith(() => StubCalmMotion(calmMotion)),
+        // The Play button's destination — the hub — resolves 🧸 Little Kids
+        // mode to pick its card list, so the two tests that follow that button
+        // drag the setting in the same way they drag the two above. Held off,
+        // so the hub shows all four cards.
+        littleKidsModeProvider.overrideWith(StubLittleKids.new),
       ],
       child: const MaterialApp(home: RadarView()),
     ),

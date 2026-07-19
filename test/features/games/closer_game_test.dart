@@ -12,6 +12,7 @@ import 'package:rockimals/features/games/games_hub.dart';
 import 'package:rockimals/features/games/games_providers.dart';
 import 'package:rockimals/features/rewards/reaction.dart';
 import 'package:rockimals/features/settings/calm_motion.dart';
+import 'package:rockimals/features/settings/little_kids_mode.dart';
 import 'package:rockimals/features/settings/sound.dart';
 
 import '../../support/recording_sound_engine.dart';
@@ -365,6 +366,9 @@ void main() {
           // notifier reads the store. Held at "never chose", so these tests
           // measure the full-length reaction as they did before the setting.
           reducedMotionProvider.overrideWith(StubCalmMotion.new),
+          // The hub resolves 🧸 Little Kids mode to pick its card list. Held
+          // off, so all four cards are on screen as they were before it.
+          littleKidsModeProvider.overrideWith(StubLittleKids.new),
         ],
         child: const MaterialApp(home: GamesHub()),
       ),

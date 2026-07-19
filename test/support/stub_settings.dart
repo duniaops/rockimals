@@ -13,6 +13,7 @@
 library;
 
 import 'package:rockimals/features/settings/calm_motion.dart';
+import 'package:rockimals/features/settings/little_kids_mode.dart';
 
 /// A 🐢 Calm motion choice held at [_chosen] without touching the store.
 ///
@@ -34,6 +35,30 @@ class StubCalmMotion extends ReducedMotionNotifier {
     // write is dropped because there is no box under this. A suite that wants
     // the real persist-and-reload uses the real notifier over a temp-directory
     // store, as the store and settings suites do.
+    state = value;
+  }
+}
+
+/// A 🧸 Little Kids mode choice held at [_chosen] without touching the store.
+///
+/// Wanted from the moment the Play hub started narrowing its card list, for the
+/// same reason [StubCalmMotion] exists: the hub now resolves a persisted setting,
+/// so every test that mounts it would otherwise need a store behind it.
+///
+/// **A plain bool, unlike [StubCalmMotion]'s nullable** — the real notifier has
+/// no third state to stand in for, because there is no OS signal to defer to.
+class StubLittleKids extends LittleKidsModeNotifier {
+  StubLittleKids([this._chosen = false]);
+
+  final bool _chosen;
+
+  @override
+  bool build() => _chosen;
+
+  @override
+  Future<void> choose(bool value) async {
+    // The live half only, exactly as [StubCalmMotion.choose]: the state moves so
+    // a mounted screen reacts, and the write is dropped for want of a box.
     state = value;
   }
 }
