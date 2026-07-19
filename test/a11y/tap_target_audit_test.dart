@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rockimals/core/audio/sound_engine.dart';
 import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/data/models/asteroid_feed.dart';
 import 'package:rockimals/features/data/providers.dart';
@@ -15,6 +16,7 @@ import 'package:rockimals/features/shell/app_shell.dart';
 import 'package:rockimals/features/title/title_screen.dart';
 
 import '../support/memory_store.dart';
+import '../support/recording_sound_engine.dart';
 import '../support/tap_target_audit.dart';
 
 /// **The app-wide tap-target audit** — `specs/06-title-polish-safety.md:21`
@@ -165,6 +167,13 @@ Future<void> _pump(
         asteroidFeedProvider.overrideWith((Ref ref) => AsteroidFeed.fallback()),
         dayStreakProvider.overrideWithValue(0),
         storeProvider.overrideWithValue(MemoryStore()),
+        // The walk taps its way through all four games, and an answer plays a
+        // cue. Nothing here asserts on sound; this keeps the audio plugin off
+        // the path, which the audit had been getting away with only because a
+        // real `ToneSoundEngine` failed *quietly* on a host VM. It no longer
+        // does: the handoff is now bounded by a timer, and a timer still pending
+        // when the tree is disposed fails the test outright.
+        soundEngineProvider.overrideWithValue(RecordingSoundEngine()),
       ],
       child: MaterialApp(
         builder: (BuildContext context, Widget? child) =>

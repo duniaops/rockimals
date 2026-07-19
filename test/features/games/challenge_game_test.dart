@@ -452,6 +452,13 @@ Future<void> _mountFromHub(
           ),
         ),
         soundOnProvider.overrideWith(_StubSound.new),
+        // The toggle above is stubbed *on*, so cues get past the gate and reach
+        // whatever engine is registered. Without this line that is the real one,
+        // which the route-level tests had been getting away with only because it
+        // failed quietly on a host VM — it now leaves a pending timer, which
+        // fails the test. The single-game mount above already stands this fake up
+        // for the same reason.
+        soundEngineProvider.overrideWithValue(RecordingSoundEngine()),
         reducedMotionProvider.overrideWith(StubCalmMotion.new),
       ],
       child: const MaterialApp(home: _RadarStub()),
