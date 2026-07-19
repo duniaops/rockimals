@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hive/hive.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/core/theme/palette.dart';
@@ -191,6 +191,74 @@ void main() {
         isTrue,
       );
     });
+
+    testWidgets('records the day the clock says, not the day the host is having', (
+      tester,
+    ) async {
+      // The launch used to call `DateTime.now()` inline, so it was the one
+      // day-streak trigger no test could drive on a chosen day — the group below
+      // asserted nothing about the flame as a result.
+      //
+      // **Why the seeded history, rather than booting a fresh install on a fixed
+      // date and asserting a streak of 1.** That test would pass without the
+      // clock being read at all: a fresh install returns 1 on *every* day, so
+      // the wall clock produces the same answer. Seeding "played yesterday, on a
+      // run of 4" makes the two answers differ and keeps differing — a launch on
+      // 2020-01-02 continues the run to 5, while a launch on the host's actual
+      // date is years past the gap and restarts at 1. That holds on any day of
+      // the year, which is the property a clock test needs; one pinned to a
+      // single date passes for the wrong reason 364 days out of 365.
+      await _seedStore(tester, (Store store) async {
+        await store.setDayStreak(4);
+        await store.setLastPlayedDate('2020-01-01');
+      });
+
+      await tester.pumpWidget(
+        await _bootstrap(
+          tester,
+          overrides: <Override>[
+            dayClockProvider.overrideWithValue(() => DateTime(2020, 1, 2)),
+          ],
+        ),
+      );
+
+      final Store store = _storeOf(tester);
+      expect(store.dayStreak, 5);
+      expect(store.lastPlayedDate, '2020-01-02');
+    });
+
+    testWidgets('one clock override dates the launch and the app alike', (
+      tester,
+    ) async {
+      // The seam this item chose, stated as a test. `bootstrap()` reads
+      // [dayClockProvider] out of the overrides it is handed rather than taking
+      // a clock parameter of its own, so the single override a test writes for
+      // the running app also dates the streak written before the first frame.
+      // A `now:` parameter would leave this passing only when a test remembered
+      // to set both, which is the two-clock split the sky just closed.
+      //
+      // Asserted through the flame the child sees — `dayStreakProvider` at the
+      // first pumped frame — because "right at first paint" is the reason the
+      // record happens in `bootstrap()` at all.
+      await _seedStore(tester, (Store store) async {
+        await store.setDayStreak(6);
+        await store.setLastPlayedDate('2021-03-14');
+      });
+
+      await tester.pumpWidget(
+        await _bootstrap(
+          tester,
+          overrides: <Override>[
+            dayClockProvider.overrideWithValue(() => DateTime(2021, 3, 15)),
+          ],
+        ),
+      );
+
+      final ProviderContainer container = ProviderScope.containerOf(
+        tester.element(find.byType(RockimalsApp)),
+      );
+      expect(container.read(dayStreakProvider), 7);
+    });
   });
 
   group('storeProvider', () {
@@ -361,15 +429,40 @@ class _RefusedAdapter implements HttpClientAdapter {
 /// says on the tin. `runAsync` hands the body back the real event loop for the
 /// duration. Anything else in this file that touches the box — a `setPoints`, a
 /// reopen — needs the same treatment for the same reason.
-Future<Widget> _bootstrap(WidgetTester tester) async => (await tester.runAsync(
+Future<Widget> _bootstrap(
+  WidgetTester tester, {
+  List<Override> overrides = const <Override>[],
+}) async => (await tester.runAsync(
   () => bootstrap(
     overrides: <Override>[
       asteroidFeedProvider.overrideWith(
         (Ref ref) => Completer<AsteroidFeed>().future,
       ),
+      ...overrides,
     ],
   ),
 ))!;
+
+/// Write into the box `bootstrap()` is about to open, so a launch can be asked
+/// what it did with a history rather than only with a fresh install.
+///
+/// Opens and closes around the seed deliberately: [Store.open] hands back a
+/// handle on the process-wide Hive box, and leaving it open would let
+/// `bootstrap()`'s own open answer from an already-live handle — which passes
+/// here and is not what a cold launch does. `initFlutter` is called first
+/// because nothing else has yet; `bootstrap()` calls it again and it is
+/// idempotent.
+Future<void> _seedStore(
+  WidgetTester tester,
+  Future<void> Function(Store store) seed,
+) async {
+  await tester.runAsync(() async {
+    await Hive.initFlutter();
+    final Store store = await Store.open();
+    await seed(store);
+    await store.close();
+  });
+}
 
 /// Anchored on [RockimalsApp] rather than on any screen, deliberately: it is the
 /// one widget under the scope that is there in every load state, so this keeps

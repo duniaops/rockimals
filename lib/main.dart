@@ -52,17 +52,41 @@ Future<Widget> bootstrap({
   await Hive.initFlutter();
   final Store store = await Store.open();
 
+  // The store first, so a test can still override it with its own.
+  final List<Override> scoped = <Override>[
+    storeProvider.overrideWithValue(store),
+    ...overrides,
+  ];
+
   // Opening Rockimals is the day's engagement (plan decisions 3/14), so the
   // consecutive-days-played streak is advanced here, before the first frame —
   // the same reason the store itself is opened here rather than lazily: the home
   // flame must be right at first paint, not a frame later.
-  await DayStreak.record(store, DateTime.now());
+  //
+  // **The day comes from [dayClockProvider], read through a throwaway container
+  // built from the very overrides the app is about to run under.** This line
+  // used to call `DateTime.now()` inline, on the reasoning that the scope it
+  // would read a clock from does not exist yet — which is true, and is why the
+  // launch was the one day-streak trigger no test could drive on a chosen day.
+  //
+  // A `DateTime Function() now = DateTime.now` parameter would have been the
+  // cheaper fix and was rejected: it makes the launch a *second* seam for a fact
+  // the app already has one seam for, so a test that overrides the clock and
+  // forgets the parameter gets the wall clock back at launch and nothing says
+  // so. That is the exact split the sky's two clocks had. One override now
+  // dates the streak, the sky, and the games alike.
+  //
+  // The probe is safe to build and drop: [dayClockProvider] is a plain value
+  // provider with no dependencies and nothing to dispose, and an `Override` is a
+  // description rather than state, so reusing `scoped` in the real scope below
+  // is not sharing anything.
+  final ProviderContainer clockProbe = ProviderContainer(overrides: scoped);
+  final DateTime Function() now = clockProbe.read(dayClockProvider);
+  clockProbe.dispose();
 
-  return ProviderScope(
-    // The store first, so a test can still override it with its own.
-    overrides: <Override>[storeProvider.overrideWithValue(store), ...overrides],
-    child: const RockimalsApp(),
-  );
+  await DayStreak.record(store, now());
+
+  return ProviderScope(overrides: scoped, child: const RockimalsApp());
 }
 
 class RockimalsApp extends ConsumerWidget {
