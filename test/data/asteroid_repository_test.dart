@@ -571,6 +571,47 @@ void main() {
       },
     );
   });
+
+  group('AsteroidRepository takes its clock and never reaches for one', () {
+    // `now` was optional until 2026-07-19, defaulting to `DateTime.now`. Every
+    // caller passed a clock even then, so the default was never *reached* — it
+    // was loaded, waiting for the next caller who forgot, at which point a
+    // second clock would decide a date in the feed path and nothing would fail.
+    // That is the exact split `dayClockProvider` was created to close.
+    //
+    // Requiring the parameter makes a forgetful caller a compile error, so the
+    // call sites need no test. What needs one is the *default itself*: putting
+    // `?? DateTime.now` back compiles, breaks nothing, and silently re-arms the
+    // trap. Only reading the source can see that, so this reads the source.
+    //
+    // Scoped to this one file on purpose. `CachingFeedSource` has the same
+    // optional-`now` shape and must **not** be swept up — its clock is a TTL
+    // stopwatch (`age < _ttl`), not a calendar, and freezing it to a chosen day
+    // would make every cached entry eternally fresh.
+    final String source = File(
+      'lib/data/asteroid_repository.dart',
+    ).readAsStringSync();
+
+    test('declares `now` required rather than defaulted', () {
+      expect(
+        source,
+        contains('required DateTime Function() now'),
+        reason:
+            'an optional clock lets a new caller put a second one in the feed '
+            'path without failing anything',
+      );
+    });
+
+    test('names no wall clock of its own', () {
+      expect(
+        source,
+        isNot(contains('DateTime.now')),
+        reason:
+            'every date this class acts on must arrive through `now`, so that '
+            'one clock decides what day the sky is for',
+      );
+    });
+  });
 }
 
 /// The real client over the real capture, with the clock pinned to the day the
