@@ -19,6 +19,32 @@
 /// Putting the one feature-aware piece here keeps `core/audio/` a
 /// self-contained, reusable unit — and puts the gate beside `reaction.dart`, the
 /// motion half of the same `react()` call it completes.
+///
+/// **Why it does not instead live beside the flag in `features/settings/` — a
+/// question that is now settled rather than open.** It was raised when
+/// `SoundOnNotifier.toggle`'s confirmation blip needed a cue from *inside*
+/// `features/settings` and could not use this gate (settings and rewards would
+/// have had to import each other), and took a documented exception straight to
+/// `soundEngineProvider` instead. Moving the gate beside the flag is the obvious
+/// reading of that, and it is wrong twice over:
+///
+/// - **It would not have removed the exception that raised it.** The blip fires
+///   precisely *because* the flag was just set to `true`, so this gate's
+///   predicate is provably true at that call site — in any home the gate could
+///   have. The exception is intrinsic to the caller, not an artifact of the
+///   layering, so relocating buys nothing for the one case that motivated it.
+/// - **It would invert what `features/settings/` is.** That module is a leaf:
+///   six features import it and it imports nothing but `features/data`. It owns
+///   flags. Handing it the app's audio playback would make every feature that
+///   wants a noise depend on settings *for playback* — a service hub, not a
+///   settings module. A gate that consumes one flag one-way is exactly the shape
+///   `reaction.dart` already has against `calm_motion.dart`.
+///
+/// The trigger to reopen is a **second** settings-side cue whose predicate is
+/// not already decided at the call site — at that point the exception has become
+/// a rule, and `sound_test.dart`'s allowlist is the wrong place to hold the
+/// line. Until then `sound_controller_test.dart` pins this file's location, so
+/// the move fails loudly instead of quietly.
 library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';

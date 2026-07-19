@@ -6,6 +6,8 @@
 /// for why a silent host VM cannot tell a working gate from a broken one.
 library;
 
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -145,6 +147,47 @@ void main() {
 
     test('disposing one that never played is harmless', () async {
       await expectLater(ToneSoundEngine().dispose(), completes);
+    });
+  });
+
+  group('the gate stays in features/rewards', () {
+    test('no library outside this feature declares it', () {
+      // The tripwire for a decision that was otherwise only a comment, and
+      // comments do not fail. `SoundOnNotifier.toggle`'s confirmation blip needed
+      // a cue from inside `features/settings` and could not use this gate, which
+      // made "move the gate beside the flag" look like the obvious fix. It is
+      // not, for two reasons recorded in full in `sound_controller.dart`: it
+      // would not have removed that exception (the blip's predicate is decided
+      // one statement above it, in any home the gate could have), and it would
+      // hand `features/settings` — a leaf that six features import and that
+      // imports nothing but `features/data` — responsibility for the app's audio
+      // playback.
+      //
+      // The mirror of `sound_test.dart`'s guard on the *toggle's* location, and
+      // it exists for the same reason: the argument is about where a thing lives,
+      // so nothing but a check on where it lives can hold it.
+      final List<String> offenders = <String>[];
+      for (final FileSystemEntity entity in Directory(
+        'lib',
+      ).listSync(recursive: true)) {
+        if (entity is! File || !entity.path.endsWith('.dart')) continue;
+        if (entity.path.endsWith('features/rewards/sound_controller.dart')) {
+          continue;
+        }
+        final String source = entity.readAsStringSync();
+        if (source.contains('class SoundController') ||
+            source.contains('soundControllerProvider =')) {
+          offenders.add(entity.path);
+        }
+      }
+
+      expect(
+        offenders,
+        isEmpty,
+        reason:
+            'these files declare the sound gate outside features/rewards — see '
+            'the library doc in sound_controller.dart before moving it',
+      );
     });
   });
 }

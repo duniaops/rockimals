@@ -65,12 +65,18 @@ class SoundOnNotifier extends Notifier<bool> {
   /// *this notifier*. Here the answer is settled one statement above — the cue
   /// fires precisely because the flag was just set to `true` — so the gate would
   /// re-enter the notifier it is called from to re-read a value we wrote
-  /// ourselves. The layering cost is the real objection: `SoundController` lives
-  /// in `features/rewards` and imports this library, so calling it from here
-  /// would make settings and rewards import each other — the exact cross-feature
-  /// knot moving the toggle into this module untied. `sound_test.dart` grep-pins
-  /// that this is the *only* library outside the gate that touches the engine,
-  /// so the invariant is now enforced rather than merely documented.
+  /// ourselves — a check that is provably true here, and would stay provably
+  /// true wherever the gate lived. That is what makes this exception intrinsic
+  /// to the call site rather than a symptom of the layering, and it is half the
+  /// reason the gate stays in `features/rewards` (the argument is recorded in
+  /// full in `sound_controller.dart`): moving it beside this flag would not have
+  /// removed the exception, and would hand a leaf module the app's audio
+  /// playback. The layering cost is real too — `SoundController` imports this
+  /// library, so calling it from here would make settings and rewards import
+  /// each other, the exact cross-feature knot moving the toggle into this module
+  /// untied. `sound_test.dart` grep-pins that this is the *only* library outside
+  /// the gate that touches the engine, so the invariant is enforced rather than
+  /// merely documented.
   ///
   /// The cue is deliberately **not** awaited: the returned future is the
   /// persistence write and nothing else, so a slow or wedged audio route cannot

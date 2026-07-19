@@ -172,11 +172,16 @@ void main() {
       // that stops a fifth cue being added that ignores the child's setting. It
       // was a comment, and comments do not fail.
       //
-      // The confirmation blip is the first sanctioned exception (it has just
-      // written the flag the gate would ask about, and routing through the gate
-      // would make settings and rewards import each other), so this is the
-      // moment to make the rule enforceable instead of widening it on trust.
-      // Any third library that reads the engine fails here, and whoever adds it
+      // The confirmation blip is the one sanctioned exception, and the plan item
+      // it raised — "where does the sound gate belong" — has since settled that
+      // it stays one. **What earns a place on this list is a predicate that is
+      // already decided at the call site**, not an awkward import: the blip has
+      // just written the flag the gate would ask about, so the gate's check
+      // there is provably true and would stay so wherever the gate lived. A cue
+      // whose predicate is genuinely open belongs behind `SoundController`
+      // however inconvenient the layering, and if it truly cannot reach it, the
+      // answer is to move the *caller* rather than widen this list.
+      // Any fourth library that reads the engine fails here, and whoever adds it
       // has to argue the case in this list rather than in a comment nobody runs.
       const List<String> allowed = <String>[
         // The declaration and its own doc comment.
