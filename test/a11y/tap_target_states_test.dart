@@ -434,11 +434,17 @@ final Asteroid _rock = kFallbackAsteroids.firstWhere(
 /// **`2019 OK` is dropped because it is a homonym.** `critter()` names a rock by
 /// hashing its designation and pairing that with its species, and across the 14
 /// bundled rocks exactly one pair collides: `2010 WC9` and `2019 OK` are both
-/// 130m — so both are Bears — and both hash to "Bruno". That is not a bug in the
-/// naming (two real animals in a zoo may share a name, and nothing in the app
-/// identifies a rock by its animal name), but it makes [_dealt] ambiguous: one
-/// "Bruno the Bear" on the board matches two asteroids, and the power comparison
-/// the duel needs then has two different answers.
+/// 130m — so both are Bears — and both hash to "Bruno". Homonyms are a
+/// **decided, accepted** property of the naming rather than an open question:
+/// see the argument on `kNamePool` and the assertions in
+/// `test/core/animals/name_collisions_test.dart`. What they are not is
+/// unambiguous, and [_dealt] needs unambiguity — one "Bruno the Bear" on the
+/// board matches two asteroids, and the power comparison the duel needs then
+/// has two different answers.
+///
+/// This drop stays even once the games reject a name-colliding deal (the open
+/// plan item): that guard would keep two Brunos off the board *together*, which
+/// is not the same as telling this file which single Bruno it is looking at.
 ///
 /// Dropping one is honest in a way that special-casing the pair would not be —
 /// 13 rocks is still well inside what `dealDuelPair` and `dealCloserRound` need
