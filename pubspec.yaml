@@ -58,6 +58,13 @@ dev_dependencies:
   # transitive dep of hive_flutter; named here because a test imports it.
   path_provider_platform_interface: ^2.1.2
 
+  # Parses `lib/`'s own source into an AST for `panel_surface_guard_test.dart`,
+  # which has to ask "does one *widget* restate all four `.panel` values?" — a
+  # question a grep cannot answer, because three of those values co-occur in
+  # `radar_view.dart` in unrelated widgets. Already in the tree as a transitive
+  # dep; named here because a test imports it. Test-only, pure Dart, no plugin.
+  analyzer: ^12.1.0
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 

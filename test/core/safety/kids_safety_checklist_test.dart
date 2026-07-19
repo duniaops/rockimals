@@ -75,6 +75,13 @@ void main() {
         'flutter_test',
         'flutter_lints',
         'path_provider_platform_interface',
+        // Parses `lib/`'s own source for `panel_surface_guard_test.dart`. It
+        // reads files off disk at test time and is never imported by `lib/`,
+        // so it cannot reach a device — but it is named here anyway, because
+        // the value of this list is that *every* arrival gets looked at, and a
+        // "dev dependencies don't count" exemption is the hole through which
+        // the first one that does count would arrive.
+        'analyzer',
       });
     });
 
