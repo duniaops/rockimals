@@ -16,11 +16,16 @@
 /// `index.html:1020`) — proof to a child that the speaker works. With the
 /// notifier in `features/games` that rule had to be duplicated at each button,
 /// because moving it into [SoundOnNotifier.toggle] would have made
-/// `features/games` and `features/rewards` import each other. From here there is
-/// no cycle to create, so the rule can live in one place.
+/// `features/games` and `features/rewards` import each other. From here it lives
+/// in one place, so both the Play hub's 🔊/🔇 button and the Settings row
+/// inherit it and neither can drift.
 library;
 
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rockimals/core/audio/sound_cues.dart';
+import 'package:rockimals/core/audio/sound_engine.dart';
 import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/features/data/providers.dart';
 
@@ -42,11 +47,41 @@ class SoundOnNotifier extends Notifier<bool> {
   @override
   bool build() => ref.watch(storeProvider).soundOn;
 
-  /// Flip the toggle and persist the new value (`soundOn=!soundOn;
-  /// gSet("aw_sound",…)`, `index.html:1020`).
+  /// Flip the toggle, persist the new value, and — on the way *on* only —
+  /// answer with the happy jingle (`soundOn=!soundOn; gSet("aw_sound",…);
+  /// if(soundOn)playHappy()`, `index.html:1020`).
+  ///
+  /// **The blip belongs here rather than at each button** because there are two
+  /// buttons: the Play hub's 🔊/🔇 and the Settings screen's 🔊 Sound row. A
+  /// child turning sound back on from Settings needs the same proof the speaker
+  /// works that the hub gives, and a rule written twice is a rule that will
+  /// eventually be written once. Turning sound *off* is silent — the prototype's
+  /// behaviour and the only coherent one, since a cue confirming silence
+  /// contradicts itself.
+  ///
+  /// **Why this reads [soundEngineProvider] directly, when
+  /// `sound_engine.dart` says to go through `SoundController`.** The gate exists
+  /// so no cue can be played that ignores this toggle; it decides by reading
+  /// *this notifier*. Here the answer is settled one statement above — the cue
+  /// fires precisely because the flag was just set to `true` — so the gate would
+  /// re-enter the notifier it is called from to re-read a value we wrote
+  /// ourselves. The layering cost is the real objection: `SoundController` lives
+  /// in `features/rewards` and imports this library, so calling it from here
+  /// would make settings and rewards import each other — the exact cross-feature
+  /// knot moving the toggle into this module untied. `sound_test.dart` grep-pins
+  /// that this is the *only* library outside the gate that touches the engine,
+  /// so the invariant is now enforced rather than merely documented.
+  ///
+  /// The cue is deliberately **not** awaited: the returned future is the
+  /// persistence write and nothing else, so a slow or wedged audio route cannot
+  /// stall a caller that awaits the flip. Same handling `GameShell` gives its
+  /// answer cues.
   Future<void> toggle() {
     final bool next = !state;
     state = next;
+    if (next) {
+      unawaited(ref.read(soundEngineProvider).play(SoundCue.happy));
+    }
     return ref.read(storeProvider).setSoundOn(next);
   }
 }

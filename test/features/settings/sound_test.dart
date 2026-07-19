@@ -1,11 +1,15 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rockimals/core/audio/sound_cues.dart';
+import 'package:rockimals/core/audio/sound_engine.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/settings/sound.dart';
 
 import '../../support/memory_store.dart';
+import '../../support/recording_sound_engine.dart';
 
 /// The 🔊 Sound toggle's behaviour, and — the reason this file exists at all —
 /// the seam that behaviour now sits behind.
@@ -77,6 +81,61 @@ void main() {
     });
   });
 
+  group('the confirmation blip', () {
+    test('turning sound on answers with the happy jingle', () async {
+      // `if(soundOn)playHappy()` (`index.html:1020`). An emoji swapping from 🔇
+      // to 🔊, or a switch sliding across, proves nothing about the speaker — a
+      // child whose device is muted at the OS level needs to hear the difference
+      // between "the app is off" and "the phone is off".
+      final RecordingSoundEngine engine = RecordingSoundEngine();
+      final ProviderContainer container = _container(
+        MemoryStore(soundOn: false),
+        engine: engine,
+      );
+
+      await container.read(soundOnProvider.notifier).toggle();
+
+      expect(container.read(soundOnProvider), isTrue);
+      expect(engine.played, <SoundCue>[SoundCue.happy]);
+    });
+
+    test('turning sound off is silent — it does not sign off', () async {
+      // The prototype only plays on the way on, and that is the only coherent
+      // reading: a cue confirming that sound is off contradicts itself.
+      final RecordingSoundEngine engine = RecordingSoundEngine();
+      final ProviderContainer container = _container(
+        MemoryStore(),
+        engine: engine,
+      );
+
+      await container.read(soundOnProvider.notifier).toggle();
+
+      expect(container.read(soundOnProvider), isFalse);
+      expect(engine.played, isEmpty);
+    });
+
+    test('the cue does not gate the persistence write', () async {
+      // `toggle()` fires the cue unawaited on purpose, so the future it returns
+      // is the store write and nothing else. Pinned because the failure mode is
+      // silent and nasty: an awaited cue against a wedged audio route would hang
+      // every caller of the toggle, and the open plan item about a hung player
+      // says that route is real. An engine that never answers must not stop the
+      // child's choice reaching disk.
+      final MemoryStore store = MemoryStore(soundOn: false);
+      final ProviderContainer container = _container(
+        store,
+        engine: _NeverAnsweringEngine(),
+      );
+
+      await container
+          .read(soundOnProvider.notifier)
+          .toggle()
+          .timeout(const Duration(seconds: 5));
+
+      expect(store.soundOn, isTrue);
+    });
+  });
+
   group('the settings feature owns the toggle', () {
     test('no library outside features/settings declares its state', () {
       // The regression this file exists to stop. `soundOnProvider` lived in
@@ -109,12 +168,32 @@ void main() {
   });
 }
 
-/// Shaped like `little_kids_mode_test.dart`'s helper, and for the same reason:
-/// the store is the only thing this notifier reaches past, so it is the only
-/// thing that needs standing in front of.
-ProviderContainer _container(MemoryStore store) {
+/// A [SoundEngine] whose `play` never completes — the wedged audio route the
+/// open "bound a hung audio call" plan item describes, which `audioplayers`
+/// produces for real when no binding has registered the plugin.
+class _NeverAnsweringEngine implements SoundEngine {
+  @override
+  Future<void> play(SoundCue cue) => Completer<void>().future;
+
+  @override
+  Future<void> dispose() async {}
+}
+
+/// Shaped like `little_kids_mode_test.dart`'s helper, with one addition the
+/// confirmation blip forced: the sound **engine** is faked too.
+///
+/// It has to be. `toggle()` reaches the engine on the way on, so a container
+/// with only the store in front of it would build a real `ToneSoundEngine` and
+/// hand bytes to the `audioplayers` plugin — which on a host VM with no binding
+/// either throws (reported through `FlutterError`, failing the test) or never
+/// answers at all. Recording instead is also the only way to *observe* the blip:
+/// a real engine here is silent whether the rule works or not.
+ProviderContainer _container(MemoryStore store, {SoundEngine? engine}) {
   final ProviderContainer container = ProviderContainer(
-    overrides: [storeProvider.overrideWithValue(store)],
+    overrides: [
+      storeProvider.overrideWithValue(store),
+      soundEngineProvider.overrideWithValue(engine ?? RecordingSoundEngine()),
+    ],
   );
   addTearDown(container.dispose);
   return container;

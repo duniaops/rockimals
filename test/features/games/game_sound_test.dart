@@ -19,13 +19,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rockimals/core/audio/sound_cues.dart';
 import 'package:rockimals/core/audio/sound_engine.dart';
+import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/games/game_shell.dart';
 import 'package:rockimals/features/games/games_hub.dart';
 import 'package:rockimals/features/games/games_providers.dart';
-import 'package:rockimals/features/rewards/sound_controller.dart';
 import 'package:rockimals/features/settings/calm_motion.dart';
 import 'package:rockimals/features/settings/sound.dart';
 
+import '../../support/memory_store.dart';
 import '../../support/recording_sound_engine.dart';
 import '../../support/stub_settings.dart';
 
@@ -219,16 +220,22 @@ Future<ProviderContainer> _pumpShell(
   return container;
 }
 
-/// Mount the Play hub with a sound toggle that really flips (but does not
-/// persist) — the hub's own suite covers persistence against a real store.
+/// Mount the Play hub over the **real** [SoundOnNotifier], seeded from a
+/// [MemoryStore] — no stub toggle, because the toggle is now the subject.
 ///
-/// **The controller here is deliberately un-gated** (`() => true`), so [engine]
-/// records what the hub *asked* to play rather than what survived the toggle.
-/// With the real gate in place these two tests could not tell a hub that
-/// correctly stays quiet from one that fires a blip on every tap and has it
-/// swallowed downstream — a mutation making the blip unconditional survived them
-/// until this override was added. The gate itself is pinned in
-/// `test/features/rewards/sound_controller_test.dart`; this file pins the hub.
+/// **This used to override `soundOnProvider` with a fake that reimplemented
+/// `toggle()`, and that would now test nothing.** The confirmation blip moved
+/// into the real `toggle()` (`SoundOnNotifier.toggle`), so a fake that replaces
+/// that method replaces the very rule these two tests exist to check — they
+/// would pass against a hub wired to nothing at all. A memory store keeps the
+/// flip honest while staying off Hive, whose `await` inside a pumped frame is
+/// the deadlock `memory_store.dart` warns about; persistence across a real
+/// restart stays in `games_hub_test.dart`, against a reopened box.
+///
+/// The gate is not stood in front of either, and no longer needs to be: the blip
+/// reaches [soundEngineProvider] directly, so [engine] records what was asked
+/// for rather than what survived a second check. A mutation making the blip
+/// unconditional still fails the second test.
 Future<void> _pumpHub(
   WidgetTester tester,
   RecordingSoundEngine engine, {
@@ -238,10 +245,7 @@ Future<void> _pumpHub(
     ProviderScope(
       overrides: [
         soundEngineProvider.overrideWithValue(engine),
-        soundControllerProvider.overrideWithValue(
-          SoundController(engine, () => true),
-        ),
-        soundOnProvider.overrideWith(() => _FlippingSoundOn(startOn)),
+        storeProvider.overrideWithValue(MemoryStore(soundOn: startOn)),
         reducedMotionProvider.overrideWith(StubCalmMotion.new),
         gamesHubStatsProvider.overrideWithValue(
           const GamesHubStats(
@@ -256,17 +260,4 @@ Future<void> _pumpHub(
     ),
   );
   await tester.pumpAndSettle();
-}
-
-/// A sound toggle that flips in memory, with no store behind it.
-class _FlippingSoundOn extends SoundOnNotifier {
-  _FlippingSoundOn(this._initial);
-
-  final bool _initial;
-
-  @override
-  bool build() => _initial;
-
-  @override
-  Future<void> toggle() async => state = !state;
 }

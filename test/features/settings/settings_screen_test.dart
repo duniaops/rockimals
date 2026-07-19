@@ -23,6 +23,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rockimals/core/audio/sound_cues.dart';
 import 'package:rockimals/core/audio/sound_engine.dart';
 import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/features/data/providers.dart';
@@ -452,6 +453,47 @@ void main() {
       expect(tester.widget<Switch>(_switchFor('Sound')).value, isTrue);
     });
 
+    testWidgets('turning sound on from here answers with the happy jingle', (
+      tester,
+    ) async {
+      // The confirmation blip (`if(soundOn)playHappy()`, `index.html:1020`) was
+      // the Play hub button's alone while that button was the only flip point.
+      // A child who turns sound back on from *here* has exactly the same
+      // question — "did that do anything?" — and a Switch sliding across answers
+      // it no better than an emoji did. The rule now lives in
+      // `SoundOnNotifier.toggle`, so this surface inherits it; this test is what
+      // says the inheritance is real rather than assumed.
+      late final RecordingSoundEngine engine;
+      await _openSettings(
+        tester,
+        soundOn: false,
+        onEngine: (RecordingSoundEngine e) => engine = e,
+      );
+
+      await tester.tap(find.text('Sound'));
+      await tester.pumpAndSettle();
+
+      expect(tester.widget<Switch>(_switchFor('Sound')).value, isTrue);
+      expect(engine.played, <SoundCue>[SoundCue.happy]);
+    });
+
+    testWidgets('turning sound off from here is silent', (tester) async {
+      // The other half, and the one a mutation would slip past: a blip fired on
+      // every flip rather than only on the way on would still pass the test
+      // above while contradicting itself out loud.
+      late final RecordingSoundEngine engine;
+      await _openSettings(
+        tester,
+        onEngine: (RecordingSoundEngine e) => engine = e,
+      );
+
+      await tester.tap(find.text('Sound'));
+      await tester.pumpAndSettle();
+
+      expect(tester.widget<Switch>(_switchFor('Sound')).value, isFalse);
+      expect(engine.played, isEmpty);
+    });
+
     testWidgets('the Play hub follows a flip made in Settings, at once', (
       tester,
     ) async {
@@ -665,6 +707,7 @@ Future<void> _openSettings(
   bool littleKidsMode = false,
   bool osDisablesAnimations = false,
   void Function(Store store)? onStore,
+  void Function(RecordingSoundEngine engine)? onEngine,
 }) async {
   if (osDisablesAnimations) {
     tester.platformDispatcher.accessibilityFeaturesTestValue =
@@ -682,6 +725,7 @@ Future<void> _openSettings(
       soundOn: soundOn,
       littleKidsMode: littleKidsMode,
       onStore: onStore,
+      onEngine: onEngine,
     ),
   );
   await tester.scrollUntilVisible(find.text('Settings'), 200);
@@ -741,6 +785,9 @@ Widget _app({
 
   /// Handed back so a test can ask what the toggle wrote.
   void Function(Store store)? onStore,
+
+  /// Handed back so a test can ask what the toggle *played*.
+  void Function(RecordingSoundEngine engine)? onEngine,
 }) {
   final Store store = MemoryStore(
     points: 142,
@@ -751,8 +798,11 @@ Widget _app({
   );
   onStore?.call(store);
 
+  final RecordingSoundEngine engine = RecordingSoundEngine();
+  onEngine?.call(engine);
+
   return UncontrolledProviderScope(
-    container: _container(store),
+    container: _container(store, engine),
     child: MaterialApp(
       home: MediaQuery(
         data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
@@ -791,11 +841,11 @@ Widget _bothSurfaces() {
 /// the Profile reads the store in its first frame, and a badge earned mid-test
 /// would otherwise reach the real one. `badgesProvider` is read eagerly here so
 /// that ledger is warm before anything mounts.
-ProviderContainer _container(Store store) {
+ProviderContainer _container(Store store, [RecordingSoundEngine? engine]) {
   final ProviderContainer container = ProviderContainer(
     overrides: [
       storeProvider.overrideWithValue(store),
-      soundEngineProvider.overrideWithValue(RecordingSoundEngine()),
+      soundEngineProvider.overrideWithValue(engine ?? RecordingSoundEngine()),
     ],
   );
   addTearDown(container.dispose);
