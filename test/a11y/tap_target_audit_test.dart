@@ -337,6 +337,11 @@ Future<void> _pump(
   required double scale,
   double controlScale = 1,
 }) async {
+  tester.view
+    ..physicalSize = const Size(390, 800)
+    ..devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+
   await tester.pumpWidget(
     ProviderScope(
       overrides: [

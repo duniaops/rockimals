@@ -561,20 +561,11 @@ Future<void> _mount(
   MemoryStore? store,
   bool badgeHost = false,
 }) async {
-  // **The binding's default 800×600 surface, deliberately, and it is the wrong
-  // surface.** Tap targets are a layout property and layout is what the screen
-  // width decides, so the honest surface here is a phone — and setting one
-  // (390×800, the size `one_off_controls_test.dart:179` uses) immediately turns
-  // three of these arms red at 1.5× text, on a genuine defect: the shell's nav
-  // bar is a fixed 70dp `Column` (`app_shell.dart:229`), and at 390dp a tab is
-  // 97.5dp wide, which is narrow enough for a 1.5× label to wrap to two lines
-  // and overflow by 9px. At 800dp each tab gets 200dp, the label stays on one
-  // line, and nothing overflows.
-  //
-  // That is an app bug rather than a states bug, it is not this file's to fix,
-  // and it is on every tab in every state rather than in any of the five below.
-  // Matching the screen audit's surface keeps this file an apples-to-apples
-  // extension of it; the plan carries the re-baselining as its own item.
+  tester.view
+    ..physicalSize = const Size(390, 800)
+    ..devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+
   final AsteroidFeed sky = feed ?? AsteroidFeed.fallback();
   await tester.pumpWidget(
     ProviderScope(
