@@ -406,6 +406,18 @@ class _StatTile extends StatelessWidget {
 /// over the whole shell — nav bar included — is deliberate and is what makes it
 /// a screen rather than a fifth tab; the `‹ Back` pill is the only way out, so
 /// there is no state to hold about how it was opened.
+///
+/// **Deliberately not scaled by 🧸 Little Kids mode — the one control where that
+/// choice actually changes a pixel.** Of the app's screen-local controls this is
+/// the only one whose [kMinTapTarget] floor genuinely binds: it measures exactly
+/// 48dp, so the multiplier would take it to 60 rather than being the no-op it is
+/// for the nav, the toggle rows and the game cards. It is still the wrong thing
+/// to do here. 🧸 mode exists to make the controls a *child* drives easier to
+/// hit, and the paragraph above places this row precisely where a child will
+/// *not* land on it by accident; enlarging the grown-up door by a quarter in the
+/// mode built for four-year-olds argues against its own placement. 48dp remains
+/// the product commitment `specs/08-settings-about.md:82` asks for, and this row
+/// meets it. Pinned in `test/a11y/one_off_controls_test.dart`.
 class _SettingsRow extends StatelessWidget {
   const _SettingsRow();
 

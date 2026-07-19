@@ -329,6 +329,15 @@ const BoxDecoration _featuredCardSurface = BoxDecoration(
 /// One game card (`.gcard`, `index.html:204-210`): the icon, the title and
 /// description, and the personal-best badge, with the featured card carrying the
 /// gradient and accent border (`.gfeat`, `index.html:210`).
+///
+/// **Deliberately not scaled by 🧸 Little Kids mode.** The whole card is the
+/// [InkWell], and its icon, title and description already measure ~154dp tall —
+/// two and a half times the 60dp floor the multiplier would raise it to. This is
+/// the case `AnimalCard` answered the other way, so the difference is worth
+/// naming: that row scales its *padding* because a crowded 72dp row genuinely
+/// reads as cramped to a small child, whereas a card this size gains nothing but
+/// fewer games per screen — and in 🧸 mode the hub is already down to two.
+/// Pinned in `test/a11y/one_off_controls_test.dart`.
 class _GameCardTile extends StatelessWidget {
   const _GameCardTile({required this.card, required this.onTap});
 

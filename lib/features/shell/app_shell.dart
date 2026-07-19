@@ -194,6 +194,15 @@ class _NavBar extends StatelessWidget {
   }
 }
 
+/// One tab in the bottom bar.
+///
+/// **Deliberately not scaled by 🧸 Little Kids mode.** It is `Expanded` inside
+/// the bar's fixed 70dp row, so it already measures ~97×70 — past the 60dp floor
+/// the multiplier would raise it to, which makes `ControlScale` a no-op here
+/// arithmetically rather than a judgement call. The judgement is what it would
+/// cost to apply anyway: 70 is `index.html:12`'s height, and growing a bar the
+/// whole app is laid out above reflows every screen rather than enlarging a
+/// button. Pinned in `test/a11y/one_off_controls_test.dart`.
 class _NavButton extends StatelessWidget {
   const _NavButton({
     required this.tab,

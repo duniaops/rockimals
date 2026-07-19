@@ -154,6 +154,13 @@ class SettingsScreen extends ConsumerWidget {
 /// child aiming at the words would otherwise hit nothing at all. So the tap
 /// falls through to the same [onChanged], and the [Switch] itself is handed the
 /// callback too so that a *drag* across it still works.
+///
+/// **Deliberately not scaled by 🧸 Little Kids mode**, and the reason is
+/// measurement rather than taste: the row's [kMinTapTarget] `minHeight` never
+/// binds. Emoji, label and a wrapped line of hint drive it to ~90dp on their
+/// own, well past the 60dp floor the multiplier would ask for, so scaling it
+/// would change nothing that renders. Pinned in
+/// `test/a11y/one_off_controls_test.dart`.
 class _ToggleRow extends StatelessWidget {
   const _ToggleRow({
     required this.emoji,
