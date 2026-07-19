@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:rockimals/core/chrome/panel.dart';
 import 'package:rockimals/core/theme/palette.dart';
 
 /// The detail screen's `.panel` shell (`index.html:105-106`) — the card surface
 /// every block on the animal detail screen sits in, with the optional uppercase
 /// `h4` heading above its contents.
+///
+/// **The surface itself is [Panel], in `core/chrome/`.** It moved there once
+/// `about_block.dart` turned out to paint the same four CSS properties: a
+/// Settings screen importing `features/detail` for a card that is not about
+/// detail is the wrong seam. What stayed here is the part that is specific to
+/// this feature — the `h4` and the stretch [Column] its three callers share.
 ///
 /// Extracted once the size and distance comparisons were carrying a
 /// byte-identical private `_PanelHeader` each, and a third shell clone stood in
@@ -34,27 +41,17 @@ class DetailPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final String? heading = this.heading;
 
-    return DecoratedBox(
-      // `.panel` — `background:var(--card);border:1px solid var(--line);
-      // border-radius:16px;padding:14px` (`index.html:105`).
-      decoration: const BoxDecoration(
-        color: Palette.card,
-        borderRadius: BorderRadius.all(Radius.circular(16)),
-        border: Border.fromBorderSide(BorderSide(color: Palette.line)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            if (heading != null) ...<Widget>[
-              _PanelHeading(text: heading),
-              // `.panel h4{margin-bottom:10px}` (`index.html:106`).
-              const SizedBox(height: 10),
-            ],
-            ...children,
+    return Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          if (heading != null) ...<Widget>[
+            _PanelHeading(text: heading),
+            // `.panel h4{margin-bottom:10px}` (`index.html:106`).
+            const SizedBox(height: 10),
           ],
-        ),
+          ...children,
+        ],
       ),
     );
   }

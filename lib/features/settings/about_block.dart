@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rockimals/core/chrome/panel.dart';
 import 'package:rockimals/core/config/app_version.dart';
 import 'package:rockimals/core/theme/palette.dart';
 
@@ -77,21 +78,18 @@ class AboutBlock extends StatelessWidget {
             ),
           ),
         ),
-        Container(
-          // `.panel{background:var(--card);border:1px solid var(--line);
-          // border-radius:16px;padding:14px}` (`index.html:105`) — the same
-          // surface `grown_up_facts.dart` wears, which is the other screen in
-          // the app that talks to a grown-up.
-          padding: const EdgeInsets.all(14),
-          decoration: const BoxDecoration(
-            color: Palette.card,
-            borderRadius: BorderRadius.all(Radius.circular(16)),
-            border: Border.fromBorderSide(BorderSide(color: Palette.line)),
-          ),
-          // Const the whole way down: every line here is a compile-time
-          // string, including the version, so the panel is built once and
-          // rebuilt never.
-          child: const Column(
+        // The `.panel` surface (`index.html:105`) — the same one
+        // `grown_up_facts.dart` wears, which is the other screen in the app
+        // that talks to a grown-up, and now literally the same widget: it is
+        // [Panel] in `core/chrome/`, which neither feature owns.
+        //
+        // Const the whole way down, and now including the surface itself:
+        // every line here is a compile-time string, including the version, so
+        // the panel is built once and rebuilt never. The [Container] this
+        // replaced could not be const, so the card was the one part of this
+        // block that rebuilt with its parent.
+        const Panel(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               _AboutLine(emoji: '🛰️', text: attribution),
