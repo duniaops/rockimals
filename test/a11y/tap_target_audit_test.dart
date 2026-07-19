@@ -12,6 +12,8 @@ import 'package:rockimals/features/games/closer_game.dart';
 import 'package:rockimals/features/games/duel_game.dart';
 import 'package:rockimals/features/games/games_hub.dart';
 import 'package:rockimals/features/games/match_game.dart';
+import 'package:rockimals/features/radar/radar_geometry.dart';
+import 'package:rockimals/features/radar/radar_painter.dart';
 import 'package:rockimals/features/settings/little_kids_mode.dart';
 import 'package:rockimals/features/settings/settings_screen.dart';
 import 'package:rockimals/features/shell/app_shell.dart';
@@ -63,6 +65,23 @@ void main() {
           await tester.pump(const Duration(milliseconds: 100));
           expectEveryTapTargetIsBigEnough(tester, reason: '$tab tab$at');
         }
+      });
+
+      testWidgets('on the selected-animal card$at', (tester) async {
+        // **The state the walk above cannot reach by tapping tab labels**, and
+        // the hole that hid a real violation: the radar's HUD card only exists
+        // once an animal has been selected, so its two buttons — Meet, the
+        // primary way into the whole detail screen, and Follow — sat at 31dp
+        // for as long as this audit only ever visited the unselected radar.
+        // Auditing the tab is not auditing the tab's states.
+        await _pump(tester, const AppShell(), scale: scale);
+        await _selectAnimal(tester);
+        expect(
+          find.textContaining('Meet '),
+          findsOneWidget,
+          reason: 'the card did not open, so this arm audited nothing',
+        );
+        expectEveryTapTargetIsBigEnough(tester, reason: 'Selected animal$at');
       });
 
       testWidgets('on the detail screen$at', (tester) async {
@@ -159,6 +178,23 @@ void main() {
       }
     });
 
+    testWidgets('on the selected-animal card at $worst× text', (tester) async {
+      // Two [TapTarget] pills side by side in a flex row, inside a HUD card
+      // that floats over a live radar — so this is where a 60dp floor under a
+      // 1.5× label has the least room to grow into before it overflows.
+      await _pump(
+        tester,
+        const AppShell(),
+        scale: worst,
+        controlScale: kLittleKidsControlScale,
+      );
+      await _selectAnimal(tester);
+      expectEveryTapTargetIsBigEnough(
+        tester,
+        reason: 'Selected animal, little kids',
+      );
+    });
+
     testWidgets('on the detail screen at $worst× text', (tester) async {
       // Two `ActionButton`s side by side in a flex row — the one place in the
       // app where a wider button has a neighbour to collide with.
@@ -251,6 +287,37 @@ void main() {
 /// The feed is [AsteroidFeed.fallback] — the 14 bundled sample rocks — rather
 /// than a one-rock stub, because a tap target is a layout question and layout is
 /// what a realistic list changes. It also resolves immediately, which is what
+/// Taps the first animal on the live radar and lets its card finish sliding up,
+/// so the HUD buttons are measured where a finger would actually find them.
+///
+/// Driven through the real field — the painter's own geometry, the same way
+/// `selected_animal_card_test.dart` does it — rather than by reaching for a
+/// private selection hook, because the point of this file is to audit what a
+/// child's taps actually produce.
+Future<void> _selectAnimal(WidgetTester tester) async {
+  final Finder canvas = find.byWidgetPredicate(
+    (Widget w) => w is CustomPaint && w.painter is RadarPainter,
+  );
+  final RadarPainter painter =
+      tester.widget<CustomPaint>(canvas).painter! as RadarPainter;
+
+  await tester.tapAt(
+    painter.orbits.positionOf(
+      painter.orbits.orbits.first,
+      geometry: RadarGeometry(
+        size: tester.getSize(canvas),
+        maxLd: painter.maxLd,
+      ),
+      zoom: painter.zoom,
+      viewRot: painter.viewRot,
+    ),
+  );
+  await tester.pump(); // build the card at t = 0
+  await tester.pump(
+    const Duration(milliseconds: 250),
+  ); // finish the 200ms slide
+}
+
 /// anything under [AppShell] needs: the shell reads `requireValue`, so a pending
 /// override would throw on the first build (see the plan's note on this trap).
 Future<void> _pump(

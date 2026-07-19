@@ -1225,6 +1225,19 @@ class _SelectedAnimalCard extends ConsumerWidget {
 /// per-frame cost `_zoomButtonSurface` declines the backdrop blur for, on a
 /// surface that is chrome, not a hero CTA. The Play button (its own item) is the
 /// prototype's full-width `.btn`, and is where that shadow belongs.
+///
+/// **The painted pill is 31dp, and that is why it goes inside a [TapTarget].**
+/// `padding:9px 16px` on 13dp text at `height:1` measures 31 — 17dp short of
+/// [kMinTapTarget] — so for a while these two were the app's only controls that
+/// missed the floor outright. They missed it *silently*: the card only exists
+/// once an animal has been tapped, and `tap_target_audit_test.dart` walked the
+/// radar tab without ever selecting one, so the app-wide audit never saw them.
+/// Both halves were fixed together — the wrap here, and a selected-animal arm in
+/// that audit — because the wrap without the arm would have been one more
+/// untested control.
+///
+/// No `expandWidth`: these are wide and short (the labels measure ~138 and
+/// ~152dp), so a width floor would only leave dead space between the two.
 class _HudButton extends StatelessWidget {
   const _HudButton({
     required this.label,
@@ -1240,34 +1253,42 @@ class _HudButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: ghost
-              ? null
-              : const LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: <Color>[Palette.accent2, Palette.accent],
-                ),
+      // Gesture handler outside, painted pill inside — [TapTarget]'s documented
+      // order. Inside-out would grow the gradient box itself and redraw the
+      // prototype's `.btn.sm` into something half again as tall.
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
           borderRadius: const BorderRadius.all(Radius.circular(11)),
-          border: ghost ? Border.all(color: Palette.line) : null,
-        ),
-        child: Material(
-          type: MaterialType.transparency,
-          child: InkWell(
-            borderRadius: const BorderRadius.all(Radius.circular(11)),
-            onTap: onTap,
-            child: Padding(
-              // `padding:9px 16px` (`index.html:55`).
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: ghost ? Palette.ink : Palette.onAccent,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.3,
-                  height: 1,
+          onTap: onTap,
+          child: TapTarget(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: ghost
+                    ? null
+                    : const LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: <Color>[Palette.accent2, Palette.accent],
+                      ),
+                borderRadius: const BorderRadius.all(Radius.circular(11)),
+                border: ghost ? Border.all(color: Palette.line) : null,
+              ),
+              child: Padding(
+                // `padding:9px 16px` (`index.html:55`).
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 9,
+                ),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: ghost ? Palette.ink : Palette.onAccent,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.3,
+                    height: 1,
+                  ),
                 ),
               ),
             ),
