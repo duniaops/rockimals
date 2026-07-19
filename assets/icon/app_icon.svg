@@ -1,0 +1,90 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="18%" r="110%">
+      <stop offset="0%" stop-color="#3a3163"/>
+      <stop offset="35%" stop-color="#24284f"/>
+      <stop offset="70%" stop-color="#0e1b3a"/>
+      <stop offset="100%" stop-color="#070f24"/>
+    </radialGradient>
+    <radialGradient id="fox" cx="38%" cy="28%" r="80%">
+      <stop offset="0%" stop-color="#ffc99b"/>
+      <stop offset="48%" stop-color="#ef6a2a"/>
+      <stop offset="100%" stop-color="#b83f12"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="rgba(255,150,70,0.5)"/>
+      <stop offset="100%" stop-color="rgba(255,150,70,0)"/>
+    </radialGradient>
+  </defs>
+
+  <!-- space background -->
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+
+  <!-- stars -->
+  <g fill="#ffffff">
+    <circle cx="140" cy="130" r="7" opacity="0.9"/>
+    <circle cx="760" cy="95" r="5" fill="#ffe6c0" opacity="0.9"/>
+    <circle cx="420" cy="200" r="4" opacity="0.7"/>
+    <circle cx="890" cy="260" r="6" opacity="0.85"/>
+    <circle cx="120" cy="420" r="4" fill="#dfeaff" opacity="0.7"/>
+    <circle cx="950" cy="520" r="4" opacity="0.7"/>
+    <circle cx="90" cy="750" r="6" fill="#ffe6c0" opacity="0.85"/>
+    <circle cx="880" cy="820" r="7" opacity="0.9"/>
+    <circle cx="300" cy="90" r="3" opacity="0.6"/>
+    <circle cx="640" cy="930" r="4" opacity="0.6"/>
+    <circle cx="220" cy="900" r="4" fill="#dfeaff" opacity="0.7"/>
+    <circle cx="960" cy="120" r="3" opacity="0.6"/>
+  </g>
+
+  <!-- orbit ring -->
+  <circle cx="512" cy="560" r="400" fill="none" stroke="rgba(255,175,110,0.18)" stroke-width="3" stroke-dasharray="14 18"/>
+
+  <!-- small planet -->
+  <circle cx="850" cy="330" r="34" fill="#d1440e"/>
+  <circle cx="838" cy="318" r="30" fill="#f0a878" opacity="0.5"/>
+
+  <!-- Rusty, scaled and centred: original viewBox 212x206 -->
+  <g transform="translate(512 560) scale(3.55) translate(-106 -103)">
+    <circle cx="106" cy="108" r="100" fill="url(#glow)"/>
+    <!-- bushy tail -->
+    <path d="M150 158 C198 150 206 100 176 82 C192 116 168 146 138 144 Z" fill="url(#fox)"/>
+    <ellipse cx="186" cy="88" rx="16" ry="14" fill="#fff2e2"/>
+    <!-- feet -->
+    <ellipse cx="86" cy="182" rx="15" ry="9" fill="#c24a18"/>
+    <ellipse cx="126" cy="182" rx="15" ry="9" fill="#c24a18"/>
+    <!-- ears (outer) -->
+    <path d="M66 68 L52 18 Q70 30 92 54 Z" fill="url(#fox)"/>
+    <path d="M146 68 L160 18 Q142 30 120 54 Z" fill="url(#fox)"/>
+    <!-- ear tips -->
+    <path d="M60 50 L53 24 Q63 32 76 46 Z" fill="#7a2a0a"/>
+    <path d="M152 50 L159 24 Q149 32 136 46 Z" fill="#7a2a0a"/>
+    <!-- inner ear -->
+    <path d="M69 60 L60 34 Q69 40 81 54 Z" fill="#ffc4ad" opacity="0.85"/>
+    <path d="M143 60 L152 34 Q143 40 131 54 Z" fill="#ffc4ad" opacity="0.85"/>
+    <!-- rock body -->
+    <path d="M106 48 C142 46 168 72 166 106 C165 140 142 164 106 164 C70 164 48 140 48 106 C48 72 70 50 106 48 Z" fill="url(#fox)"/>
+    <!-- craters -->
+    <ellipse cx="70" cy="86" rx="8" ry="6" fill="#000" opacity="0.1"/>
+    <ellipse cx="150" cy="120" rx="7" ry="5" fill="#000" opacity="0.1"/>
+    <ellipse cx="60" cy="128" rx="6" ry="4" fill="#000" opacity="0.1"/>
+    <!-- muzzle -->
+    <path d="M106 156 C84 156 72 142 72 120 C72 106 82 98 95 99 C99 103 113 103 117 99 C130 98 140 106 140 120 C140 142 128 156 106 156 Z" fill="#fff2e2"/>
+    <!-- cheeks -->
+    <circle cx="80" cy="130" r="7.5" fill="#ff8f6b" opacity="0.65"/>
+    <circle cx="132" cy="130" r="7.5" fill="#ff8f6b" opacity="0.65"/>
+    <!-- eyes -->
+    <circle cx="88" cy="98" r="13" fill="#fff"/><circle cx="124" cy="98" r="13" fill="#fff"/>
+    <circle cx="91" cy="101" r="7" fill="#2a1a12"/><circle cx="121" cy="101" r="7" fill="#2a1a12"/>
+    <circle cx="94" cy="98" r="2.5" fill="#fff"/><circle cx="124" cy="98" r="2.5" fill="#fff"/>
+    <!-- nose + smile -->
+    <path d="M99 118 Q106 126 113 118 Q106 124 99 118 Z" fill="#2a1a12"/>
+    <path d="M106 124 L106 130" stroke="#2a1a12" stroke-width="2.4" stroke-linecap="round"/>
+    <path d="M96 132 Q106 140 116 132" stroke="#2a1a12" stroke-width="2.8" fill="none" stroke-linecap="round"/>
+  </g>
+
+  <!-- sparkles (vector, not emoji) -->
+  <g fill="#ffe6c0">
+    <path d="M300 300 l8 22 22 8 -22 8 -8 22 -8 -22 -22 -8 22 -8 Z" opacity="0.9"/>
+    <path d="M740 780 l6 16 16 6 -16 6 -6 16 -6 -16 -16 -6 16 -6 Z" opacity="0.8"/>
+  </g>
+</svg>

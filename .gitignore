@@ -138,3 +138,6 @@ PROMPT_build.md
 # Claude Code: project skills under .claude/ are shared conventions and belong in
 # the repo; only personal machine overrides stay local.
 .claude/settings.local.json
+
+# Parking lot for files moved aside during cloud sessions (delete manually)
+_to_delete/

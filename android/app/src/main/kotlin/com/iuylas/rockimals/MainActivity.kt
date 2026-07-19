@@ -1,4 +1,4 @@
-package com.example.rockimals
+package com.iuylas.rockimals
 
 import io.flutter.embedding.android.FlutterActivity
 
