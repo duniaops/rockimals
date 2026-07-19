@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rockimals/core/a11y/tap_target.dart';
 import 'package:rockimals/core/animals/animal_system.dart';
+import 'package:rockimals/core/chrome/action_button.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/features/data/providers.dart';
@@ -343,7 +344,7 @@ class _MysteryRock extends StatelessWidget {
 /// One answer button (`.opt`, `index.html:221-223`): a full-width, left-aligned
 /// card pill holding the species' emoji and name.
 ///
-/// Unlike [GameButton] these are quiet by default and only colour on the reveal
+/// Unlike [ActionButton] these are quiet by default and only colour on the reveal
 /// — green on the true answer, red on a wrong tap — which is why they are their
 /// own widget rather than a variant of the shared button.
 class _OptionButton extends StatelessWidget {

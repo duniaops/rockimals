@@ -13,6 +13,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rockimals/core/animals/animal_system.dart';
+import 'package:rockimals/core/chrome/action_button.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/features/data/providers.dart';
@@ -165,15 +166,15 @@ class _ChallengeGameState extends ConsumerState<ChallengeGame> {
           // `#chActions` (`index.html:908-915,942`): what the child can do next
           // depends only on how far through the round they are.
           if (grade != null) ...<Widget>[
-            GameButton(label: 'Play again', onTap: _startOver),
+            ActionButton(label: 'Play again', onTap: _startOver),
             const SizedBox(height: 8),
-            GameButton(label: 'Done', ghost: true, onTap: _done),
+            ActionButton(label: 'Done', ghost: true, onTap: _done),
           ] else if (ranked) ...<Widget>[
-            GameButton(label: 'Reveal the truth', onTap: _reveal),
+            ActionButton(label: 'Reveal the truth', onTap: _reveal),
             const SizedBox(height: 8),
-            GameButton(label: 'Start over', ghost: true, onTap: _clearPicks),
+            ActionButton(label: 'Start over', ghost: true, onTap: _clearPicks),
           ] else if (_picks.isNotEmpty)
-            GameButton(label: 'Start over', ghost: true, onTap: _clearPicks),
+            ActionButton(label: 'Start over', ghost: true, onTap: _clearPicks),
         ],
       ),
     );

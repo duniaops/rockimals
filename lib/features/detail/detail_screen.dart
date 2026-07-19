@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rockimals/core/a11y/tap_target.dart';
 import 'package:rockimals/core/animals/animal_system.dart';
+import 'package:rockimals/core/chrome/action_button.dart';
 import 'package:rockimals/core/chrome/obar.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/data/models/asteroid.dart';
@@ -282,7 +282,7 @@ class _DetailActions extends ConsumerWidget {
           // accent button while not following (the invitation to follow), the
           // ghost once followed. The opposite of the HUD's always-ghost Follow,
           // and deliberately so — this is the detail's primary action.
-          child: _ActionButton(
+          child: ActionButton(
             label: following ? '✓ Following' : '⭐ Follow',
             semanticLabel: following ? 'Following' : 'Follow',
             ghost: following,
@@ -294,7 +294,7 @@ class _DetailActions extends ConsumerWidget {
         const SizedBox(width: 9),
         Expanded(
           // `class="btn ghost"` (`index.html:606`) — always ghost.
-          child: _ActionButton(
+          child: ActionButton(
             label: '🛰️ Show on radar',
             semanticLabel: 'Show on radar',
             ghost: true,
@@ -307,98 +307,6 @@ class _DetailActions extends ConsumerWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-/// A full-width `.btn` (`index.html:51-56`) — the filled accent2→accent gradient
-/// on dark [Palette.onAccent] text, or [ghost]: transparent on [Palette.ink]
-/// with a [Palette.line] border.
-///
-/// **The filled variant carries the `.btn` halo; the ghost drops it**
-/// (`.btn.ghost{box-shadow:none}`, `index.html:56`). The halo is cheap here for
-/// the reason it is on the home Play CTA (`_PlayCta` in `radar_view.dart`): this
-/// sits on the static, scrolling detail body, not the radar's per-frame canvas,
-/// so `box-shadow:0 8px 22px rgba(232,87,31,.32)` rasterises once. The visual
-/// glyph is excluded from semantics with a spoken [semanticLabel] in its place,
-/// the same pattern the detail's own `‹ Back` pill follows.
-class _ActionButton extends StatelessWidget {
-  const _ActionButton({
-    required this.label,
-    required this.semanticLabel,
-    required this.onTap,
-    this.ghost = false,
-  });
-
-  final String label;
-  final String semanticLabel;
-  final VoidCallback onTap;
-  final bool ghost;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: semanticLabel,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          // `background:linear-gradient(180deg,var(--accent2),var(--accent))`
-          // (`index.html:52`), dropped for the ghost's transparent fill.
-          gradient: ghost
-              ? null
-              : const LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: <Color>[Palette.accent2, Palette.accent],
-                ),
-          // `border-radius:14px` (`index.html:52`).
-          borderRadius: const BorderRadius.all(Radius.circular(14)),
-          // `.btn.ghost{border:1px solid var(--line)}` (`index.html:56`).
-          border: ghost ? Border.all(color: Palette.line) : null,
-          boxShadow: ghost
-              ? null
-              : <BoxShadow>[
-                  // `0 8px 22px rgba(232,87,31,.32)` — `--accent` at .32 (0x52).
-                  BoxShadow(
-                    color: Palette.accent.withValues(alpha: 0.32),
-                    offset: const Offset(0, 8),
-                    blurRadius: 22,
-                  ),
-                ],
-        ),
-        child: Material(
-          type: MaterialType.transparency,
-          child: InkWell(
-            borderRadius: const BorderRadius.all(Radius.circular(14)),
-            onTap: onTap,
-            // 43dp painted, 5 short of [kMinTapTarget]. Unlike the pills, this
-            // button's fill is the whole shape a child aims at, so there is
-            // nothing to keep small: the [TapTarget] sits inside the ink and
-            // grows the button itself. 5dp is invisible on a full-width bar.
-            child: TapTarget(
-              child: Padding(
-                // `padding:14px` (`index.html:52`).
-                padding: const EdgeInsets.all(14),
-                child: ExcludeSemantics(
-                  child: Text(
-                    label,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      // `.btn{color:#1a0d05}`; `.btn.ghost{color:var(--ink)}`
-                      // (`index.html:51`, `56`).
-                      color: ghost ? Palette.ink : Palette.onAccent,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.3,
-                      height: 1,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

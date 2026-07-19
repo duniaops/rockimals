@@ -23,8 +23,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rockimals/core/a11y/tap_target.dart';
 import 'package:rockimals/core/audio/sound_cues.dart';
+import 'package:rockimals/core/chrome/action_button.dart';
 import 'package:rockimals/core/chrome/obar.dart';
 import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/core/streak/day_streak.dart';
@@ -563,105 +563,16 @@ class GameOverPanel extends StatelessWidget {
           ),
           // `margin-top:22px` on the button block (`index.html:1027`).
           const SizedBox(height: 22),
-          GameButton(label: 'Play again', onTap: onPlayAgain),
+          ActionButton(label: 'Play again', onTap: onPlayAgain),
           // `#gBack{margin-top:9px}` (`index.html:1028`).
           const SizedBox(height: 9),
-          GameButton(
+          ActionButton(
             label: 'Back to games',
             ghost: true,
             // `closeOverlay("ov-game")` (`index.html:1029`): back to the hub.
             onTap: () => Navigator.of(context).maybePop(),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// A full-width `.btn` (`index.html:51-56`), filled by default and [ghost] for
-/// the secondary action.
-///
-/// A clone of the detail screen's `_ActionButton` — the same `.btn` CSS, but
-/// stacked full-width here rather than in a row. Public rather than private
-/// because it is part of the framework the games share: Today's Challenge
-/// reveals in place instead of ending through [GameOverPanel]
-/// (`index.html:942-947`) and so builds its own Reveal / Start over / Play again
-/// / Done stack out of it. Extracting **one** button across the detail module
-/// too remains its own plan item; this is reuse inside `features/games`, not
-/// that refactor.
-class GameButton extends StatelessWidget {
-  const GameButton({
-    super.key,
-    required this.label,
-    required this.onTap,
-    this.ghost = false,
-  });
-
-  final String label;
-  final VoidCallback onTap;
-  final bool ghost;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: label,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          // `background:linear-gradient(180deg,var(--accent2),var(--accent))`
-          // (`index.html:52`), dropped for the ghost's transparent fill.
-          gradient: ghost
-              ? null
-              : const LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: <Color>[Palette.accent2, Palette.accent],
-                ),
-          borderRadius: const BorderRadius.all(Radius.circular(14)),
-          // `.btn.ghost{border:1px solid var(--line)}` (`index.html:56`).
-          border: ghost ? Border.all(color: Palette.line) : null,
-          boxShadow: ghost
-              ? null
-              : <BoxShadow>[
-                  // `0 8px 22px rgba(232,87,31,.32)` — `--accent` at .32.
-                  BoxShadow(
-                    color: Palette.accent.withValues(alpha: 0.32),
-                    offset: const Offset(0, 8),
-                    blurRadius: 22,
-                  ),
-                ],
-        ),
-        child: Material(
-          type: MaterialType.transparency,
-          child: InkWell(
-            borderRadius: const BorderRadius.all(Radius.circular(14)),
-            onTap: onTap,
-            // 43dp painted, 5 short of [kMinTapTarget]. Unlike the pills, this
-            // button's fill is the whole shape a child aims at, so there is
-            // nothing to keep small: the [TapTarget] sits inside the ink and
-            // grows the button itself. 5dp is invisible on a full-width bar.
-            child: TapTarget(
-              child: Padding(
-                // `padding:14px` (`index.html:52`).
-                padding: const EdgeInsets.all(14),
-                child: ExcludeSemantics(
-                  child: Text(
-                    label,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      // `.btn{color:#1a0d05}`; `.btn.ghost{color:var(--ink)}`.
-                      color: ghost ? Palette.ink : Palette.onAccent,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.3,
-                      height: 1,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }

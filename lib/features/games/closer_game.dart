@@ -16,6 +16,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rockimals/core/animals/animal_system.dart';
+import 'package:rockimals/core/chrome/action_button.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/features/data/providers.dart';
@@ -211,14 +212,14 @@ class _CloserGameState extends ConsumerState<CloserGame> {
         Row(
           children: <Widget>[
             Expanded(
-              child: GameButton(
+              child: ActionButton(
                 label: '⬇ Closer',
                 onTap: () => _guess(closer: true),
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: GameButton(
+              child: ActionButton(
                 label: '⬆ Farther',
                 onTap: () => _guess(closer: false),
               ),
