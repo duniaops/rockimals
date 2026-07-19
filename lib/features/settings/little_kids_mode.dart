@@ -9,11 +9,14 @@
 /// one rather than as a note: *"the Little Kids mode stub needs an extension
 /// point that is reachable, or it is untestable"* (`:30-31`).
 ///
-/// **So v1 ships the switch and the storage, and none of the behaviour.** That
-/// is the item's scope, and it is stated here rather than left to be discovered
-/// because a toggle that does nothing is otherwise indistinguishable from a
-/// toggle that is broken. The Settings row says as much to the grown-up flipping
-/// it — see the copy in `settings_screen.dart`.
+/// **The first of the three affordances now ships: [LittleKidsMode.simplestGamesOnly].**
+/// v1 shipped the switch and the storage and none of the behaviour, and said so
+/// on the Settings row ("coming soon") because a toggle that does nothing is
+/// otherwise indistinguishable from a toggle that is broken. The Play hub now
+/// honours the choice, so those words are gone and the row describes what the
+/// switch does today. [LittleKidsMode.readsAloud] and
+/// [LittleKidsMode.controlScale] still answer the standard answer —
+/// [LittleKidsExperience] states per member what each is waiting on.
 ///
 /// **Two names, and the split is the whole design.** [littleKidsModeProvider] is
 /// the child's *choice*: a bool, persisted, and what the [Switch] on the Settings
@@ -79,13 +82,12 @@ final NotifierProvider<LittleKidsModeNotifier, bool> littleKidsModeProvider =
 /// the child chose*. [littleKidsExperienceProvider] is the only place the two
 /// meet.
 ///
-/// **Nothing implements this but [StandardExperience], and nothing calls it at
-/// all.** That is not an oversight — it is what "leave a clean extension point"
-/// means, and the alternative (no seam, then three features each inventing one)
-/// is the cost this is paying to avoid. The surfaces that will take it, when
-/// they do: the detail screen and the games' prompts for [readsAloud], the
-/// shared row and button widgets for [controlScale], and the Play hub's card
-/// list for [simplestGamesOnly].
+/// **The seam has its first caller, and it took the shape this interface was
+/// built for.** `games_hub.dart` asks [simplestGamesOnly] and nothing else — it
+/// never learns whether the child turned the switch on, which is the whole point
+/// of keeping the choice and its meaning in two providers. The surfaces still
+/// waiting: the detail screen and the games' prompts for [readsAloud], and the
+/// shared row and button widgets for [controlScale].
 abstract interface class LittleKidsMode {
   /// Whether names and prompts are read aloud (TTS).
   bool get readsAloud;
@@ -99,26 +101,21 @@ abstract interface class LittleKidsMode {
   bool get simplestGamesOnly;
 }
 
-/// The v1 body of the extension point: **a documented no-op**.
+/// Every answer the app gives when 🧸 Little Kids mode is **off** — the
+/// experience nothing about this feature changes.
 ///
-/// Every answer is the standard-experience answer, and it is the same answer
-/// whether [enabled] is true or false. Turning the switch on in v1 changes
-/// nothing a child can see; it records a preference the app is not yet able to
-/// honour. `little_kids_mode_test.dart` pins that as a property rather than
-/// leaving it as a claim in this comment, because the day it stops being true is
-/// the day v1.1 lands and the test should be the thing that notices.
+/// **It is no longer "the no-op body".** [littleKidsExperienceProvider] answers
+/// with [LittleKidsExperience] instead when the switch is on, so this class is
+/// one half of a real branch rather than the only answer there was.
 ///
-/// **[enabled] is carried and not read, and that is the no-op stated in code.**
-/// It is what makes [littleKidsExperienceProvider] a real wire from the toggle
-/// rather than a constant wearing a provider — the difference matters to the
-/// test above, which would otherwise be asserting that a provider ignores an
-/// input it never received.
+/// **`enabled` is gone, and losing it *is* the branch landing.** v1 carried the
+/// child's choice here unread, for one reason: it let a test prove the provider
+/// was a live wire and not a constant wearing a provider. The branch proves that
+/// now — the two classes give different answers, so a provider that ignored the
+/// toggle would be visible immediately — and a field nothing reads is the dead
+/// state plan decision 1 says not to keep.
 class StandardExperience implements LittleKidsMode {
-  const StandardExperience({required this.enabled});
-
-  /// The child's persisted choice. A v1.1 implementation is constructed from
-  /// this; the v1 one has nothing to do with it.
-  final bool enabled;
+  const StandardExperience();
 
   @override
   bool get readsAloud => false;
@@ -130,15 +127,50 @@ class StandardExperience implements LittleKidsMode {
   bool get simplestGamesOnly => false;
 }
 
-/// The resolved Little Kids experience — **the one line v1.1 changes.**
+/// Every answer the app gives when 🧸 Little Kids mode is **on**.
 ///
-/// A v1.1 agent writes a second [LittleKidsMode] implementation and returns it
-/// from here when `enabled`; every caller downstream is already asking the right
-/// question. Nothing else in this file, and nothing on the Settings screen, has
-/// to move.
+/// **Only [simplestGamesOnly] differs from [StandardExperience] today, and that
+/// is the interface working as designed.** The three affordances are separate
+/// questions precisely so they can ship on separate days; this is the first of
+/// those days. The other two answer the standard answer and each says below what
+/// it is waiting on — an implementation that quietly invented a different answer
+/// would be worse than one that admits it has not shipped, because the Settings
+/// row's copy is written from what this class actually does.
+class LittleKidsExperience implements LittleKidsMode {
+  const LittleKidsExperience();
+
+  /// Still standard. Read-aloud needs a TTS engine — a platform plugin this
+  /// project has not taken on, and one whose only honest verification is a
+  /// device (the HUMAN-GATED toolchain item). Answering `true` with no voice
+  /// behind it would send every caller down a branch that stays silent, which
+  /// reads to a child as the app ignoring them.
+  @override
+  bool get readsAloud => false;
+
+  /// Still standard. "Bigger controls" is a *number*, and choosing it needs a
+  /// real screen to look at: every tap target in the app is already asserted
+  /// ≥48dp, so the gain here is real but the multiplier is not something a
+  /// widget test can tell us is right.
+  @override
+  double get controlScale => 1;
+
+  /// **The one that ships.** The Play hub offers Power Duel and Closer or
+  /// Farther only; `games_hub.dart` holds which two and, more usefully, the rule
+  /// that picked them.
+  @override
+  bool get simplestGamesOnly => true;
+}
+
+/// The resolved Little Kids experience — the one place the child's *choice* and
+/// what it *means* meet, and the only place they ever should.
+///
+/// The second affordance to ship changes [LittleKidsExperience] and nothing
+/// here: callers already ask the right question, and this branch already routes
+/// them to the right answer.
 final Provider<LittleKidsMode> littleKidsExperienceProvider =
     Provider<LittleKidsMode>(
-      (Ref ref) =>
-          StandardExperience(enabled: ref.watch(littleKidsModeProvider)),
+      (Ref ref) => ref.watch(littleKidsModeProvider)
+          ? const LittleKidsExperience()
+          : const StandardExperience(),
       name: 'littleKidsExperience',
     );

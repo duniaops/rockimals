@@ -1,13 +1,14 @@
-/// 🧸 Little Kids mode's two halves: the persisted choice, and the v1.1
-/// extension point it is wired to (`specs/08-settings-about.md:51-53`,
+/// 🧸 Little Kids mode's two halves: the persisted choice, and the extension
+/// point it is wired to (`specs/08-settings-about.md:51-53`,
 /// `specs/06-title-polish-safety.md:26-27`).
 ///
-/// **The load-bearing test in this file is the one that asserts nothing
-/// happens.** v1 ships the switch and the storage and none of the behaviour, so
-/// "the default (off) path is unchanged" is the item's actual deliverable — and
-/// a claim like that decays silently. Written down as a property it becomes the
-/// thing that fails on the day a v1.1 agent implements read-aloud and forgets to
-/// come back here, which is exactly when someone should be made to look.
+/// **The load-bearing test in this file is still the one about the affordances
+/// that have *not* shipped.** v1 shipped none of the behaviour, so this file
+/// asserted that turning the switch on changed nothing — deliberately, so that
+/// it would fail on the day someone implemented an affordance and forgot to come
+/// back. It did exactly that. What replaces it is the same idea one affordance
+/// smaller: `simplestGamesOnly` now flips, and `readsAloud`/`controlScale` are
+/// pinned to their off answers so that *they* are the next thing to fail loudly.
 ///
 /// The *surface* — that the row exists, says the right words, is big enough, and
 /// reaches the store — is `settings_screen_test.dart`'s question and is not
@@ -76,7 +77,7 @@ void main() {
     });
   });
 
-  group('the v1 extension point', () {
+  group('the extension point', () {
     test('answers the standard experience with the toggle off', () {
       final LittleKidsMode mode = _container(
         MemoryStore(),
@@ -87,13 +88,15 @@ void main() {
       expect(mode.simplestGamesOnly, isFalse);
     });
 
-    test('answers exactly the same with the toggle ON — the v1 no-op', () {
-      // **This is the item's deliverable, stated as a property.** Spec 08
-      // allows the v1 body to be a no-op (`:51-53`); this is what that costs
-      // and what it promises. Every affordance is compared against the
-      // toggle-off answer rather than against a hardcoded constant, so a v1.1
-      // implementation that changes *one* of the three fails here and has to
-      // come back and say so deliberately.
+    test('the toggle ON changes the games, and only the games', () {
+      // **The successor to v1's "nothing happens", and it is written the same
+      // way and for the same reason.** Each affordance is compared against its
+      // own toggle-*off* answer rather than a hardcoded constant, so the two
+      // that have not shipped stay pinned to the standard experience and the day
+      // one of them starts answering differently is the day this fails and
+      // someone is made to look. `simplestGamesOnly` is the one that has shipped
+      // and is asserted to differ — a body that quietly stopped honouring it
+      // would otherwise pass a test named for the opposite.
       final ProviderContainer off = _container(MemoryStore());
       final ProviderContainer on = _container(
         MemoryStore(littleKidsMode: true),
@@ -102,49 +105,57 @@ void main() {
       final LittleKidsMode standard = off.read(littleKidsExperienceProvider);
       final LittleKidsMode enabled = on.read(littleKidsExperienceProvider);
 
-      expect(enabled.readsAloud, standard.readsAloud);
-      expect(enabled.controlScale, standard.controlScale);
-      expect(enabled.simplestGamesOnly, standard.simplestGamesOnly);
-    });
-
-    test('is a real wire from the toggle, not a constant wearing a provider', () {
-      // The test above is only worth anything if the experience actually
-      // *receives* the child's choice — a provider that ignored
-      // [littleKidsModeProvider] entirely would pass it while proving nothing.
-      // [StandardExperience.enabled] is the carried-but-unread value that makes
-      // the no-op visible in code, so this asserts the wire and the two
-      // together are the whole claim.
-      final ProviderContainer container = _container(
-        MemoryStore(littleKidsMode: true),
+      expect(enabled.simplestGamesOnly, isTrue);
+      expect(
+        enabled.simplestGamesOnly,
+        isNot(standard.simplestGamesOnly),
+        reason: 'the affordance this item shipped',
       );
 
       expect(
-        container.read(littleKidsExperienceProvider),
-        isA<StandardExperience>().having(
-          (StandardExperience e) => e.enabled,
-          'enabled',
-          isTrue,
-        ),
+        enabled.readsAloud,
+        standard.readsAloud,
+        reason: 'not shipped — TTS is a plugin this project has not taken on',
+      );
+      expect(
+        enabled.controlScale,
+        standard.controlScale,
+        reason: 'not shipped — the multiplier needs a real screen to choose',
+      );
+    });
+
+    test('is a real wire from the toggle, not a constant wearing a provider', () {
+      // v1 proved this with a carried-but-unread `enabled` field, because both
+      // branches were the same class and there was nothing else to look at. The
+      // branch itself is the evidence now: a provider that ignored
+      // [littleKidsModeProvider] could not produce two different types.
+      expect(
+        _container(MemoryStore()).read(littleKidsExperienceProvider),
+        isA<StandardExperience>(),
+      );
+      expect(
+        _container(
+          MemoryStore(littleKidsMode: true),
+        ).read(littleKidsExperienceProvider),
+        isA<LittleKidsExperience>(),
       );
     });
 
     test('re-resolves when the choice changes', () async {
-      // The seam has to be live, not read once at launch: a v1.1 body must
-      // start answering differently the moment the switch is flipped, without
-      // a restart — the bar `specs/08-settings-about.md:75` sets for the
-      // toggle beside it.
+      // The seam has to be live, not read once at launch: the Play hub must
+      // narrow the moment the switch is flipped, without a restart — the bar
+      // `specs/08-settings-about.md:75` sets for the toggle beside it, and now a
+      // promise with a visible consequence rather than a latent one.
       final ProviderContainer container = _container(MemoryStore());
       expect(
-        (container.read(littleKidsExperienceProvider) as StandardExperience)
-            .enabled,
+        container.read(littleKidsExperienceProvider).simplestGamesOnly,
         isFalse,
       );
 
       await container.read(littleKidsModeProvider.notifier).choose(true);
 
       expect(
-        (container.read(littleKidsExperienceProvider) as StandardExperience)
-            .enabled,
+        container.read(littleKidsExperienceProvider).simplestGamesOnly,
         isTrue,
       );
     });
