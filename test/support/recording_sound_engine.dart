@@ -17,7 +17,7 @@ library;
 
 import 'package:rockimals/core/audio/sound_cues.dart';
 import 'package:rockimals/core/audio/sound_engine.dart';
-import 'package:rockimals/features/games/games_providers.dart';
+import 'package:rockimals/features/settings/sound.dart';
 
 /// Captures the cues it is asked to play, in order.
 class RecordingSoundEngine implements SoundEngine {

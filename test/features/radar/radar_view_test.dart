@@ -13,6 +13,7 @@ import 'package:rockimals/features/radar/radar_layers.dart';
 import 'package:rockimals/features/radar/radar_painter.dart';
 import 'package:rockimals/features/radar/radar_view.dart';
 import 'package:rockimals/features/settings/calm_motion.dart';
+import 'package:rockimals/features/settings/sound.dart';
 
 import '../../support/stub_settings.dart';
 

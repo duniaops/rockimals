@@ -14,17 +14,17 @@
 ///
 /// **It lives in `features/rewards/` and not `core/audio/` for a layering
 /// reason.** The synthesiser and the player know nothing about Rockimals and
-/// import nothing from `features/`; this object has to read the sound flag, which
-/// currently lives with the Play hub's providers. Putting the one feature-aware
-/// piece here keeps `core/audio/` a self-contained, reusable unit — and puts the
-/// gate beside `reaction.dart`, the motion half of the same `react()` call it
-/// completes.
+/// import nothing from `features/`; this object has to read the sound flag,
+/// which is a persisted setting and lives in `features/settings/sound.dart`.
+/// Putting the one feature-aware piece here keeps `core/audio/` a
+/// self-contained, reusable unit — and puts the gate beside `reaction.dart`, the
+/// motion half of the same `react()` call it completes.
 library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rockimals/core/audio/sound_cues.dart';
 import 'package:rockimals/core/audio/sound_engine.dart';
-import 'package:rockimals/features/games/games_providers.dart';
+import 'package:rockimals/features/settings/sound.dart';
 
 /// Plays a [SoundCue] if — and only if — the persisted sound toggle is on.
 ///

@@ -24,6 +24,7 @@ import 'package:rockimals/features/games/games_hub.dart';
 import 'package:rockimals/features/games/games_providers.dart';
 import 'package:rockimals/features/rewards/sound_controller.dart';
 import 'package:rockimals/features/settings/calm_motion.dart';
+import 'package:rockimals/features/settings/sound.dart';
 
 import '../../support/recording_sound_engine.dart';
 import '../../support/stub_settings.dart';

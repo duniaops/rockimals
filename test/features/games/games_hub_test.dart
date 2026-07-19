@@ -10,6 +10,7 @@ import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/games/games_hub.dart';
 import 'package:rockimals/features/games/games_providers.dart';
 import 'package:rockimals/features/settings/calm_motion.dart';
+import 'package:rockimals/features/settings/sound.dart';
 
 /// The Play hub (`specs/04`, "Build the Play hub"): the four game cards with
 /// their bests, and the sound toggle that must survive a restart.

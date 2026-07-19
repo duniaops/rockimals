@@ -3,10 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rockimals/core/a11y/tap_target.dart';
 import 'package:rockimals/core/chrome/obar.dart';
 import 'package:rockimals/core/theme/palette.dart';
-import 'package:rockimals/features/games/games_providers.dart';
 import 'package:rockimals/features/settings/about_block.dart';
 import 'package:rockimals/features/settings/calm_motion.dart';
 import 'package:rockimals/features/settings/little_kids_mode.dart';
+import 'package:rockimals/features/settings/sound.dart';
 
 /// The Settings screen — the app's one home for its grown-up-facing toggles and
 /// its NASA attribution (`specs/08-settings-about.md`).

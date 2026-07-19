@@ -20,9 +20,9 @@ import 'package:rockimals/core/audio/sound_cues.dart';
 import 'package:rockimals/core/audio/sound_engine.dart';
 import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/features/data/providers.dart';
-import 'package:rockimals/features/games/games_providers.dart';
 import 'package:rockimals/features/rewards/badge_controller.dart';
 import 'package:rockimals/features/rewards/badges.dart';
+import 'package:rockimals/features/settings/sound.dart';
 
 import '../../support/recording_sound_engine.dart';
 

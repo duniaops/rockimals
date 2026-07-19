@@ -90,43 +90,7 @@ final Provider<GamesHubStats> gamesHubStatsProvider = Provider<GamesHubStats>((
   );
 }, name: 'gamesHubStats');
 
-/// Whether game sound is on, live — the persisted global toggle the Play hub's
-/// 🔊/🔇 button flips (`soundOn`, `index.html:959`, `gSet("aw_sound")`).
-///
-/// **A `Notifier`, for the same reason [FollowsNotifier] is one: this one
-/// changes mid-session and must repaint the same frame.** Tapping the button has
-/// to flip the icon at once — the child is looking straight at it — so it seeds
-/// from the store, holds the live value in [state], and writes every change
-/// straight back so it survives a restart (specs 05 and 08 both require the
-/// toggle to hold). [gamesHubStatsProvider] stays a recomputed read instead,
-/// because its writer is a *different screen*: nothing changes points while the
-/// hub is the thing on screen.
-///
-/// Defaults to **on**: a game that starts silent reads as broken ([Store.soundOn]
-/// owns that default, and the note there on why the prototype's own persistence
-/// was *not* ported — its `||d` coalesce loses a stored "off" on every reload).
-///
-/// **Where the *sound* is not, yet.** The prototype plays a cheerful tone when
-/// the toggle goes on (`if(soundOn)playHappy()`); the synth that makes that tone
-/// is the sound-engine item (`specs/05`). This notifier owns the on/off truth
-/// and its persistence; task 05 reads [state] to decide whether a cue sounds and
-/// adds the confirmation blip when the toggle is switched on.
-class SoundOnNotifier extends Notifier<bool> {
-  @override
-  bool build() => ref.watch(storeProvider).soundOn;
-
-  /// Flip the toggle and persist the new value (`soundOn=!soundOn;
-  /// gSet("aw_sound",…)`, `index.html:1020`).
-  Future<void> toggle() {
-    final bool next = !state;
-    state = next;
-    return ref.read(storeProvider).setSoundOn(next);
-  }
-}
-
-/// The live sound toggle. See [SoundOnNotifier].
-final NotifierProvider<SoundOnNotifier, bool> soundOnProvider =
-    NotifierProvider<SoundOnNotifier, bool>(
-      SoundOnNotifier.new,
-      name: 'soundOn',
-    );
+// The sound toggle used to be declared here, because the Play hub's 🔊/🔇
+// button was once the only surface that could flip it. It now lives in
+// `features/settings/sound.dart` beside the app's other persisted settings —
+// three features read it and none of them is `games`. Import it from there.

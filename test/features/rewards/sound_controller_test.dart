@@ -11,8 +11,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rockimals/core/audio/sound_cues.dart';
 import 'package:rockimals/core/audio/sound_engine.dart';
-import 'package:rockimals/features/games/games_providers.dart';
 import 'package:rockimals/features/rewards/sound_controller.dart';
+import 'package:rockimals/features/settings/sound.dart';
 
 import '../../support/recording_sound_engine.dart';
 

@@ -13,6 +13,7 @@ import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/games/game_shell.dart';
 import 'package:rockimals/features/games/games_providers.dart';
 import 'package:rockimals/features/settings/calm_motion.dart';
+import 'package:rockimals/features/settings/sound.dart';
 // `Override` lives here in Riverpod 3, not in the main barrel.
 
 /// The game framework (`specs/04`, "Game framework"): the shared surface, the

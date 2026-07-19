@@ -11,6 +11,7 @@ import 'package:rockimals/features/games/duel_game.dart';
 import 'package:rockimals/features/games/games_providers.dart';
 import 'package:rockimals/features/games/match_game.dart';
 import 'package:rockimals/features/rewards/sound_controller.dart';
+import 'package:rockimals/features/settings/sound.dart';
 
 /// The Play hub — a port of the prototype's `openGames` (`index.html:1002-1021`),
 /// the screen the radar's "🎮 Play" CTA opens.

@@ -13,6 +13,7 @@ import 'package:rockimals/features/games/match_game.dart';
 import 'package:rockimals/features/games/match_round.dart';
 import 'package:rockimals/features/rewards/reaction.dart';
 import 'package:rockimals/features/settings/calm_motion.dart';
+import 'package:rockimals/features/settings/sound.dart';
 
 import '../../support/recording_sound_engine.dart';
 import '../../support/stub_settings.dart';
