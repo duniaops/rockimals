@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rockimals/core/a11y/tap_target.dart';
 import 'package:rockimals/core/chrome/obar.dart';
+import 'package:rockimals/core/chrome/panel.dart';
 import 'package:rockimals/core/theme/featured_gradient.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/features/games/challenge_game.dart';
@@ -312,6 +313,19 @@ class _SoundButton extends StatelessWidget {
   }
 }
 
+/// `.gfeat` (`index.html:210`) — the featured card keeps `.gcard`'s corners and
+/// padding but swaps the card fill for the shared gradient and the hairline
+/// border for the accent.
+///
+/// Stated as a whole decoration so it is interchangeable with [kPanelSurface]:
+/// the two branches then differ by *which surface*, not by which of three
+/// properties each one sets.
+const BoxDecoration _featuredCardSurface = BoxDecoration(
+  gradient: kFeaturedGradient,
+  borderRadius: kPanelRadius,
+  border: Border.fromBorderSide(BorderSide(color: Palette.accent)),
+);
+
 /// One game card (`.gcard`, `index.html:204-210`): the icon, the title and
 /// description, and the personal-best badge, with the featured card carrying the
 /// gradient and accent border (`.gfeat`, `index.html:210`).
@@ -329,27 +343,22 @@ class _GameCardTile extends StatelessWidget {
       child: Semantics(
         button: true,
         child: Material(
-          color: card.featured ? Colors.transparent : Palette.card,
-          shape: RoundedRectangleBorder(
-            borderRadius: const BorderRadius.all(Radius.circular(16)),
-            // `.gfeat` borders in accent, a plain card in `--line`.
-            side: BorderSide(
-              color: card.featured ? Palette.accent : Palette.line,
-            ),
-          ),
+          // The surface is the [Ink] below, not this [Material] — so the plain
+          // card can paint [kPanelSurface] itself rather than restating the fill
+          // and border through `color`/`shape`, which cannot take a decoration.
+          // The radar's toggle chip already carries a splash this way.
+          type: MaterialType.transparency,
           child: Ink(
-            decoration: card.featured
-                ? const BoxDecoration(
-                    gradient: kFeaturedGradient,
-                    borderRadius: BorderRadius.all(Radius.circular(16)),
-                  )
-                : null,
+            // A plain `.gcard` *is* a `.panel` that happens to be tappable
+            // (`core/chrome/panel.dart`); the featured one is its own surface.
+            decoration: card.featured ? _featuredCardSurface : kPanelSurface,
             child: InkWell(
-              borderRadius: const BorderRadius.all(Radius.circular(16)),
+              borderRadius: kPanelRadius,
               onTap: onTap,
               child: Padding(
-                // `.gcard{padding:14px}` (`index.html:204`).
-                padding: const EdgeInsets.all(14),
+                // `.gcard{padding:14px}` (`index.html:204`) — the same 14 the
+                // shared panel pads by, and read from there.
+                padding: kPanelPadding,
                 child: Row(
                   children: <Widget>[
                     // `.gi{font-size:26px;width:42px;text-align:center}`.

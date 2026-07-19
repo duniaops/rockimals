@@ -5,7 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 import 'package:rockimals/core/audio/sound_engine.dart';
+import 'package:rockimals/core/chrome/panel.dart';
 import 'package:rockimals/core/storage/store.dart';
+import 'package:rockimals/core/theme/featured_gradient.dart';
+import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/games/games_hub.dart';
 import 'package:rockimals/features/games/games_providers.dart';
@@ -179,6 +182,112 @@ void main() {
         expect(find.text('0'), findsOneWidget); // points
         expect(find.text('Best 0'), findsNWidgets(2)); // Duel + Closer
         expect(find.text('Best 0/8'), findsOneWidget); // Animal Match
+      });
+    });
+
+    /// `.gcard`'s two branches (`index.html:204-210`).
+    ///
+    /// **Why the hub's suite pins a surface at all.** A plain game card is the
+    /// prototype's `.panel` with a tap on it — the same fill, corners, border
+    /// and padding the detail panels and the About block wear — and it used to
+    /// say so by restating all four values locally. It now reads
+    /// `core/chrome/panel.dart`, and these tests are what stops it drifting
+    /// back: the plain card must equal that surface, and the featured branch
+    /// must *not* have been folded in with it, which is the way a
+    /// de-duplication of this shape goes wrong.
+    ///
+    /// Asserted against `kPanelSurface` rather than against re-typed literals on
+    /// purpose. This suite's job is "the card wears the shared surface"; the job
+    /// of pinning what that surface *is* belongs to `panel_test.dart`, which
+    /// asserts the radius, padding, fill and border against the values in
+    /// `index.html:105`. Restating them here would mean editing two suites to
+    /// change one number, and would say nothing the pair does not already say.
+    group('the card surface', () {
+      /// The nearest [Ink] above a card's title — its surface. `.first` because
+      /// the points card at the top of the hub is an [Ink] too, further up.
+      BoxDecoration surfaceOf(WidgetTester tester, String title) {
+        final Ink ink = tester.widget<Ink>(
+          find.ancestor(of: find.text(title), matching: find.byType(Ink)).first,
+        );
+        return ink.decoration! as BoxDecoration;
+      }
+
+      testWidgets('every plain card wears the shared `.panel` surface', (
+        tester,
+      ) async {
+        // All three, not one: the branch is per-card, so a card that stopped
+        // taking the shared surface would be a single tile looking wrong on a
+        // screen whose other tiles still looked right.
+        await pumpHub(tester);
+
+        expect(surfaceOf(tester, 'Power Duel'), kPanelSurface);
+        expect(surfaceOf(tester, 'Closer or Farther'), kPanelSurface);
+        expect(surfaceOf(tester, 'Animal Match'), kPanelSurface);
+      });
+
+      testWidgets('the featured card keeps its gradient and accent border', (
+        tester,
+      ) async {
+        // `.gfeat` (`index.html:210`) is a *different* surface that happens to
+        // share `.panel`'s geometry. The failure this guards is the tempting
+        // one: routing both branches through the shared surface and losing the
+        // one card the hub is built around standing out.
+        await pumpHub(tester);
+
+        final BoxDecoration featured = surfaceOf(tester, "Today's Challenge");
+
+        expect(featured.gradient, kFeaturedGradient);
+        expect(featured.color, isNull, reason: 'the gradient is the fill');
+        expect(
+          featured.border,
+          const Border.fromBorderSide(BorderSide(color: Palette.accent)),
+        );
+      });
+
+      testWidgets('both branches wear the panel radius and 14px padding', (
+        tester,
+      ) async {
+        // The half `.gfeat` genuinely does share, and the half that made the
+        // two branches worth reading from one place even where they differ.
+        await pumpHub(tester);
+
+        for (final String title in <String>[
+          'Power Duel',
+          "Today's Challenge",
+        ]) {
+          expect(
+            surfaceOf(tester, title).borderRadius,
+            kPanelRadius,
+            reason: title,
+          );
+
+          final Padding pad = tester.widget<Padding>(
+            find
+                .ancestor(of: find.text(title), matching: find.byType(Padding))
+                .first,
+          );
+          expect(pad.padding, kPanelPadding, reason: title);
+        }
+      });
+
+      testWidgets('the splash is clipped to the same corners it paints', (
+        tester,
+      ) async {
+        // The radius is stated twice — once on the decoration, once on the
+        // [InkWell] — because Flutter has no way to state it once. A ripple
+        // spilling past a card's corner is the symptom when they drift.
+        await pumpHub(tester);
+
+        final InkWell well = tester.widget<InkWell>(
+          find
+              .ancestor(
+                of: find.text('Power Duel'),
+                matching: find.byType(InkWell),
+              )
+              .first,
+        );
+
+        expect(well.borderRadius, kPanelRadius);
       });
     });
 
