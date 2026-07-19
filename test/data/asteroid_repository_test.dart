@@ -22,8 +22,13 @@ import '../support/stub_http_adapter.dart';
 void main() {
   group('AsteroidRepository.loadData — the live path', () {
     test('asks for a three-day window ending today, and captions it', () async {
-      final _FakeSource source = _FakeSource.returning(_pool(12, date: '2026-07-16'));
-      final AsteroidRepository repository = _repository(source, at: DateTime.utc(2026, 7, 16));
+      final _FakeSource source = _FakeSource.returning(
+        _pool(12, date: '2026-07-16'),
+      );
+      final AsteroidRepository repository = _repository(
+        source,
+        at: DateTime.utc(2026, 7, 16),
+      );
 
       final AsteroidFeed feed = await repository.loadData();
 
@@ -36,8 +41,13 @@ void main() {
     test('zero-pads the date keys NASA expects', () async {
       // `2026-1-3` is not a date NeoWs understands; it answers 400, and the app
       // would quietly spend every January on the sample set.
-      final _FakeSource source = _FakeSource.returning(_pool(12, date: '2026-07-16'));
-      final AsteroidRepository repository = _repository(source, at: DateTime.utc(2026, 1, 3));
+      final _FakeSource source = _FakeSource.returning(
+        _pool(12, date: '2026-07-16'),
+      );
+      final AsteroidRepository repository = _repository(
+        source,
+        at: DateTime.utc(2026, 1, 3),
+      );
 
       await repository.loadData();
 
@@ -66,10 +76,12 @@ void main() {
         _asteroid(name: '433 Eros', date: '2026-07-14'),
       ]);
 
-      expect(
-        feed.asteroids.map((Asteroid a) => a.name),
-        <String>['2011 EW', '2020 SW', '2004 BL86', '433 Eros'],
-      );
+      expect(feed.asteroids.map((Asteroid a) => a.name), <String>[
+        '2011 EW',
+        '2020 SW',
+        '2004 BL86',
+        '433 Eros',
+      ]);
       expect(feed.asteroids.first.date, '2026-07-16');
     });
   });
@@ -88,7 +100,10 @@ void main() {
       // The model throws a FormatException on a number that will not parse, and
       // the repository's catch has to be wide enough to hold it. If it is not,
       // one bad record from NASA crashes the app on launch.
-      final AsteroidFeed feed = await _load(null, error: const FormatException('bad number'));
+      final AsteroidFeed feed = await _load(
+        null,
+        error: const FormatException('bad number'),
+      );
 
       expect(feed.usingFallback, isTrue);
     });
@@ -121,12 +136,15 @@ void main() {
       expect(feed.asteroids.length, 14);
     });
 
-    test('keeps a feed of exactly six — the threshold is not off by one', () async {
-      final AsteroidFeed feed = await _load(_pool(6, date: '2026-07-16'));
+    test(
+      'keeps a feed of exactly six — the threshold is not off by one',
+      () async {
+        final AsteroidFeed feed = await _load(_pool(6, date: '2026-07-16'));
 
-      expect(feed.usingFallback, isFalse);
-      expect(feed.asteroids.length, 6);
-    });
+        expect(feed.usingFallback, isFalse);
+        expect(feed.asteroids.length, 6);
+      },
+    );
 
     test('counts the raw pool, not the deduplicated one', () async {
       // Faithful to `index.html:376-377`, which checks before dedupe. Six
@@ -147,18 +165,18 @@ void main() {
       expect(feed.asteroids.length, 2);
     });
 
-    test('offline, today is the first seven records — not a date filter', () async {
-      // Decision 10, and the assertion that catches the plausible wrong port.
-      // Every sample record's date is the non-date `sample`, so an agent that
-      // derives todayList by date offline gets the four-record padding instead
-      // of seven — changing the home strip and the Challenge pool on exactly
-      // the path every offline test exercises.
-      final AsteroidFeed feed = await _load(null);
+    test(
+      'offline, today is the first seven records — not a date filter',
+      () async {
+        // Decision 10, and the assertion that catches the plausible wrong port.
+        // Every sample record's date is the non-date `sample`, so an agent that
+        // derives todayList by date offline gets the four-record padding instead
+        // of seven — changing the home strip and the Challenge pool on exactly
+        // the path every offline test exercises.
+        final AsteroidFeed feed = await _load(null);
 
-      expect(feed.todayList.length, 7);
-      expect(
-        feed.todayList.map((Asteroid a) => a.name),
-        <String>[
+        expect(feed.todayList.length, 7);
+        expect(feed.todayList.map((Asteroid a) => a.name), <String>[
           '2011 EW',
           '2006 QV89',
           '2020 SW',
@@ -166,9 +184,9 @@ void main() {
           '2004 BL86',
           '2012 DA14',
           '99942 Apophis',
-        ],
-      );
-    });
+        ]);
+      },
+    );
   });
 
   group('AsteroidRepository.loadData — who is visiting today', () {
@@ -179,7 +197,10 @@ void main() {
       ]);
 
       expect(feed.todayList.length, 4);
-      expect(feed.todayList.every((Asteroid a) => a.date == '2026-07-16'), isTrue);
+      expect(
+        feed.todayList.every((Asteroid a) => a.date == '2026-07-16'),
+        isTrue,
+      );
     });
 
     test('pads from the window when today is quiet', () async {
@@ -192,7 +213,10 @@ void main() {
       ]);
 
       expect(feed.todayList.length, 4);
-      expect(feed.todayList.every((Asteroid a) => a.date == '2026-07-14'), isTrue);
+      expect(
+        feed.todayList.every((Asteroid a) => a.date == '2026-07-14'),
+        isTrue,
+      );
     });
 
     test('pads to what is there when dedupe leaves fewer than four', () async {
@@ -211,16 +235,24 @@ void main() {
       expect(feed.todayList.length, 2);
     });
 
-    test('draws today from the deduplicated sky, never a separate fetch', () async {
-      final _FakeSource source = _FakeSource.returning(_pool(12, date: '2026-07-16'));
-      final AsteroidRepository repository = _repository(source, at: DateTime.utc(2026, 7, 16));
+    test(
+      'draws today from the deduplicated sky, never a separate fetch',
+      () async {
+        final _FakeSource source = _FakeSource.returning(
+          _pool(12, date: '2026-07-16'),
+        );
+        final AsteroidRepository repository = _repository(
+          source,
+          at: DateTime.utc(2026, 7, 16),
+        );
 
-      final AsteroidFeed feed = await repository.loadData();
+        final AsteroidFeed feed = await repository.loadData();
 
-      expect(source.calls, 1);
-      expect(feed.todayList.length, 12);
-      expect(feed.asteroids, containsAll(feed.todayList));
-    });
+        expect(source.calls, 1);
+        expect(feed.todayList.length, 12);
+        expect(feed.asteroids, containsAll(feed.todayList));
+      },
+    );
   });
 
   group('AsteroidRepository.loadData — parity with the prototype', () {
@@ -249,7 +281,11 @@ void main() {
         '2004 KG1', '2010 WB3', '2011 LA19', '2015 AF45',
       ]);
       expect(feed.todayList.map((Asteroid a) => a.name), <String>[
-        '2009 DB1', '2009 HA21', '2017 FX101', '2018 XQ2', '2019 NX4',
+        '2009 DB1',
+        '2009 HA21',
+        '2017 FX101',
+        '2018 XQ2',
+        '2019 NX4',
       ]);
     });
 
@@ -367,27 +403,34 @@ void main() {
       );
 
       expect(feed.todayList.length, 5);
-      expect(feed.todayList.every((Asteroid a) => a.date == '2026-07-14'), isTrue);
+      expect(
+        feed.todayList.every((Asteroid a) => a.date == '2026-07-14'),
+        isTrue,
+      );
     });
 
-    test('is refused once it is older than the ceiling — sample set instead',
-        () async {
-      // Three days back is the last servable window; four is a museum piece. A
-      // fixed real sky that old is worth no more to a child than the sample one
-      // and carries a stranger caption, so the sample set wins.
-      final AsteroidFeed feed = await loadCached(endDate: '2026-07-12');
+    test(
+      'is refused once it is older than the ceiling — sample set instead',
+      () async {
+        // Three days back is the last servable window; four is a museum piece. A
+        // fixed real sky that old is worth no more to a child than the sample one
+        // and carries a stranger caption, so the sample set wins.
+        final AsteroidFeed feed = await loadCached(endDate: '2026-07-12');
 
-      expect(feed.usingFallback, isTrue);
-      expect(feed.asteroids.length, 14);
-    });
+        expect(feed.usingFallback, isTrue);
+        expect(feed.asteroids.length, 14);
+      },
+    );
 
-    test('is kept at exactly the ceiling — the boundary is not off by one',
-        () async {
-      final AsteroidFeed feed = await loadCached(endDate: '2026-07-13');
+    test(
+      'is kept at exactly the ceiling — the boundary is not off by one',
+      () async {
+        final AsteroidFeed feed = await loadCached(endDate: '2026-07-13');
 
-      expect(feed.usingFallback, isFalse);
-      expect(feed.feedRange, '2026-07-12 → 2026-07-13');
-    });
+        expect(feed.usingFallback, isFalse);
+        expect(feed.feedRange, '2026-07-12 → 2026-07-13');
+      },
+    );
 
     test('a window dated in the future is refused, not served', () async {
       // A device clock knocked backwards — a manual change, a setup screen, an
@@ -450,7 +493,10 @@ void main() {
         _pool(12, date: '2026-07-17'),
       );
 
-      await _repository(source, at: DateTime.utc(2026, 7, 16)).prefetchTomorrow();
+      await _repository(
+        source,
+        at: DateTime.utc(2026, 7, 16),
+      ).prefetchTomorrow();
 
       expect(source.lastStart, '2026-07-15');
       expect(source.lastEnd, '2026-07-17');
@@ -466,7 +512,10 @@ void main() {
         _pool(12, date: '2026-07-17'),
       );
 
-      await _repository(prefetch, at: DateTime.utc(2026, 7, 16)).prefetchTomorrow();
+      await _repository(
+        prefetch,
+        at: DateTime.utc(2026, 7, 16),
+      ).prefetchTomorrow();
       await _repository(tomorrow, at: DateTime.utc(2026, 7, 17)).loadData();
 
       expect(prefetch.lastStart, tomorrow.lastStart);
@@ -480,47 +529,56 @@ void main() {
         _pool(12, date: '2026-07-31'),
       );
 
-      await _repository(source, at: DateTime.utc(2026, 7, 31)).prefetchTomorrow();
+      await _repository(
+        source,
+        at: DateTime.utc(2026, 7, 31),
+      ).prefetchTomorrow();
 
       expect(source.lastStart, '2026-07-30');
       expect(source.lastEnd, '2026-08-01');
     });
 
-    test('swallows a dead network — the child is already looking at a sky',
-        () async {
-      // It runs behind a resolved feed, so there is nothing left for a failure
-      // here to spoil. Throwing would turn a loaded app into an unhandled
-      // asynchronous error, because the caller deliberately does not await it.
-      await expectLater(
-        _repository(
-          _FakeSource.failing(const SocketException('offline')),
-          at: DateTime.utc(2026, 7, 16),
-        ).prefetchTomorrow(),
-        completes,
-      );
-    });
+    test(
+      'swallows a dead network — the child is already looking at a sky',
+      () async {
+        // It runs behind a resolved feed, so there is nothing left for a failure
+        // here to spoil. Throwing would turn a loaded app into an unhandled
+        // asynchronous error, because the caller deliberately does not await it.
+        await expectLater(
+          _repository(
+            _FakeSource.failing(const SocketException('offline')),
+            at: DateTime.utc(2026, 7, 16),
+          ).prefetchTomorrow(),
+          completes,
+        );
+      },
+    );
 
-    test('gives up on a source that never answers, rather than hanging forever',
-        () async {
-      // The captive portal, again. Without the ceiling this future stays pending
-      // for the life of the process — harmless to look at, but it holds the
-      // request and everything under it alive on a screen a child left minutes
-      // ago.
-      final AsteroidRepository repository = AsteroidRepository(
-        _FakeSource.hanging(),
-        now: () => DateTime.utc(2026, 7, 16),
-        loadCeiling: const Duration(milliseconds: 10),
-      );
+    test(
+      'gives up on a source that never answers, rather than hanging forever',
+      () async {
+        // The captive portal, again. Without the ceiling this future stays pending
+        // for the life of the process — harmless to look at, but it holds the
+        // request and everything under it alive on a screen a child left minutes
+        // ago.
+        final AsteroidRepository repository = AsteroidRepository(
+          _FakeSource.hanging(),
+          now: () => DateTime.utc(2026, 7, 16),
+          loadCeiling: const Duration(milliseconds: 10),
+        );
 
-      await expectLater(repository.prefetchTomorrow(), completes);
-    });
+        await expectLater(repository.prefetchTomorrow(), completes);
+      },
+    );
   });
 }
 
 /// The real client over the real capture, with the clock pinned to the day the
 /// fixture was captured so that `2026-07-16` is genuinely "today".
 AsteroidRepository _liveRepository() {
-  final String feedJson = File('test/fixtures/neows_feed.json').readAsStringSync();
+  final String feedJson = File(
+    'test/fixtures/neows_feed.json',
+  ).readAsStringSync();
   return AsteroidRepository(
     NeoWsClient(dio: Dio()..httpClientAdapter = StubHttpAdapter.json(feedJson)),
     now: () => DateTime.utc(2026, 7, 16),

@@ -183,7 +183,11 @@ void main() {
       // 0.85×0x07 = 44 (0x2C), and likewise 0x33 and 0x40. A head drawn at the
       // wrong angle shows up here rather than above.
       const Color track = Color(0xFF2C3340);
-      expect(px.at(ring.center.dx, ring.bottom - 2), track, reason: '6 o’clock');
+      expect(
+        px.at(ring.center.dx, ring.bottom - 2),
+        track,
+        reason: '6 o’clock',
+      );
       expect(px.at(ring.left + 2, ring.center.dy), track, reason: '9 o’clock');
       expect(px.at(ring.right - 2, ring.center.dy), track, reason: '3 o’clock');
       // A ring, not a disc — and one that stays inside its 40px box rather than

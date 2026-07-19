@@ -38,24 +38,27 @@ void main() {
       expect(engine.played, isEmpty, reason: 'the toggle must mute all audio');
     });
 
-    test('every cue in the enum is gated, not just the two games use', () async {
-      // The gate exists so that a *future* sound cannot bypass it — the badge
-      // cheer is the next one to land. Iterating the enum means a new cue is
-      // covered the day it is added rather than the day someone remembers.
-      final RecordingSoundEngine engine = RecordingSoundEngine();
-      final SoundController off = SoundController(engine, () => false);
-      final SoundController on = SoundController(engine, () => true);
+    test(
+      'every cue in the enum is gated, not just the two games use',
+      () async {
+        // The gate exists so that a *future* sound cannot bypass it — the badge
+        // cheer is the next one to land. Iterating the enum means a new cue is
+        // covered the day it is added rather than the day someone remembers.
+        final RecordingSoundEngine engine = RecordingSoundEngine();
+        final SoundController off = SoundController(engine, () => false);
+        final SoundController on = SoundController(engine, () => true);
 
-      for (final SoundCue cue in SoundCue.values) {
-        await off.play(cue);
-      }
-      expect(engine.played, isEmpty);
+        for (final SoundCue cue in SoundCue.values) {
+          await off.play(cue);
+        }
+        expect(engine.played, isEmpty);
 
-      for (final SoundCue cue in SoundCue.values) {
-        await on.play(cue);
-      }
-      expect(engine.played, SoundCue.values);
-    });
+        for (final SoundCue cue in SoundCue.values) {
+          await on.play(cue);
+        }
+        expect(engine.played, SoundCue.values);
+      },
+    );
 
     test('the flag is read per cue, so a mid-session flip takes effect', () async {
       // The child taps the speaker button between two answers. The next cue must

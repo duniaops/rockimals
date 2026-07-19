@@ -15,9 +15,18 @@ void main() {
 
       // A `Ticker` reports elapsed time from its own start, so a 16ms frame is
       // the gap between two of its values and not either value itself.
-      expect(clock.step(const Duration(milliseconds: 16)), closeTo(0.016, 1e-9));
-      expect(clock.step(const Duration(milliseconds: 32)), closeTo(0.016, 1e-9));
-      expect(clock.step(const Duration(milliseconds: 48)), closeTo(0.016, 1e-9));
+      expect(
+        clock.step(const Duration(milliseconds: 16)),
+        closeTo(0.016, 1e-9),
+      );
+      expect(
+        clock.step(const Duration(milliseconds: 32)),
+        closeTo(0.016, 1e-9),
+      );
+      expect(
+        clock.step(const Duration(milliseconds: 48)),
+        closeTo(0.016, 1e-9),
+      );
     });
 
     test('takes the first frame from zero rather than from an unset clock', () {

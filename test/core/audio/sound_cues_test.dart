@@ -18,10 +18,18 @@ void main() {
     test('happy is the C major arpeggio from playHappy', () {
       // `[[523,0],[659,.08],[784,.16],[1047,.25]] … beep(f,s,.2,"triangle",0.2)`
       final List<ToneNote> notes = notesFor(SoundCue.happy);
-      expect(notes.map((ToneNote n) => n.frequency), <double>[523, 659, 784, 1047]);
+      expect(notes.map((ToneNote n) => n.frequency), <double>[
+        523,
+        659,
+        784,
+        1047,
+      ]);
       expect(notes.map((ToneNote n) => n.start), <double>[0, 0.08, 0.16, 0.25]);
       expect(notes.every((ToneNote n) => n.duration == 0.2), isTrue);
-      expect(notes.every((ToneNote n) => n.waveform == Waveform.triangle), isTrue);
+      expect(
+        notes.every((ToneNote n) => n.waveform == Waveform.triangle),
+        isTrue,
+      );
       expect(notes.every((ToneNote n) => n.gain == 0.2), isTrue);
     });
 
@@ -38,10 +46,18 @@ void main() {
     test('cheer is the E major arpeggio from playCheer', () {
       // `[[659,0],[784,.09],[988,.18],[1319,.28]] … beep(f,s,.24,"triangle",0.2)`
       final List<ToneNote> notes = notesFor(SoundCue.cheer);
-      expect(notes.map((ToneNote n) => n.frequency), <double>[659, 784, 988, 1319]);
+      expect(notes.map((ToneNote n) => n.frequency), <double>[
+        659,
+        784,
+        988,
+        1319,
+      ]);
       expect(notes.map((ToneNote n) => n.start), <double>[0, 0.09, 0.18, 0.28]);
       expect(notes.every((ToneNote n) => n.duration == 0.24), isTrue);
-      expect(notes.every((ToneNote n) => n.waveform == Waveform.triangle), isTrue);
+      expect(
+        notes.every((ToneNote n) => n.waveform == Waveform.triangle),
+        isTrue,
+      );
       expect(notes.every((ToneNote n) => n.gain == 0.2), isTrue);
     });
   });
@@ -94,10 +110,9 @@ void main() {
       // choices are what keep it from ever engaging. If a retune pushes a cue
       // into the clamp, this fails before an ear has to.
       for (final SoundCue cue in SoundCue.values) {
-        final double peak = renderSamples(notesFor(cue)).fold<double>(
-          0,
-          (double m, double s) => s.abs() > m ? s.abs() : m,
-        );
+        final double peak = renderSamples(
+          notesFor(cue),
+        ).fold<double>(0, (double m, double s) => s.abs() > m ? s.abs() : m);
         expect(peak, lessThan(1.0), reason: '$cue peaks at $peak');
         expect(peak, greaterThan(0.05), reason: '$cue is too quiet to hear');
       }

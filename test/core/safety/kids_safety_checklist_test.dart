@@ -157,66 +157,68 @@ void main() {
       );
     });
 
-    test('every persisted key is a score, a toggle, or a public designation',
-        () async {
-      // **Asked of the box, not of `Store`'s field list.** The interesting
-      // failure is a key that gets written without a named accessor — a
-      // "last seen" timestamp, a device id stashed for a crash report — and
-      // reading the box back is the only way to see one. Writing through every
-      // setter first means the assertion is over the full key set the app can
-      // produce, not just the subset a fresh install happens to have touched.
-      final Directory tempDir = await Directory.systemTemp.createTemp(
-        'rockimals_safety_keys',
-      );
-      addTearDown(() async {
-        await Hive.deleteFromDisk();
-        await Hive.close();
-        if (tempDir.existsSync()) await tempDir.delete(recursive: true);
-      });
+    test(
+      'every persisted key is a score, a toggle, or a public designation',
+      () async {
+        // **Asked of the box, not of `Store`'s field list.** The interesting
+        // failure is a key that gets written without a named accessor — a
+        // "last seen" timestamp, a device id stashed for a crash report — and
+        // reading the box back is the only way to see one. Writing through every
+        // setter first means the assertion is over the full key set the app can
+        // produce, not just the subset a fresh install happens to have touched.
+        final Directory tempDir = await Directory.systemTemp.createTemp(
+          'rockimals_safety_keys',
+        );
+        addTearDown(() async {
+          await Hive.deleteFromDisk();
+          await Hive.close();
+          if (tempDir.existsSync()) await tempDir.delete(recursive: true);
+        });
 
-      Hive.init(tempDir.path);
-      final Store store = await Store.open();
-      await store.setPoints(10);
-      await store.setPlayed(3);
-      await store.setBestStreak(4);
-      await store.setPerfect(1);
-      await store.setBadges(<String>['first']);
-      await store.setFollows(<String>['2011 EW']);
-      await store.setBestDuel(5);
-      await store.setBestCloser(6);
-      await store.setBestSize(8);
-      await store.setDayStreak(2);
-      await store.setLastPlayedDate('2026-07-18');
-      await store.setSoundOn(false);
-      await store.setReducedMotion(true);
-      await store.setLittleKidsMode(true);
-      await store.setCachedFeed('{}');
+        Hive.init(tempDir.path);
+        final Store store = await Store.open();
+        await store.setPoints(10);
+        await store.setPlayed(3);
+        await store.setBestStreak(4);
+        await store.setPerfect(1);
+        await store.setBadges(<String>['first']);
+        await store.setFollows(<String>['2011 EW']);
+        await store.setBestDuel(5);
+        await store.setBestCloser(6);
+        await store.setBestSize(8);
+        await store.setDayStreak(2);
+        await store.setLastPlayedDate('2026-07-18');
+        await store.setSoundOn(false);
+        await store.setReducedMotion(true);
+        await store.setLittleKidsMode(true);
+        await store.setCachedFeed('{}');
 
-      expect(Hive.box<Object>(Store.boxName).keys.toSet(), <String>{
-        // Scores and counters — a number the child earned, about nobody.
-        'aw_points',
-        'aw_played',
-        'aw_bstreak',
-        'aw_perfect',
-        'aw_duel',
-        'aw_closer',
-        'aw_size',
-        'aw_daystreak',
-        // Toggles the child or their grown-up set.
-        'aw_sound',
-        'aw_motion',
-        'aw_littlekids',
-        // Earned badge ids — the app's own vocabulary.
-        'aw_badges',
-        // Asteroid designations the child chose to follow, and a copy of a feed
-        // NASA published to the whole world. Public facts, not private ones.
-        'aw_follows',
-        'aw_feedcache',
-        // The coarsest date the app can hold: a calendar day, so a streak can
-        // be counted. Nothing finer, and nothing that says where or on what.
-        'aw_lastplayed',
-      });
-    });
+        expect(Hive.box<Object>(Store.boxName).keys.toSet(), <String>{
+          // Scores and counters — a number the child earned, about nobody.
+          'aw_points',
+          'aw_played',
+          'aw_bstreak',
+          'aw_perfect',
+          'aw_duel',
+          'aw_closer',
+          'aw_size',
+          'aw_daystreak',
+          // Toggles the child or their grown-up set.
+          'aw_sound',
+          'aw_motion',
+          'aw_littlekids',
+          // Earned badge ids — the app's own vocabulary.
+          'aw_badges',
+          // Asteroid designations the child chose to follow, and a copy of a feed
+          // NASA published to the whole world. Public facts, not private ones.
+          'aw_follows',
+          'aw_feedcache',
+          // The coarsest date the app can hold: a calendar day, so a streak can
+          // be counted. Nothing finer, and nothing that says where or on what.
+          'aw_lastplayed',
+        });
+      },
+    );
   });
 
   group('checklist 3 — the parent-gated link is the only way out', () {
@@ -239,7 +241,10 @@ void main() {
       ).readAsStringSync();
 
       expect(suite, contains('the app has exactly one way out'));
-      expect(suite, contains("import 'package:url_launcher/url_launcher.dart'"));
+      expect(
+        suite,
+        contains("import 'package:url_launcher/url_launcher.dart'"),
+      );
     });
   });
 

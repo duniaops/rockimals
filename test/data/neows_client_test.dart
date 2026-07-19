@@ -23,57 +23,82 @@ import '../support/stub_http_adapter.dart';
 /// URL, the query string, and the status handling are all real code under test
 /// while NASA's 30-requests-an-hour demo key is left alone.
 void main() {
-  final String feedJson = File('test/fixtures/neows_feed.json').readAsStringSync();
+  final String feedJson = File(
+    'test/fixtures/neows_feed.json',
+  ).readAsStringSync();
 
   group('NeoWsClient.fetchFeed', () {
-    test('parses every object in a real capture, in the feed\'s own order', () async {
-      final NeoWsClient client = _clientReturning(feedJson);
+    test(
+      'parses every object in a real capture, in the feed\'s own order',
+      () async {
+        final NeoWsClient client = _clientReturning(feedJson);
 
-      final FeedWindow answered = await client.fetchFeed(
-        startDate: '2026-07-14',
-        endDate: '2026-07-16',
-      );
+        final FeedWindow answered = await client.fetchFeed(
+          startDate: '2026-07-14',
+          endDate: '2026-07-16',
+        );
 
-      expect(answered.asteroids.length, 13);
-      // Document order, not chronological: the five of 07-16 first.
-      expect(answered.asteroids.first.name, '2009 DB1');
-      expect(answered.asteroids[5].name, '2011 UT');
-      expect(answered.asteroids.last.name, '2015 AF45');
-    });
+        expect(answered.asteroids.length, 13);
+        // Document order, not chronological: the five of 07-16 first.
+        expect(answered.asteroids.first.name, '2009 DB1');
+        expect(answered.asteroids[5].name, '2011 UT');
+        expect(answered.asteroids.last.name, '2015 AF45');
+      },
+    );
 
-    test('threads the date key each object was filed under onto the asteroid', () async {
-      // The date lives on the feed's key, not on the object, and the app needs
-      // it to know who is visiting today. Losing it here would leave the home
-      // strip padding from the window every single day, silently.
-      final NeoWsClient client = _clientReturning(feedJson);
+    test(
+      'threads the date key each object was filed under onto the asteroid',
+      () async {
+        // The date lives on the feed's key, not on the object, and the app needs
+        // it to know who is visiting today. Losing it here would leave the home
+        // strip padding from the window every single day, silently.
+        final NeoWsClient client = _clientReturning(feedJson);
 
-      final FeedWindow answered = await client.fetchFeed(
-        startDate: '2026-07-14',
-        endDate: '2026-07-16',
-      );
+        final FeedWindow answered = await client.fetchFeed(
+          startDate: '2026-07-14',
+          endDate: '2026-07-16',
+        );
 
-      expect(answered.asteroids.where((Asteroid a) => a.date == '2026-07-16').length, 5);
-      expect(answered.asteroids.where((Asteroid a) => a.date == '2026-07-14').length, 4);
-      expect(answered.asteroids.where((Asteroid a) => a.date == '2026-07-15').length, 4);
-    });
+        expect(
+          answered.asteroids
+              .where((Asteroid a) => a.date == '2026-07-16')
+              .length,
+          5,
+        );
+        expect(
+          answered.asteroids
+              .where((Asteroid a) => a.date == '2026-07-14')
+              .length,
+          4,
+        );
+        expect(
+          answered.asteroids
+              .where((Asteroid a) => a.date == '2026-07-15')
+              .length,
+          4,
+        );
+      },
+    );
 
-    test('reports the window it answered — which is always the one it asked for',
-        () async {
-      // Trivial for this class and load-bearing for the caller. `FeedWindow`
-      // exists because `CachingFeedSource` can answer an *earlier* window than
-      // it was given, and the repository captions whatever comes back; this is
-      // the other side of that contract, and the reason the repository's caption
-      // is unchanged for every online child.
-      final NeoWsClient client = _clientReturning(feedJson);
+    test(
+      'reports the window it answered — which is always the one it asked for',
+      () async {
+        // Trivial for this class and load-bearing for the caller. `FeedWindow`
+        // exists because `CachingFeedSource` can answer an *earlier* window than
+        // it was given, and the repository captions whatever comes back; this is
+        // the other side of that contract, and the reason the repository's caption
+        // is unchanged for every online child.
+        final NeoWsClient client = _clientReturning(feedJson);
 
-      final FeedWindow answered = await client.fetchFeed(
-        startDate: '2026-07-14',
-        endDate: '2026-07-16',
-      );
+        final FeedWindow answered = await client.fetchFeed(
+          startDate: '2026-07-14',
+          endDate: '2026-07-16',
+        );
 
-      expect(answered.startDate, '2026-07-14');
-      expect(answered.endDate, '2026-07-16');
-    });
+        expect(answered.startDate, '2026-07-14');
+        expect(answered.endDate, '2026-07-16');
+      },
+    );
 
     test('hands back a sky no consumer can reorder', () async {
       // The order is the feed's own and it is load-bearing — the radar seeds
@@ -95,27 +120,35 @@ void main() {
       );
     });
 
-    test('asks NASA for the window it was given, with the configured key', () async {
-      final StubHttpAdapter adapter = StubHttpAdapter.json(feedJson);
-      final NeoWsClient client = NeoWsClient(dio: Dio()..httpClientAdapter = adapter);
+    test(
+      'asks NASA for the window it was given, with the configured key',
+      () async {
+        final StubHttpAdapter adapter = StubHttpAdapter.json(feedJson);
+        final NeoWsClient client = NeoWsClient(
+          dio: Dio()..httpClientAdapter = adapter,
+        );
 
-      await client.fetchFeed(startDate: '2026-07-14', endDate: '2026-07-16');
+        await client.fetchFeed(startDate: '2026-07-14', endDate: '2026-07-16');
 
-      final Uri uri = adapter.lastRequest!.uri;
-      expect(uri.host, 'api.nasa.gov');
-      expect(uri.path, '/neo/rest/v1/feed');
-      expect(uri.queryParameters['start_date'], '2026-07-14');
-      expect(uri.queryParameters['end_date'], '2026-07-16');
-      // Default build; `flutter test --dart-define=NASA_API_KEY=…` overrides it,
-      // which is why this asserts a non-empty key rather than DEMO_KEY exactly.
-      expect(uri.queryParameters['api_key'], isNotEmpty);
-    });
+        final Uri uri = adapter.lastRequest!.uri;
+        expect(uri.host, 'api.nasa.gov');
+        expect(uri.path, '/neo/rest/v1/feed');
+        expect(uri.queryParameters['start_date'], '2026-07-14');
+        expect(uri.queryParameters['end_date'], '2026-07-16');
+        // Default build; `flutter test --dart-define=NASA_API_KEY=…` overrides it,
+        // which is why this asserts a non-empty key rather than DEMO_KEY exactly.
+        expect(uri.queryParameters['api_key'], isNotEmpty);
+      },
+    );
 
     test('throws on a non-2xx status', () async {
       // The prototype's `if(!r.ok) throw 0`. The realistic case is a 429: the
       // shared DEMO_KEY allows 30 requests an hour per IP, so this is the path
       // a kid on a busy network actually takes to the sample set.
-      final NeoWsClient client = _clientReturning('{"error":"rate limited"}', status: 429);
+      final NeoWsClient client = _clientReturning(
+        '{"error":"rate limited"}',
+        status: 429,
+      );
 
       expect(
         () => client.fetchFeed(startDate: '2026-07-14', endDate: '2026-07-16'),
@@ -123,28 +156,33 @@ void main() {
       );
     });
 
-    test('skips an object with no close-approach data rather than failing', () async {
-      // No approach entry means no distance and no speed, so there is no animal
-      // to make. One such rock must not cost the other twelve their sky.
-      final NeoWsClient client = _clientReturning(
-        jsonEncode(<String, Object?>{
-          'near_earth_objects': <String, Object?>{
-            '2026-07-16': <Object?>[
-              _neo(name: '(2020 SW)'),
-              _neo(name: '(1999 XX)', closeApproaches: <Object?>[]),
-              _neo(name: '(2001 YY)', closeApproaches: null),
-            ],
-          },
-        }),
-      );
+    test(
+      'skips an object with no close-approach data rather than failing',
+      () async {
+        // No approach entry means no distance and no speed, so there is no animal
+        // to make. One such rock must not cost the other twelve their sky.
+        final NeoWsClient client = _clientReturning(
+          jsonEncode(<String, Object?>{
+            'near_earth_objects': <String, Object?>{
+              '2026-07-16': <Object?>[
+                _neo(name: '(2020 SW)'),
+                _neo(name: '(1999 XX)', closeApproaches: <Object?>[]),
+                _neo(name: '(2001 YY)', closeApproaches: null),
+              ],
+            },
+          }),
+        );
 
-      final FeedWindow answered = await client.fetchFeed(
-        startDate: '2026-07-16',
-        endDate: '2026-07-16',
-      );
+        final FeedWindow answered = await client.fetchFeed(
+          startDate: '2026-07-16',
+          endDate: '2026-07-16',
+        );
 
-      expect(answered.asteroids.map((Asteroid a) => a.name), <String>['2020 SW']);
-    });
+        expect(answered.asteroids.map((Asteroid a) => a.name), <String>[
+          '2020 SW',
+        ]);
+      },
+    );
 
     test('reads a feed with no objects as empty, not as broken', () async {
       // The prototype's `d.near_earth_objects||{}`. An empty sky is a real
@@ -170,25 +208,34 @@ void main() {
       );
     });
 
-    test('bounds every attempt, so a socket that never answers cannot hang the app', () async {
-      // Dio's timeouts both default to null — wait forever — and forever is a
-      // duration a phone really reaches: a captive portal accepts the
-      // connection and then says nothing. Without these, loadData() never
-      // returns, its catch never fires, the sample set never loads, and
-      // "Contacting NASA…" is the app until it is force-quit.
-      //
-      // The exact durations are a judgment call and not worth pinning; that
-      // they exist, and sit inside the repository's ten-second ceiling so a
-      // retry still fits, is the part that must not regress.
-      final Dio dio = Dio()..httpClientAdapter = StubHttpAdapter.json('{}');
+    test(
+      'bounds every attempt, so a socket that never answers cannot hang the app',
+      () async {
+        // Dio's timeouts both default to null — wait forever — and forever is a
+        // duration a phone really reaches: a captive portal accepts the
+        // connection and then says nothing. Without these, loadData() never
+        // returns, its catch never fires, the sample set never loads, and
+        // "Contacting NASA…" is the app until it is force-quit.
+        //
+        // The exact durations are a judgment call and not worth pinning; that
+        // they exist, and sit inside the repository's ten-second ceiling so a
+        // retry still fits, is the part that must not regress.
+        final Dio dio = Dio()..httpClientAdapter = StubHttpAdapter.json('{}');
 
-      NeoWsClient(dio: dio);
+        NeoWsClient(dio: dio);
 
-      expect(dio.options.connectTimeout, isNotNull);
-      expect(dio.options.receiveTimeout, isNotNull);
-      expect(dio.options.connectTimeout, lessThan(const Duration(seconds: 10)));
-      expect(dio.options.receiveTimeout, lessThan(const Duration(seconds: 10)));
-    });
+        expect(dio.options.connectTimeout, isNotNull);
+        expect(dio.options.receiveTimeout, isNotNull);
+        expect(
+          dio.options.connectTimeout,
+          lessThan(const Duration(seconds: 10)),
+        );
+        expect(
+          dio.options.receiveTimeout,
+          lessThan(const Duration(seconds: 10)),
+        );
+      },
+    );
 
     test('retries past a 500 and still returns the feed', () async {
       // End to end through the real client: the retry is installed on the Dio
@@ -283,8 +330,13 @@ Map<String, Object?> _neo({
     else
       'close_approach_data': <Object?>[
         <String, Object?>{
-          'relative_velocity': <String, Object?>{'kilometers_per_second': '8.1'},
-          'miss_distance': <String, Object?>{'lunar': lunar, 'kilometers': '26908'},
+          'relative_velocity': <String, Object?>{
+            'kilometers_per_second': '8.1',
+          },
+          'miss_distance': <String, Object?>{
+            'lunar': lunar,
+            'kilometers': '26908',
+          },
         },
       ],
   };

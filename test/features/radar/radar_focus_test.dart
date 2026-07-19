@@ -65,7 +65,11 @@ void main() {
     await tester.pump();
     expect(_painter(tester).viewRot, isNot(0), reason: 'the premise: spun');
     expect(_painter(tester).zoom, isNot(1), reason: 'the premise: zoomed');
-    expect(_painter(tester).selected, isNull, reason: 'the premise: none picked');
+    expect(
+      _painter(tester).selected,
+      isNull,
+      reason: 'the premise: none picked',
+    );
 
     container.read(radarFocusProvider.notifier).focus(_rock);
     await tester.pump();
@@ -182,7 +186,10 @@ ProviderContainer _container() {
 
 /// The radar alone, over [container] — enough for the radar's own reaction to a
 /// focus request.
-Future<void> _mountRadar(WidgetTester tester, ProviderContainer container) async {
+Future<void> _mountRadar(
+  WidgetTester tester,
+  ProviderContainer container,
+) async {
   tester.view
     ..physicalSize = const Size(390, 700)
     ..devicePixelRatio = 1;
@@ -201,7 +208,10 @@ Future<void> _mountRadar(WidgetTester tester, ProviderContainer container) async
 
 /// The whole shell over [container] — the frame the tab switch and the Meet →
 /// detail → Show-on-radar flow need.
-Future<void> _mountShell(WidgetTester tester, ProviderContainer container) async {
+Future<void> _mountShell(
+  WidgetTester tester,
+  ProviderContainer container,
+) async {
   tester.view
     ..physicalSize = const Size(390, 700)
     ..devicePixelRatio = 1;
@@ -261,8 +271,12 @@ Future<void> _pinch(
 }) async {
   final Size size = tester.getSize(_radarCanvas());
   final Offset centre = Offset(size.width / 2, size.height * 0.62);
-  final TestGesture top = await tester.startGesture(centre - Offset(0, from / 2));
-  final TestGesture bottom = await tester.startGesture(centre + Offset(0, from / 2));
+  final TestGesture top = await tester.startGesture(
+    centre - Offset(0, from / 2),
+  );
+  final TestGesture bottom = await tester.startGesture(
+    centre + Offset(0, from / 2),
+  );
 
   await top.moveTo(centre - Offset(0, to / 2));
   await bottom.moveTo(centre + Offset(0, to / 2));

@@ -300,9 +300,9 @@ class _DetailActions extends ConsumerWidget {
             ghost: true,
             onTap: () {
               ref.read(radarFocusProvider.notifier).focus(asteroid);
-              Navigator.of(context).popUntil(
-                (Route<dynamic> route) => route.isFirst,
-              );
+              Navigator.of(
+                context,
+              ).popUntil((Route<dynamic> route) => route.isFirst);
             },
           ),
         ),

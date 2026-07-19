@@ -26,12 +26,15 @@ void main() {
   //  * 2020 SW — 9 m Rabbit, 0.07 Moons: tiny and a close flyby (`< 1`).
   //  * 2018 LF16 — 213 m Bear, 40 Moons: mid-sized and just passing.
   //  * 433 Eros — 16 800 m Whale, 52 Moons: the giant of the sample sky.
-  final Asteroid rabbit =
-      kFallbackAsteroids.firstWhere((Asteroid a) => a.name == '2020 SW');
-  final Asteroid bear =
-      kFallbackAsteroids.firstWhere((Asteroid a) => a.name == '2018 LF16');
-  final Asteroid whale =
-      kFallbackAsteroids.firstWhere((Asteroid a) => a.name == '433 Eros');
+  final Asteroid rabbit = kFallbackAsteroids.firstWhere(
+    (Asteroid a) => a.name == '2020 SW',
+  );
+  final Asteroid bear = kFallbackAsteroids.firstWhere(
+    (Asteroid a) => a.name == '2018 LF16',
+  );
+  final Asteroid whale = kFallbackAsteroids.firstWhere(
+    (Asteroid a) => a.name == '433 Eros',
+  );
 
   // The screen now reads the follow set (its Follow button), so it needs a
   // `ProviderScope`. The follow set is held in memory, seeded to [followed]: a
@@ -46,9 +49,7 @@ void main() {
   }) {
     return tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          followsProvider.overrideWith(() => _MemFollows(followed)),
-        ],
+        overrides: [followsProvider.overrideWith(() => _MemFollows(followed))],
         child: MaterialApp(home: DetailScreen(asteroid: rock)),
       ),
     );
@@ -69,8 +70,10 @@ void main() {
     // "a Rabbit-sized space rock" — a rich line with the species picked out, so
     // it is matched through the RichText's plain text.
     expect(
-      find.textContaining('a ${c.animal.species}-sized space rock',
-          findRichText: true),
+      find.textContaining(
+        'a ${c.animal.species}-sized space rock',
+        findRichText: true,
+      ),
       findsOneWidget,
     );
 
@@ -112,7 +115,9 @@ void main() {
     expect(find.text('40× Moon'), findsOneWidget); // distLabel(40)
   });
 
-  testWidgets('the giant Whale renders its full diameter range', (tester) async {
+  testWidgets('the giant Whale renders its full diameter range', (
+    tester,
+  ) async {
     await pump(tester, whale);
     final Critter c = critter(whale);
 

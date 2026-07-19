@@ -539,7 +539,9 @@ class _BadgeShelf extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  Expanded(child: _BadgeTile(badge: kBadges[i], state: earned)),
+                  Expanded(
+                    child: _BadgeTile(badge: kBadges[i], state: earned),
+                  ),
                   const SizedBox(width: 9),
                   // The ninth badge is alone on the last row and keeps its
                   // half-width, exactly as a two-column CSS grid leaves it —

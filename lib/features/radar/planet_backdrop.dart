@@ -126,12 +126,60 @@ class PlanetBackdrop {
   /// it decides who is in front of whom where they overlap.
   PlanetBackdrop.seed()
     : planets = <Planet>[
-        Planet._(name: 'Mercury', xf: 0.86, yf: 0.50, r: 6, drift: 3.0, bob: 2600, draw: paintMercury),
-        Planet._(name: 'Venus', xf: 0.14, yf: 0.60, r: 10, drift: 2.4, bob: 3000, draw: paintVenus),
-        Planet._(name: 'Mars', xf: 0.56, yf: 0.53, r: 9, drift: 2.0, bob: 3400, draw: paintMars),
-        Planet._(name: 'Jupiter', xf: 0.80, yf: 0.73, r: 21, drift: 2.6, bob: 4200, draw: paintJupiter),
-        Planet._(name: 'Saturn', xf: 0.27, yf: 0.81, r: 16, drift: 2.2, bob: 4600, draw: paintSaturn),
-        Planet._(name: 'Neptune', xf: 0.94, yf: 0.65, r: 12, drift: 1.7, bob: 5200, draw: paintNeptune),
+        Planet._(
+          name: 'Mercury',
+          xf: 0.86,
+          yf: 0.50,
+          r: 6,
+          drift: 3.0,
+          bob: 2600,
+          draw: paintMercury,
+        ),
+        Planet._(
+          name: 'Venus',
+          xf: 0.14,
+          yf: 0.60,
+          r: 10,
+          drift: 2.4,
+          bob: 3000,
+          draw: paintVenus,
+        ),
+        Planet._(
+          name: 'Mars',
+          xf: 0.56,
+          yf: 0.53,
+          r: 9,
+          drift: 2.0,
+          bob: 3400,
+          draw: paintMars,
+        ),
+        Planet._(
+          name: 'Jupiter',
+          xf: 0.80,
+          yf: 0.73,
+          r: 21,
+          drift: 2.6,
+          bob: 4200,
+          draw: paintJupiter,
+        ),
+        Planet._(
+          name: 'Saturn',
+          xf: 0.27,
+          yf: 0.81,
+          r: 16,
+          drift: 2.2,
+          bob: 4600,
+          draw: paintSaturn,
+        ),
+        Planet._(
+          name: 'Neptune',
+          xf: 0.94,
+          yf: 0.65,
+          r: 12,
+          drift: 1.7,
+          bob: 5200,
+          draw: paintNeptune,
+        ),
       ];
 
   final List<Planet> planets;
@@ -157,7 +205,8 @@ class PlanetBackdrop {
       // `if (p.x == null) p.x = Radar.W * p.xf` — the placement, done on the
       // first frame that knows the field's width rather than at construction,
       // where there is no field yet.
-      double x = (planet.x ?? width * planet.xf) - planet.drift * dt * _driftScale;
+      double x =
+          (planet.x ?? width * planet.xf) - planet.drift * dt * _driftScale;
       // Only leftward, because every `drift` is positive: a planet that walks
       // off the left edge is put back on beyond the right one. It reappears at
       // `width + 70` rather than at `width` so it slides *in* rather than

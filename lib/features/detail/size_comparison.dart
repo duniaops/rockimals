@@ -95,12 +95,18 @@ class SizeComparison extends StatelessWidget {
     // vanishes. `astW` is the asteroid disc's diameter; the ref is a `refW×refH`
     // rectangle.
     final double maxDim = math.max(asteroid.diaMax, ref.meters);
-    final double astW =
-        math.max(26.0, (asteroid.diaMax / maxDim * 120).roundToDouble());
-    final double refW =
-        math.max(14.0, (ref.meters / maxDim * 80).roundToDouble());
-    final double refH =
-        math.max(20.0, (ref.meters / maxDim * 110).roundToDouble());
+    final double astW = math.max(
+      26.0,
+      (asteroid.diaMax / maxDim * 120).roundToDouble(),
+    );
+    final double refW = math.max(
+      14.0,
+      (ref.meters / maxDim * 80).roundToDouble(),
+    );
+    final double refH = math.max(
+      20.0,
+      (ref.meters / maxDim * 110).roundToDouble(),
+    );
 
     // "≈ N× the {object}" (`index.html:588`): one decimal below 10×, none at or
     // above it, and the object name lower-cased into the sentence.

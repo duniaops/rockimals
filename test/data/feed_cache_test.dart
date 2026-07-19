@@ -33,7 +33,10 @@ void main() {
     tempDir = await Directory.systemTemp.createTemp('rockimals_feed_cache');
     Hive.init(tempDir.path);
     store = await Store.open();
-    source = _FakeSource(<Asteroid>[_asteroid('2011 EW'), _asteroid('2020 SW')]);
+    source = _FakeSource(<Asteroid>[
+      _asteroid('2011 EW'),
+      _asteroid('2020 SW'),
+    ]);
     clock = DateTime.utc(2026, 7, 17, 12);
   });
 
@@ -72,28 +75,33 @@ void main() {
       final List<Asteroid> second = await fetchRocks();
 
       expect(source.fetchCount, 1);
-      expect(second.map((Asteroid a) => a.name), <String>['2011 EW', '2020 SW']);
-    });
-
-    test('survives the app being force-quit — the whole point of the disk',
-        () async {
-      await fetchRocks();
-      await restart();
-
-      // A brand new source, as if the process had restarted around a dead
-      // network. The sky still comes back, and it is NASA's, not the sample set.
-      source = _FakeSource.dead();
-
-      expect((await fetchRocks()).map((Asteroid a) => a.name), <String>[
+      expect(second.map((Asteroid a) => a.name), <String>[
         '2011 EW',
         '2020 SW',
       ]);
-      expect(
-        source.fetchCount,
-        0,
-        reason: 'a fresh entry is not worth a request, dead network or not',
-      );
     });
+
+    test(
+      'survives the app being force-quit — the whole point of the disk',
+      () async {
+        await fetchRocks();
+        await restart();
+
+        // A brand new source, as if the process had restarted around a dead
+        // network. The sky still comes back, and it is NASA's, not the sample set.
+        source = _FakeSource.dead();
+
+        expect((await fetchRocks()).map((Asteroid a) => a.name), <String>[
+          '2011 EW',
+          '2020 SW',
+        ]);
+        expect(
+          source.fetchCount,
+          0,
+          reason: 'a fresh entry is not worth a request, dead network or not',
+        );
+      },
+    );
 
     test('round-trips every field a child can see', () async {
       // The cache is the only place an `Asteroid` is written down and read back,
@@ -159,22 +167,27 @@ void main() {
       expect(source.fetchCount, 1);
     });
 
-    test('is served when the network is dead — real rocks beat sample rocks',
-        () async {
-      // The load-bearing test of the file, and the reason the cache is on the
-      // disk at all. Note what it does *not* do: it does not answer the sample
-      // set, because that is the repository's decision and this layer only says
-      // "I still have what NASA said".
-      await fetchRocks();
-      await restart();
-      clock = clock.add(ttl * 10);
-      source = _FakeSource.dead();
+    test(
+      'is served when the network is dead — real rocks beat sample rocks',
+      () async {
+        // The load-bearing test of the file, and the reason the cache is on the
+        // disk at all. Note what it does *not* do: it does not answer the sample
+        // set, because that is the repository's decision and this layer only says
+        // "I still have what NASA said".
+        await fetchRocks();
+        await restart();
+        clock = clock.add(ttl * 10);
+        source = _FakeSource.dead();
 
-      final List<Asteroid> served = await fetchRocks();
+        final List<Asteroid> served = await fetchRocks();
 
-      expect(served.map((Asteroid a) => a.name), <String>['2011 EW', '2020 SW']);
-      expect(source.fetchCount, 1, reason: 'it tried the network first');
-    });
+        expect(served.map((Asteroid a) => a.name), <String>[
+          '2011 EW',
+          '2020 SW',
+        ]);
+        expect(source.fetchCount, 1, reason: 'it tried the network first');
+      },
+    );
 
     test('is replaced, not appended to, by a successful refetch', () async {
       await fetchRocks();
@@ -202,8 +215,7 @@ void main() {
       await expectLater(fetch(), throwsA(isA<_DeadNetwork>()));
     });
 
-    test('a new UTC day misses by key without ever consulting the TTL',
-        () async {
+    test('a new UTC day misses by key without ever consulting the TTL', () async {
       // The window key self-invalidates daily, which is why decision 13 rejected
       // day-keying. The entry here is *perfectly fresh* — the clock has not
       // moved — and it is still a miss, because it answers a different question.
@@ -254,24 +266,30 @@ void main() {
       },
     );
 
-    test('a fresh entry for another window is still a miss — hits stay exact',
-        () async {
-      // The generosity above is strictly a failure-path rule. Asking "may I skip
-      // the network?" of an entry for a different window must still be answered
-      // no, however fresh it is, or a new UTC day would never re-ask and the sky
-      // would stop moving (plan decision 13). The clock has not moved here; only
-      // the window has.
-      await fetch(start: '2026-07-13', end: '2026-07-15');
-      await restart();
+    test(
+      'a fresh entry for another window is still a miss — hits stay exact',
+      () async {
+        // The generosity above is strictly a failure-path rule. Asking "may I skip
+        // the network?" of an entry for a different window must still be answered
+        // no, however fresh it is, or a new UTC day would never re-ask and the sky
+        // would stop moving (plan decision 13). The clock has not moved here; only
+        // the window has.
+        await fetch(start: '2026-07-13', end: '2026-07-15');
+        await restart();
 
-      final FeedWindow served = await fetch(
-        start: '2026-07-14',
-        end: '2026-07-16',
-      );
+        final FeedWindow served = await fetch(
+          start: '2026-07-14',
+          end: '2026-07-16',
+        );
 
-      expect(source.fetchCount, 2);
-      expect(served.endDate, '2026-07-16', reason: 'the fresh one it fetched');
-    });
+        expect(source.fetchCount, 2);
+        expect(
+          served.endDate,
+          '2026-07-16',
+          reason: 'the fresh one it fetched',
+        );
+      },
+    );
   });
 
   group('an empty window', () {
@@ -338,61 +356,66 @@ void main() {
       ]);
     });
 
-    test('never serves a window from the future to a load that asked for today',
-        () async {
-      // The rule `_bestServable` is built around. "Newest wins" would hand
-      // tomorrow's prefetched window to today's offline load, and the
-      // repository refuses a window dated in the future — so the child would
-      // get sample rocks *because* the app had prefetched for them. Here only
-      // tomorrow is on the disk, so a today request must find nothing rather
-      // than reach forward.
-      await fetch(start: tomorrowStart, end: tomorrowEnd);
-      await restart();
-      source = _FakeSource.dead();
+    test(
+      'never serves a window from the future to a load that asked for today',
+      () async {
+        // The rule `_bestServable` is built around. "Newest wins" would hand
+        // tomorrow's prefetched window to today's offline load, and the
+        // repository refuses a window dated in the future — so the child would
+        // get sample rocks *because* the app had prefetched for them. Here only
+        // tomorrow is on the disk, so a today request must find nothing rather
+        // than reach forward.
+        await fetch(start: tomorrowStart, end: tomorrowEnd);
+        await restart();
+        source = _FakeSource.dead();
 
-      await expectLater(fetch(), throwsA(isA<_DeadNetwork>()));
-    });
+        await expectLater(fetch(), throwsA(isA<_DeadNetwork>()));
+      },
+    );
 
-    test('serves the prefetched window on the day it is for, without asking',
-        () async {
-      // The payoff: tomorrow arrives, the repository asks for the window the
-      // prefetch stored, and an exact match answers it. Stale by then (a day is
-      // well past the six-hour TTL), so it costs one attempted request — which
-      // is the point at which a dead network stops mattering.
-      await fetch(start: tomorrowStart, end: tomorrowEnd);
-      await restart();
-      clock = clock.add(const Duration(days: 1));
-      source = _FakeSource.dead();
+    test(
+      'serves the prefetched window on the day it is for, without asking',
+      () async {
+        // The payoff: tomorrow arrives, the repository asks for the window the
+        // prefetch stored, and an exact match answers it. Stale by then (a day is
+        // well past the six-hour TTL), so it costs one attempted request — which
+        // is the point at which a dead network stops mattering.
+        await fetch(start: tomorrowStart, end: tomorrowEnd);
+        await restart();
+        clock = clock.add(const Duration(days: 1));
+        source = _FakeSource.dead();
 
-      final FeedWindow served = await fetch(
-        start: tomorrowStart,
-        end: tomorrowEnd,
-      );
+        final FeedWindow served = await fetch(
+          start: tomorrowStart,
+          end: tomorrowEnd,
+        );
 
-      expect(served.endDate, tomorrowEnd);
-      expect(served.asteroids, isNotEmpty);
-    });
+        expect(served.endDate, tomorrowEnd);
+        expect(served.asteroids, isNotEmpty);
+      },
+    );
 
-    test('a fresh prefetched window is a hit, so the day it is for is free',
-        () async {
-      // Same day, inside the TTL: the exact-match hit still applies to a window
-      // that arrived by prefetch rather than by load. Nothing about an entry
-      // records which call stored it, and nothing should.
-      await fetch(start: tomorrowStart, end: tomorrowEnd);
-      await restart();
-      final int before = source.fetchCount;
+    test(
+      'a fresh prefetched window is a hit, so the day it is for is free',
+      () async {
+        // Same day, inside the TTL: the exact-match hit still applies to a window
+        // that arrived by prefetch rather than by load. Nothing about an entry
+        // records which call stored it, and nothing should.
+        await fetch(start: tomorrowStart, end: tomorrowEnd);
+        await restart();
+        final int before = source.fetchCount;
 
-      await fetch(start: tomorrowStart, end: tomorrowEnd);
+        await fetch(start: tomorrowStart, end: tomorrowEnd);
 
-      expect(source.fetchCount, before);
-    });
+        expect(source.fetchCount, before);
+      },
+    );
 
     test('keeps the four newest windows and drops the oldest', () async {
       // Bounded on purpose: only the newest servable window is ever shown, so
       // an entry below that is disk spent on a sky nothing would choose. Five
       // windows go in, one day apart; the first must be gone.
-      String key(int day) =>
-          '2026-07-${(15 + day).toString().padLeft(2, '0')}';
+      String key(int day) => '2026-07-${(15 + day).toString().padLeft(2, '0')}';
 
       for (int day = 0; day < 5; day++) {
         clock = DateTime.utc(2026, 7, 17, 12).add(Duration(days: day));
@@ -524,42 +547,46 @@ void main() {
       now: () => clock,
     );
 
-    test('a dead network with a cached window shows NASA rocks, not sample ones',
-        () async {
-      source = _FakeSource(sixRocks());
-      expect((await repository().loadData()).usingFallback, isFalse);
+    test(
+      'a dead network with a cached window shows NASA rocks, not sample ones',
+      () async {
+        source = _FakeSource(sixRocks());
+        expect((await repository().loadData()).usingFallback, isFalse);
 
-      await restart();
-      // Stale, but still the same UTC day — so still the same window. Six hours
-      // and a minute after breakfast, on a train with no signal.
-      clock = clock.add(ttl + const Duration(minutes: 1));
-      source = _FakeSource.dead();
+        await restart();
+        // Stale, but still the same UTC day — so still the same window. Six hours
+        // and a minute after breakfast, on a train with no signal.
+        clock = clock.add(ttl + const Duration(minutes: 1));
+        source = _FakeSource.dead();
 
-      final AsteroidFeed feed = await repository().loadData();
+        final AsteroidFeed feed = await repository().loadData();
 
-      expect(feed.usingFallback, isFalse);
-      expect(feed.asteroids.length, 6);
-      expect(feed.asteroids.first.name, '2026 X0');
-      // The caption is honest because the entry answers the window that was
-      // asked for. It is the reason a hit is refused across a day boundary.
-      expect(feed.feedRange, '2026-07-15 → 2026-07-17');
-    });
+        expect(feed.usingFallback, isFalse);
+        expect(feed.asteroids.length, 6);
+        expect(feed.asteroids.first.name, '2026 X0');
+        // The caption is honest because the entry answers the window that was
+        // asked for. It is the reason a hit is refused across a day boundary.
+        expect(feed.feedRange, '2026-07-15 → 2026-07-17');
+      },
+    );
 
-    test('without the cache the same launch gets the fourteen sample rocks',
-        () async {
-      // The contrast that proves the test above is about the cache and not about
-      // some other kindness in the stack. This is the app as it shipped before
-      // this item: dead network, sample sky.
-      source = _FakeSource.dead();
+    test(
+      'without the cache the same launch gets the fourteen sample rocks',
+      () async {
+        // The contrast that proves the test above is about the cache and not about
+        // some other kindness in the stack. This is the app as it shipped before
+        // this item: dead network, sample sky.
+        source = _FakeSource.dead();
 
-      final AsteroidFeed feed = await AsteroidRepository(
-        source,
-        now: () => clock,
-      ).loadData();
+        final AsteroidFeed feed = await AsteroidRepository(
+          source,
+          now: () => clock,
+        ).loadData();
 
-      expect(feed.usingFallback, isTrue);
-      expect(feed.asteroids.length, 14);
-    });
+        expect(feed.usingFallback, isTrue);
+        expect(feed.asteroids.length, 14);
+      },
+    );
   });
 }
 

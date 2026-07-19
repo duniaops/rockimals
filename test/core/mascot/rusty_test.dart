@@ -64,7 +64,11 @@ void main() {
       final Color lit = px.at(box.left + 100, box.top + 60);
       final Color shaded = px.at(box.left + 58, box.top + 100);
 
-      expect(lit.a, 1.0, reason: 'opaque fur, not the backdrop showing through');
+      expect(
+        lit.a,
+        1.0,
+        reason: 'opaque fur, not the backdrop showing through',
+      );
       expect(shaded.a, 1.0);
       expect(
         lit.r + lit.g + lit.b,

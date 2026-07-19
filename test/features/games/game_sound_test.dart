@@ -243,7 +243,12 @@ Future<void> _pumpHub(
         soundOnProvider.overrideWith(() => _FlippingSoundOn(startOn)),
         reducedMotionProvider.overrideWith(StubCalmMotion.new),
         gamesHubStatsProvider.overrideWithValue(
-          const GamesHubStats(points: 0, bestDuel: 0, bestCloser: 0, bestSize: 0),
+          const GamesHubStats(
+            points: 0,
+            bestDuel: 0,
+            bestCloser: 0,
+            bestSize: 0,
+          ),
         ),
       ],
       child: const MaterialApp(home: GamesHub()),

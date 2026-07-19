@@ -33,7 +33,8 @@ BadgeProgress progress({
   followCount: followCount,
 );
 
-AnimalBadge badge(String id) => kBadges.firstWhere((AnimalBadge b) => b.id == id);
+AnimalBadge badge(String id) =>
+    kBadges.firstWhere((AnimalBadge b) => b.id == id);
 
 void main() {
   group('the table', () {
@@ -56,7 +57,9 @@ void main() {
 
     test('carries the prototype\'s emoji, titles, and copy verbatim', () {
       expect(
-        kBadges.map((AnimalBadge b) => '${b.emoji} ${b.title} — ${b.description}'),
+        kBadges.map(
+          (AnimalBadge b) => '${b.emoji} ${b.title} — ${b.description}',
+        ),
         <String>[
           '🚀 Lift Off — Play your first game',
           '🐭 Mouse Scout — Earn 50 points',
@@ -229,7 +232,9 @@ void main() {
           expect(
             kBadges
                 .where((AnimalBadge b) => b.pointsGoal != null)
-                .every((AnimalBadge b) => b.isEarnedBy(progress(points: points))),
+                .every(
+                  (AnimalBadge b) => b.isEarnedBy(progress(points: points)),
+                ),
             isTrue,
           );
         } else {

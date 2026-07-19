@@ -293,8 +293,7 @@ class _ParentGateDialogState extends State<_ParentGateDialog> {
               hintText: 'Type the answer',
               hintStyle: const TextStyle(color: Palette.muted),
               // Gentle, never a scold (`CLAUDE.md:63`).
-              errorText:
-                  _wrong ? 'Not quite — ask a grown-up to help!' : null,
+              errorText: _wrong ? 'Not quite — ask a grown-up to help!' : null,
             ),
           ),
         ],
@@ -308,7 +307,10 @@ class _ParentGateDialogState extends State<_ParentGateDialog> {
           onPressed: _submit,
           child: const Text(
             'Open ↗',
-            style: TextStyle(color: Palette.accent2, fontWeight: FontWeight.w700),
+            style: TextStyle(
+              color: Palette.accent2,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
       ],

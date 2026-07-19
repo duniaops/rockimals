@@ -73,10 +73,9 @@ MatchRound dealMatchRound(List<Asteroid> pool, Random random) {
   final Asteroid rock = pool[random.nextInt(pool.length)];
   final Animal answer = animalFor(rock);
 
-  final List<Animal> others = kAnimals
-      .where((Animal a) => a.species != answer.species)
-      .toList()
-    ..shuffle(random);
+  final List<Animal> others =
+      kAnimals.where((Animal a) => a.species != answer.species).toList()
+        ..shuffle(random);
 
   final List<Animal> options = <Animal>[
     answer,
@@ -85,8 +84,5 @@ MatchRound dealMatchRound(List<Asteroid> pool, Random random) {
     // the first button (`shuffle([an, ...])`, `index.html:1096`).
   ]..shuffle(random);
 
-  return MatchRound(
-    rock: rock,
-    options: List<Animal>.unmodifiable(options),
-  );
+  return MatchRound(rock: rock, options: List<Animal>.unmodifiable(options));
 }

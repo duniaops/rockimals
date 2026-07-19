@@ -50,8 +50,9 @@ List<Asteroid> skyAnimals(
       if (!closeFlybysOnly || flybyTag(a) == FlybyTag.closeFlyby) a,
   ];
   list.sort(switch (sort) {
-    SkySort.closest => (Asteroid a, Asteroid b) =>
-      a.missLunar.compareTo(b.missLunar),
+    SkySort.closest => (Asteroid a, Asteroid b) => a.missLunar.compareTo(
+      b.missLunar,
+    ),
     SkySort.biggest => (Asteroid a, Asteroid b) => b.diaMax.compareTo(a.diaMax),
     SkySort.fastest => (Asteroid a, Asteroid b) => b.velKps.compareTo(a.velKps),
   });
@@ -175,10 +176,7 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
                   return Padding(
                     // `.acard{margin-bottom:10px}` (`index.html:65`).
                     padding: const EdgeInsets.only(bottom: 10),
-                    child: AnimalCard(
-                      asteroid: a,
-                      onTap: () => _openDetail(a),
-                    ),
+                    child: AnimalCard(asteroid: a, onTap: () => _openDetail(a)),
                   );
                 },
               ),

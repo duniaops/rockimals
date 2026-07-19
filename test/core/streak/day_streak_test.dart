@@ -92,7 +92,9 @@ void main() {
       expect(
         DayStreak.afterVisit(
           lastPlayed: '2025-12-31',
-          today: DateTime(2026), // January 1, 2026 — month and day default to 1.
+          today: DateTime(
+            2026,
+          ), // January 1, 2026 — month and day default to 1.
           current: 6,
         ),
         7,
@@ -129,14 +131,20 @@ void main() {
       return store;
     }
 
-    test('a first launch persists a streak of 1 that survives a restart', () async {
-      final int returned = await DayStreak.record(store, DateTime(2026, 7, 17));
-      expect(returned, 1);
+    test(
+      'a first launch persists a streak of 1 that survives a restart',
+      () async {
+        final int returned = await DayStreak.record(
+          store,
+          DateTime(2026, 7, 17),
+        );
+        expect(returned, 1);
 
-      final Store reopened = await restart();
-      expect(reopened.dayStreak, 1);
-      expect(reopened.lastPlayedDate, '2026-07-17');
-    });
+        final Store reopened = await restart();
+        expect(reopened.dayStreak, 1);
+        expect(reopened.lastPlayedDate, '2026-07-17');
+      },
+    );
 
     test('a launch the next day advances the persisted streak', () async {
       await DayStreak.record(store, DateTime(2026, 7, 17));
@@ -214,17 +222,19 @@ void main() {
       expect(announced, <int>[1, 2]);
     });
 
-    test('and says nothing at all on a second engagement the same day',
-        () async {
-      // The case that carries the guard's whole weight, and the common one:
-      // most engagements land on a day already counted. Announcing them would
-      // repaint the home flame for a number that did not change.
-      await recordOn(DateTime(2026, 7, 17));
-      announced.clear();
+    test(
+      'and says nothing at all on a second engagement the same day',
+      () async {
+        // The case that carries the guard's whole weight, and the common one:
+        // most engagements land on a day already counted. Announcing them would
+        // repaint the home flame for a number that did not change.
+        await recordOn(DateTime(2026, 7, 17));
+        announced.clear();
 
-      expect(await recordOn(DateTime(2026, 7, 17, 22)), 1);
-      expect(announced, isEmpty);
-    });
+        expect(await recordOn(DateTime(2026, 7, 17, 22)), 1);
+        expect(announced, isEmpty);
+      },
+    );
 
     test('announces a reset after a gap, which is a move downwards', () async {
       // A move is a *change*, not an increase. A child returning after a week

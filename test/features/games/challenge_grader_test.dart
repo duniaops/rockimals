@@ -19,10 +19,30 @@ void main() {
   // construction: bigger, closer and faster each score higher. Listed here in a
   // *scrambled* order on purpose — if the grader ever confused "card index"
   // with "true rank" a list already in rank order would hide it.
-  final Asteroid strongest = _rock(name: '2020 AAA', diaMax: 3000, missLunar: 0.3, velKps: 30);
-  final Asteroid strong = _rock(name: '2020 BBB', diaMax: 500, missLunar: 2, velKps: 20);
-  final Asteroid weak = _rock(name: '2020 CCC', diaMax: 60, missLunar: 12, velKps: 12);
-  final Asteroid weakest = _rock(name: '2020 DDD', diaMax: 5, missLunar: 40, velKps: 6);
+  final Asteroid strongest = _rock(
+    name: '2020 AAA',
+    diaMax: 3000,
+    missLunar: 0.3,
+    velKps: 30,
+  );
+  final Asteroid strong = _rock(
+    name: '2020 BBB',
+    diaMax: 500,
+    missLunar: 2,
+    velKps: 20,
+  );
+  final Asteroid weak = _rock(
+    name: '2020 CCC',
+    diaMax: 60,
+    missLunar: 12,
+    velKps: 12,
+  );
+  final Asteroid weakest = _rock(
+    name: '2020 DDD',
+    diaMax: 5,
+    missLunar: 40,
+    velKps: 6,
+  );
 
   // Card order as dealt: indices 0..3 are strong, weakest, strongest, weak.
   final List<Asteroid> cards = <Asteroid>[strong, weakest, strongest, weak];
@@ -39,23 +59,36 @@ void main() {
       expect(power(weak), greaterThan(power(weakest)));
     });
 
-    test('ties break by card order, so equal-power rocks keep a stable truth', () {
-      // Two identical rocks, ranked either way round: the tie must resolve by
-      // position, so the same four cards always reveal the same "truth" rather
-      // than one that can change between runs of the same daily set.
-      final Asteroid twinA = _rock(name: '2020 EEE', diaMax: 100, missLunar: 5, velKps: 15);
-      final Asteroid twinB = _rock(name: '2020 FFF', diaMax: 100, missLunar: 5, velKps: 15);
-      expect(power(twinA), power(twinB));
+    test(
+      'ties break by card order, so equal-power rocks keep a stable truth',
+      () {
+        // Two identical rocks, ranked either way round: the tie must resolve by
+        // position, so the same four cards always reveal the same "truth" rather
+        // than one that can change between runs of the same daily set.
+        final Asteroid twinA = _rock(
+          name: '2020 EEE',
+          diaMax: 100,
+          missLunar: 5,
+          velKps: 15,
+        );
+        final Asteroid twinB = _rock(
+          name: '2020 FFF',
+          diaMax: 100,
+          missLunar: 5,
+          velKps: 15,
+        );
+        expect(power(twinA), power(twinB));
 
-      expect(
-        challengeTruthOrder(<Asteroid>[strongest, twinA, twinB, weakest]),
-        <int>[0, 1, 2, 3],
-      );
-      expect(
-        challengeTruthOrder(<Asteroid>[strongest, twinB, twinA, weakest]),
-        <int>[0, 1, 2, 3],
-      );
-    });
+        expect(
+          challengeTruthOrder(<Asteroid>[strongest, twinA, twinB, weakest]),
+          <int>[0, 1, 2, 3],
+        );
+        expect(
+          challengeTruthOrder(<Asteroid>[strongest, twinB, twinA, weakest]),
+          <int>[0, 1, 2, 3],
+        );
+      },
+    );
 
     test('ties still break by card order past the size where Dart stops '
         'sorting stably', () {
@@ -81,19 +114,25 @@ void main() {
   });
 
   group('gradeChallenge', () {
-    test('a perfect order is 100% — 4 exact placements (60) plus the 40 bonus', () {
-      final ChallengeGrade grade = gradeChallenge(cards: cards, picks: perfect);
+    test(
+      'a perfect order is 100% — 4 exact placements (60) plus the 40 bonus',
+      () {
+        final ChallengeGrade grade = gradeChallenge(
+          cards: cards,
+          picks: perfect,
+        );
 
-      expect(grade.accuracy, 100);
-      expect(grade.exactlyCorrect, 4);
-      // The Done-when's "60+40": `4 * 15` for the placements, `+40` for the
-      // flawless order (`index.html:941`).
-      expect(grade.gain, 100);
-      expect(grade.isWin, isTrue);
-      expect(grade.banner, '🎯 Amazing! — 100% right · +100 ⭐');
-      // Truth rank is per *card*, not per pick: card 0 (strong) is really #2.
-      expect(grade.truthRank, <int>[1, 3, 0, 2]);
-    });
+        expect(grade.accuracy, 100);
+        expect(grade.exactlyCorrect, 4);
+        // The Done-when's "60+40": `4 * 15` for the placements, `+40` for the
+        // flawless order (`index.html:941`).
+        expect(grade.gain, 100);
+        expect(grade.isWin, isTrue);
+        expect(grade.banner, '🎯 Amazing! — 100% right · +100 ⭐');
+        // Truth rank is per *card*, not per pick: card 0 (strong) is really #2.
+        expect(grade.truthRank, <int>[1, 3, 0, 2]);
+      },
+    );
 
     test('a reversed order scores 0 — no pair concordant, no card in place', () {
       final ChallengeGrade grade = gradeChallenge(

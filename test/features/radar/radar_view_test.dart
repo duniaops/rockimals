@@ -70,7 +70,12 @@ void main() {
     // the outermost *drawn* animal's. Scaling to the full sky would leave the
     // rings sized for animals that are not on the screen — the same class of
     // wrongness as scaling to `todayList` above, and just as invisible.
-    expect(painter.maxLd, RadarGeometry.maxLdFor(_busySky(200).asteroids.take(kMaxRadarAnimals).toList()));
+    expect(
+      painter.maxLd,
+      RadarGeometry.maxLdFor(
+        _busySky(200).asteroids.take(kMaxRadarAnimals).toList(),
+      ),
+    );
   });
 
   testWidgets('leaves an ordinary day uncapped', (tester) async {
@@ -121,7 +126,10 @@ void main() {
       expect(_view(tester).viewRot, 0);
 
       final Offset centre = _centre(tester);
-      await tester.dragFrom(centre + const Offset(120, 0), const Offset(-120, 120));
+      await tester.dragFrom(
+        centre + const Offset(120, 0),
+        const Offset(-120, 120),
+      );
       await tester.pump();
 
       expect(_view(tester).viewRot, closeTo(math.pi / 2, 1e-6));
@@ -136,9 +144,15 @@ void main() {
       await _mount(tester, _sky(<double>[3]));
       final Offset centre = _centre(tester);
 
-      await tester.dragFrom(centre + const Offset(120, 0), const Offset(-120, 120));
+      await tester.dragFrom(
+        centre + const Offset(120, 0),
+        const Offset(-120, 120),
+      );
       await tester.pump();
-      await tester.dragFrom(centre + const Offset(0, 120), const Offset(-120, -120));
+      await tester.dragFrom(
+        centre + const Offset(0, 120),
+        const Offset(-120, -120),
+      );
       await tester.pump();
 
       expect(_view(tester).viewRot, closeTo(math.pi, 1e-6));
@@ -154,7 +168,10 @@ void main() {
       await _mount(tester, _sky(<double>[3]));
       final double phase = _view(tester).orbits.orbits.single.phase;
 
-      await tester.dragFrom(_centre(tester) + const Offset(120, 0), const Offset(-120, 120));
+      await tester.dragFrom(
+        _centre(tester) + const Offset(120, 0),
+        const Offset(-120, 120),
+      );
       await tester.pump();
 
       expect(_view(tester).orbits.orbits.single.phase, phase);
@@ -191,7 +208,9 @@ void main() {
       expect(_view(tester).zoom, 0.35);
     });
 
-    testWidgets('survives two fingers landing on the same spot', (tester) async {
+    testWidgets('survives two fingers landing on the same spot', (
+      tester,
+    ) async {
       // `if(Radar.pinchDist)` (`index.html:689`) skips a zero gap as well as a
       // null one, and the zero is reachable: two fingertips can be reported at
       // the same point. Without the guard the first move divides by it, and a
@@ -227,8 +246,9 @@ void main() {
       // Towards Earth: the animal is out on the right of the field and the zoom
       // buttons are further right still, so a finger placed that way would land
       // on a button and never reach the radar at all.
-      final TestGesture resting =
-          await tester.startGesture(animal - const Offset(40, 0));
+      final TestGesture resting = await tester.startGesture(
+        animal - const Offset(40, 0),
+      );
       final TestGesture onAnimal = await tester.startGesture(animal);
 
       await resting.up();
@@ -244,7 +264,9 @@ void main() {
   });
 
   group('the zoom buttons', () {
-    testWidgets('step in and out by the prototype’s own factors', (tester) async {
+    testWidgets('step in and out by the prototype’s own factors', (
+      tester,
+    ) async {
       // ×1.45 and ×0.69 (`index.html:697-698`), which are near-inverses — so a
       // child who taps ＋ and then − is back where they started rather than
       // slightly adrift.
@@ -282,7 +304,10 @@ void main() {
       // back the sky they opened the app to; a reset that fixed only the zoom
       // would leave them exactly as lost.
       await _mount(tester, _sky(<double>[3]));
-      await tester.dragFrom(_centre(tester) + const Offset(120, 0), const Offset(-120, 120));
+      await tester.dragFrom(
+        _centre(tester) + const Offset(120, 0),
+        const Offset(-120, 120),
+      );
       await _pinch(tester, from: 100, to: 300);
       await tester.pump();
       expect(_view(tester).viewRot, isNot(0));
@@ -330,7 +355,10 @@ void main() {
       // after a drag, not where it was seeded. They ask the same function, and
       // this is what says so from the outside.
       await _mount(tester, _sky(<double>[3]));
-      await tester.dragFrom(_centre(tester) + const Offset(120, 0), const Offset(-120, 120));
+      await tester.dragFrom(
+        _centre(tester) + const Offset(120, 0),
+        const Offset(-120, 120),
+      );
       await tester.pump();
 
       await tester.tapAt(_animalAt(tester));
@@ -373,7 +401,11 @@ void main() {
       await tester.pump();
 
       expect(_view(tester).selected, isNull);
-      expect(_view(tester).viewRot, isNot(0), reason: 'it was a drag, so it spun');
+      expect(
+        _view(tester).viewRot,
+        isNot(0),
+        reason: 'it was a drag, so it spun',
+      );
     });
 
     testWidgets('a wander that comes back to where it started is still a drag', (
@@ -438,7 +470,11 @@ void main() {
       await _mount(tester, _sky(<double>[3]));
 
       for (final String label in <String>[
-        '👋 Close flybys', 'Planets', 'Labels', 'Rings', 'Moon',
+        '👋 Close flybys',
+        'Planets',
+        'Labels',
+        'Rings',
+        'Moon',
       ]) {
         expect(find.text(label), findsOneWidget, reason: label);
       }
@@ -507,7 +543,10 @@ void main() {
       // `CLAUDE.md:64` and plan decision 2 — the radar is the one screen every
       // child opens, and it must never leak NASA's word for a close flyby.
       await _mount(tester, _sky(<double>[3]));
-      expect(find.textContaining(RegExp('hazard', caseSensitive: false)), findsNothing);
+      expect(
+        find.textContaining(RegExp('hazard', caseSensitive: false)),
+        findsNothing,
+      );
     });
   });
 
@@ -540,7 +579,9 @@ void main() {
       expect(_view(tester).orbits.orbits.single.phase, greaterThan(paused));
     });
 
-    testWidgets('keeps drawing while paused — the app is not frozen', (tester) async {
+    testWidgets('keeps drawing while paused — the app is not frozen', (
+      tester,
+    ) async {
       // The prototype steps the clock and calls `radarDraw` every frame, inside
       // *or* out of the pause (`index.html:730-735`). So a paused radar still
       // breathes: Earth's glow reads `ts` directly, and `ts` keeps advancing.
@@ -666,7 +707,9 @@ void main() {
       // tree in a `MediaQuery`, only by moving the platform value underneath it.
       tester.platformDispatcher.accessibilityFeaturesTestValue =
           const FakeAccessibilityFeatures(disableAnimations: true);
-      addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
       await tester.pump();
       await tester.pump(const Duration(seconds: 1));
       final double calm = _view(tester).orbits.orbits.single.phase;
@@ -796,8 +839,12 @@ Future<void> _pinch(
 }) async {
   final Size size = tester.getSize(_radarCanvas());
   final Offset centre = Offset(size.width / 2, size.height * 0.62);
-  final TestGesture top = await tester.startGesture(centre - Offset(0, from / 2));
-  final TestGesture bottom = await tester.startGesture(centre + Offset(0, from / 2));
+  final TestGesture top = await tester.startGesture(
+    centre - Offset(0, from / 2),
+  );
+  final TestGesture bottom = await tester.startGesture(
+    centre + Offset(0, from / 2),
+  );
 
   await top.moveTo(centre - Offset(0, to / 2));
   await bottom.moveTo(centre + Offset(0, to / 2));
@@ -821,6 +868,7 @@ Future<void> _unmount(WidgetTester tester) =>
 Future<void> _mount(
   WidgetTester tester,
   AsteroidFeed feed, {
+
   /// The child's 🐢 Calm motion choice, or null for "never chose" — the
   /// fresh-install state every test but the Calm motion group runs on.
   bool? calmMotion,
@@ -848,7 +896,12 @@ Future<void> _mount(
         // radar tests stay off a Hive box the same way the feed and follow
         // overrides do — the hub's own suite exercises them against a real box.
         gamesHubStatsProvider.overrideWithValue(
-          const GamesHubStats(points: 0, bestDuel: 0, bestCloser: 0, bestSize: 0),
+          const GamesHubStats(
+            points: 0,
+            bestDuel: 0,
+            bestCloser: 0,
+            bestSize: 0,
+          ),
         ),
         soundOnProvider.overrideWith(_SoundOn.new),
         // The field resolves 🐢 Calm motion every build, and the real notifier
@@ -890,14 +943,17 @@ RenderBox _painter(WidgetTester tester) =>
 List<Path> _ringPaths(WidgetTester tester) {
   final Offset centre = _centre(tester);
   final List<Path> paths = <Path>[];
-  final Matcher collector = (paints
-    ..something((Symbol method, List<dynamic> arguments) {
-      if (method == #drawPath) {
-        final Path path = arguments[0] as Path;
-        if ((path.getBounds().center - centre).distance < 1) paths.add(path);
-      }
-      return false;
-    })) as Matcher;
+  final Matcher collector =
+      (paints..something((Symbol method, List<dynamic> arguments) {
+            if (method == #drawPath) {
+              final Path path = arguments[0] as Path;
+              if ((path.getBounds().center - centre).distance < 1) {
+                paths.add(path);
+              }
+            }
+            return false;
+          }))
+          as Matcher;
   collector.matches(_painter(tester), <dynamic, dynamic>{});
   return paths;
 }
@@ -910,17 +966,22 @@ RadarPainter _view(WidgetTester tester) =>
 
 /// Matches a `drawCircle` whose radius satisfies [radius] — Earth's glow, the
 /// one thing on this layer that moves.
-PaintPattern _glowRadius(Matcher radius) =>
-    paints..something((Symbol method, List<dynamic> arguments) =>
+PaintPattern _glowRadius(Matcher radius) => paints
+  ..something(
+    (Symbol method, List<dynamic> arguments) =>
         method == #drawCircle &&
-        radius.matches(arguments[1], <dynamic, dynamic>{}));
+        radius.matches(arguments[1], <dynamic, dynamic>{}),
+  );
 
 /// A sky whose window reaches 40× Moon but whose *today* list does not get past
 /// 2×. The two lists disagree by design; see the test that reads it.
 AsteroidFeed _skyWhereTodayIsCloser() {
   final List<Asteroid> today = _rocks(<double>[0.8, 2]);
   return AsteroidFeed(
-    asteroids: <Asteroid>[...today, ..._rocks(<double>[40])],
+    asteroids: <Asteroid>[
+      ...today,
+      ..._rocks(<double>[40]),
+    ],
     todayList: today,
     feedRange: '2026-07-15 → 2026-07-17',
     provenance: FeedProvenance.today,
@@ -964,7 +1025,6 @@ class _SoundOn extends SoundOnNotifier {
   @override
   bool build() => true;
 }
-
 
 /// Nothing but `missLunar` reaches the radar's base layer, so the rest is
 /// plausible filler rather than a real capture.

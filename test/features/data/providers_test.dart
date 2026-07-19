@@ -117,7 +117,9 @@ void main() {
       // The sample set is the one signal available up here that the network is
       // gone. Prefetching into it would spend the whole ten-second ceiling again
       // for an answer that cannot come.
-      final _FakeRepository repository = _FakeRepository(AsteroidFeed.fallback());
+      final _FakeRepository repository = _FakeRepository(
+        AsteroidFeed.fallback(),
+      );
       final ProviderContainer container = _container(repository);
 
       await container.read(asteroidFeedProvider.future);
@@ -341,8 +343,7 @@ void main() {
       );
     });
 
-    test('needs the store, and says so rather than quietly skipping the cache',
-        () {
+    test('needs the store, and says so rather than quietly skipping the cache', () {
       // The cache's entire value is on the disk, so a repository built without a
       // store would be the no-cache app — offline launches back to fourteen
       // sample rocks — and it would be that silently, on the one path nobody
@@ -463,18 +464,27 @@ void main() {
       expect(withStore().read(followsProvider), isEmpty);
     });
 
-    test('toggle follows and persists the designation; a re-toggle unfollows', () async {
-      final ProviderContainer container = withStore();
-      final FollowsNotifier follows = container.read(followsProvider.notifier);
+    test(
+      'toggle follows and persists the designation; a re-toggle unfollows',
+      () async {
+        final ProviderContainer container = withStore();
+        final FollowsNotifier follows = container.read(
+          followsProvider.notifier,
+        );
 
-      await follows.toggle('2011 EW');
-      expect(container.read(followsProvider), contains('2011 EW'));
-      expect(store.follows, contains('2011 EW'), reason: 'the write reached the box');
+        await follows.toggle('2011 EW');
+        expect(container.read(followsProvider), contains('2011 EW'));
+        expect(
+          store.follows,
+          contains('2011 EW'),
+          reason: 'the write reached the box',
+        );
 
-      await follows.toggle('2011 EW');
-      expect(container.read(followsProvider), isEmpty);
-      expect(store.follows, isEmpty);
-    });
+        await follows.toggle('2011 EW');
+        expect(container.read(followsProvider), isEmpty);
+        expect(store.follows, isEmpty);
+      },
+    );
 
     test('a followed animal survives a restart', () async {
       await withStore().read(followsProvider.notifier).toggle('433 Eros');
@@ -488,12 +498,15 @@ void main() {
       expect(withStore().read(followsProvider), contains('433 Eros'));
     });
 
-    test('keys by designation, never the derived animal name (decision 12)', () async {
-      // The store must hold `2011 EW`, not "Milo the Fox" — a name would point
-      // at a different animal in a build where the pool changed.
-      await withStore().read(followsProvider.notifier).toggle('2011 EW');
-      expect(store.follows, <String>['2011 EW']);
-    });
+    test(
+      'keys by designation, never the derived animal name (decision 12)',
+      () async {
+        // The store must hold `2011 EW`, not "Milo the Fox" — a name would point
+        // at a different animal in a build where the pool changed.
+        await withStore().read(followsProvider.notifier).toggle('2011 EW');
+        expect(store.follows, <String>['2011 EW']);
+      },
+    );
   });
 }
 

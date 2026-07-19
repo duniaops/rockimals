@@ -22,16 +22,23 @@ void main() {
   // (the `hazardous` flag), and its speed rounds to a whole number that differs
   // from the raw value, so it catches a card that formats speed like the HUD's
   // one-decimal line instead of the list's whole number.
-  final Asteroid closeRock =
-      kFallbackAsteroids.firstWhere((Asteroid a) => a.name == '2011 EW');
+  final Asteroid closeRock = kFallbackAsteroids.firstWhere(
+    (Asteroid a) => a.name == '2011 EW',
+  );
 
   // 2015 TB145 — 640 m (Elephant), 1.3 Moons, 35 km/s, not hazardous and outside
   // the Moon: the "just passing" case, for the green badge.
-  final Asteroid passingRock =
-      kFallbackAsteroids.firstWhere((Asteroid a) => a.name == '2015 TB145');
+  final Asteroid passingRock = kFallbackAsteroids.firstWhere(
+    (Asteroid a) => a.name == '2015 TB145',
+  );
 
-  Future<void> mount(WidgetTester tester, Asteroid rock,
-      {VoidCallback? onTap, Widget? footer, String? footerLabel}) {
+  Future<void> mount(
+    WidgetTester tester,
+    Asteroid rock, {
+    VoidCallback? onTap,
+    Widget? footer,
+    String? footerLabel,
+  }) {
     return tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -61,11 +68,15 @@ void main() {
     // The avatar emoji, the "{First} the {Species}" name, and the badge.
     expect(find.text(c.animal.emoji), findsOneWidget); // 🐘 Elephant
     expect(find.text(c.name), findsOneWidget);
-    expect(find.text(flybyTag(closeRock).label), findsOneWidget); // 👋 close flyby
+    expect(
+      find.text(flybyTag(closeRock).label),
+      findsOneWidget,
+    ); // 👋 close flyby
 
     // The three-field meta, computed through the formatters (so this pins order,
     // glue, and which field feeds which function) and pinned once as a literal.
-    final String expectedMeta = '${sizeLabel(closeRock.diaMax)}'
+    final String expectedMeta =
+        '${sizeLabel(closeRock.diaMax)}'
         ' · ${distLabel(closeRock.missLunar)}'
         ' · ${closeRock.velKps.round()} km/s';
     expect(expectedMeta, 'stadium-sized · 12× Moon · 11 km/s');

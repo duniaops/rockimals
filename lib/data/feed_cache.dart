@@ -312,12 +312,16 @@ class CachingFeedSource implements AsteroidFeedSource {
         feed: FeedWindow(
           startDate: startDate,
           endDate: endDate,
-          asteroids: asteroids.map((Object? json) {
-            if (json is! Map<String, Object?>) {
-              throw FormatException('cache: expected an asteroid, got: $json');
-            }
-            return Asteroid.fromJson(json);
-          }).toList(growable: false),
+          asteroids: asteroids
+              .map((Object? json) {
+                if (json is! Map<String, Object?>) {
+                  throw FormatException(
+                    'cache: expected an asteroid, got: $json',
+                  );
+                }
+                return Asteroid.fromJson(json);
+              })
+              .toList(growable: false),
         ),
       );
     } catch (_) {

@@ -67,8 +67,7 @@ class RadarOrbit {
       rOff: ((index % 5) - 2) * 3.4,
       emojiSize: size.emoji,
       chipRadius: size.chip,
-      isCloseFlyby:
-          animals.flybyTag(asteroid) == animals.FlybyTag.closeFlyby,
+      isCloseFlyby: animals.flybyTag(asteroid) == animals.FlybyTag.closeFlyby,
     );
   }
 
@@ -114,11 +113,11 @@ class RadarOrbits {
 
   /// Seeds a radar from its sky. Cheap enough to do per load and far too
   /// expensive to do per frame.
-  factory RadarOrbits.seed(List<Asteroid> asteroids) => RadarOrbits._(
-    <RadarOrbit>[
-      for (final (int i, Asteroid a) in asteroids.indexed) RadarOrbit.seed(a, i),
-    ],
-  );
+  factory RadarOrbits.seed(List<Asteroid> asteroids) =>
+      RadarOrbits._(<RadarOrbit>[
+        for (final (int i, Asteroid a) in asteroids.indexed)
+          RadarOrbit.seed(a, i),
+      ]);
 
   final List<RadarOrbit> orbits;
 
@@ -140,8 +139,8 @@ class RadarOrbits {
   /// screen and gets a card for an invisible rock.
   Iterable<RadarOrbit> visible({required bool onlyCloseFlybys}) =>
       onlyCloseFlybys
-          ? orbits.where((RadarOrbit orbit) => orbit.isCloseFlyby)
-          : orbits;
+      ? orbits.where((RadarOrbit orbit) => orbit.isCloseFlyby)
+      : orbits;
 
   /// Moves every animal and the Moon on by [dt] seconds
   /// (`index.html:733-734`).

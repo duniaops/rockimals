@@ -79,7 +79,11 @@ void main() {
         await tester.tap(link);
         await tester.pumpAndSettle();
 
-        expect(find.text('Open ↗'), findsOneWidget, reason: 'gate did not open');
+        expect(
+          find.text('Open ↗'),
+          findsOneWidget,
+          reason: 'gate did not open',
+        );
         expectEveryTapTargetIsBigEnough(tester, reason: 'Parent gate$at');
       });
 
@@ -163,11 +167,12 @@ Future<void> _pump(
         storeProvider.overrideWithValue(MemoryStore()),
       ],
       child: MaterialApp(
-        builder: (BuildContext context, Widget? child) => MediaQuery.withClampedTextScaling(
-          minScaleFactor: scale,
-          maxScaleFactor: scale,
-          child: child!,
-        ),
+        builder: (BuildContext context, Widget? child) =>
+            MediaQuery.withClampedTextScaling(
+              minScaleFactor: scale,
+              maxScaleFactor: scale,
+              child: child!,
+            ),
         home: home,
       ),
     ),

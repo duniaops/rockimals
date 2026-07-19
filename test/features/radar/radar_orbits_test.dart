@@ -21,29 +21,95 @@ void main() {
     test('matches the prototype seed for seed, for all 14 sample rocks', () {
       // `phase: (i*61%360)*π/180`, `angVel: 0.16/sqrt(max(0.5, missLunar))`,
       // `rOff: ((i%5)-2)*3.4` — captured from `index.html:642-645`.
-      const List<({String name, double phase, double angVel, double rOff})> expected =
-          <({String name, double phase, double angVel, double rOff})>[
+      const List<({String name, double phase, double angVel, double rOff})>
+      expected = <({String name, double phase, double angVel, double rOff})>[
         (name: '2011 EW', phase: 0, angVel: 0.045436946739765185, rOff: -6.8),
-        (name: '2006 QV89', phase: 1.064650843716541, angVel: 0.03680349649825889, rOff: -3.4),
-        (name: '2020 SW', phase: 2.129301687433082, angVel: 0.22627416997969518, rOff: 0),
-        (name: '433 Eros', phase: 3.193952531149623, angVel: 0.022188007849009168, rOff: 3.4),
-        (name: '2004 BL86', phase: 4.258603374866164, angVel: 0.09087389347953037, rOff: 6.8),
-        (name: '2012 DA14', phase: 5.323254218582705, angVel: 0.22627416997969518, rOff: -6.8),
-        (name: '99942 Apophis', phase: 0.10471975511965977, angVel: 0.22627416997969518, rOff: -3.4),
-        (name: '2015 TB145', phase: 1.1693705988362006, angVel: 0.14032928308912468, rOff: 0),
-        (name: '2010 WC9', phase: 2.234021442552742, angVel: 0.22627416997969518, rOff: 3.4),
-        (name: '2001 FO32', phase: 3.2986722862692828, angVel: 0.07016464154456234, rOff: 6.8),
-        (name: '2005 YU55', phase: 4.363323129985823, angVel: 0.17354436625492495, rOff: -6.8),
-        (name: '2019 OK', phase: 5.427973973702365, angVel: 0.22627416997969518, rOff: -3.4),
-        (name: '2018 LF16', phase: 0.20943951023931953, angVel: 0.025298221281347035, rOff: 0),
-        (name: '2013 TX68', phase: 1.2740903539558606, angVel: 0.042761798705987904, rOff: 3.4),
+        (
+          name: '2006 QV89',
+          phase: 1.064650843716541,
+          angVel: 0.03680349649825889,
+          rOff: -3.4,
+        ),
+        (
+          name: '2020 SW',
+          phase: 2.129301687433082,
+          angVel: 0.22627416997969518,
+          rOff: 0,
+        ),
+        (
+          name: '433 Eros',
+          phase: 3.193952531149623,
+          angVel: 0.022188007849009168,
+          rOff: 3.4,
+        ),
+        (
+          name: '2004 BL86',
+          phase: 4.258603374866164,
+          angVel: 0.09087389347953037,
+          rOff: 6.8,
+        ),
+        (
+          name: '2012 DA14',
+          phase: 5.323254218582705,
+          angVel: 0.22627416997969518,
+          rOff: -6.8,
+        ),
+        (
+          name: '99942 Apophis',
+          phase: 0.10471975511965977,
+          angVel: 0.22627416997969518,
+          rOff: -3.4,
+        ),
+        (
+          name: '2015 TB145',
+          phase: 1.1693705988362006,
+          angVel: 0.14032928308912468,
+          rOff: 0,
+        ),
+        (
+          name: '2010 WC9',
+          phase: 2.234021442552742,
+          angVel: 0.22627416997969518,
+          rOff: 3.4,
+        ),
+        (
+          name: '2001 FO32',
+          phase: 3.2986722862692828,
+          angVel: 0.07016464154456234,
+          rOff: 6.8,
+        ),
+        (
+          name: '2005 YU55',
+          phase: 4.363323129985823,
+          angVel: 0.17354436625492495,
+          rOff: -6.8,
+        ),
+        (
+          name: '2019 OK',
+          phase: 5.427973973702365,
+          angVel: 0.22627416997969518,
+          rOff: -3.4,
+        ),
+        (
+          name: '2018 LF16',
+          phase: 0.20943951023931953,
+          angVel: 0.025298221281347035,
+          rOff: 0,
+        ),
+        (
+          name: '2013 TX68',
+          phase: 1.2740903539558606,
+          angVel: 0.042761798705987904,
+          rOff: 3.4,
+        ),
       ];
 
       final RadarOrbits orbits = RadarOrbits.seed(kFallbackAsteroids);
       expect(orbits.orbits, hasLength(expected.length));
 
       for (final (int i, RadarOrbit orbit) in orbits.orbits.indexed) {
-        final ({String name, double phase, double angVel, double rOff}) want = expected[i];
+        final ({String name, double phase, double angVel, double rOff}) want =
+            expected[i];
         // The name is asserted too, so a reordering of `kFallbackAsteroids`
         // fails here as a *name* mismatch rather than as an inscrutable float
         // one — the index is the seed, so that reordering silently moves the
@@ -77,19 +143,22 @@ void main() {
       );
     });
 
-    test('is deterministic — the same sky seeds the same radar, with nothing stored', () {
-      // `CLAUDE.md:70`. Two independent seedings of the same list must agree on
-      // every animal, or a child's sky rearranges itself between launches.
-      final RadarOrbits a = RadarOrbits.seed(kFallbackAsteroids);
-      final RadarOrbits b = RadarOrbits.seed(kFallbackAsteroids);
+    test(
+      'is deterministic — the same sky seeds the same radar, with nothing stored',
+      () {
+        // `CLAUDE.md:70`. Two independent seedings of the same list must agree on
+        // every animal, or a child's sky rearranges itself between launches.
+        final RadarOrbits a = RadarOrbits.seed(kFallbackAsteroids);
+        final RadarOrbits b = RadarOrbits.seed(kFallbackAsteroids);
 
-      for (final (int i, RadarOrbit orbit) in a.orbits.indexed) {
-        expect(orbit.phase, b.orbits[i].phase);
-        expect(orbit.angVel, b.orbits[i].angVel);
-        expect(orbit.rOff, b.orbits[i].rOff);
-        expect(orbit.critter.name, b.orbits[i].critter.name);
-      }
-    });
+        for (final (int i, RadarOrbit orbit) in a.orbits.indexed) {
+          expect(orbit.phase, b.orbits[i].phase);
+          expect(orbit.angVel, b.orbits[i].angVel);
+          expect(orbit.rOff, b.orbits[i].rOff);
+          expect(orbit.critter.name, b.orbits[i].critter.name);
+        }
+      },
+    );
 
     test('floors the fastest animal, so nothing on the radar ever whirls', () {
       // `max(0.5, missLunar)` (`index.html:643`) caps angular speed at
@@ -97,7 +166,9 @@ void main() {
       // passing at 0.01 Moons would sweep at 1.6 rad/s, a lap in under four
       // seconds, on the screen `specs/02-live-radar.md:28` asks to be calm.
       const double fastest = 0.16 / 0.7071067811865476;
-      for (final RadarOrbit orbit in RadarOrbits.seed(kFallbackAsteroids).orbits) {
+      for (final RadarOrbit orbit in RadarOrbits.seed(
+        kFallbackAsteroids,
+      ).orbits) {
         expect(orbit.angVel, lessThanOrEqualTo(fastest + 1e-12));
       }
 
@@ -108,19 +179,22 @@ void main() {
       );
     });
 
-    test('rings the close flybys, and reads the tag rather than the raw flag', () {
-      // `CLAUDE.md:64`: the radar must never be the surface that leaks NASA's
-      // word for it. A rock inside the Moon's distance wears the ring even
-      // though NASA has not flagged it — which is `flybyTag`'s rule, not
-      // `hazardous`.
-      expect(RadarOrbit.seed(_rock(missLunar: 0.5), 0).isCloseFlyby, isTrue);
-      expect(RadarOrbit.seed(_rock(missLunar: 5), 0).isCloseFlyby, isFalse);
-      expect(
-        RadarOrbit.seed(_rock(missLunar: 5, hazardous: true), 0).isCloseFlyby,
-        isTrue,
-        reason: 'flagged but far — still waving',
-      );
-    });
+    test(
+      'rings the close flybys, and reads the tag rather than the raw flag',
+      () {
+        // `CLAUDE.md:64`: the radar must never be the surface that leaks NASA's
+        // word for it. A rock inside the Moon's distance wears the ring even
+        // though NASA has not flagged it — which is `flybyTag`'s rule, not
+        // `hazardous`.
+        expect(RadarOrbit.seed(_rock(missLunar: 0.5), 0).isCloseFlyby, isTrue);
+        expect(RadarOrbit.seed(_rock(missLunar: 5), 0).isCloseFlyby, isFalse);
+        expect(
+          RadarOrbit.seed(_rock(missLunar: 5, hazardous: true), 0).isCloseFlyby,
+          isTrue,
+          reason: 'flagged but far — still waving',
+        );
+      },
+    );
   });
 
   group('RadarOrbits.advance', () {
@@ -143,27 +217,33 @@ void main() {
       expect(orbits.moonPhase, closeTo(0.32 * 0.04, 1e-9));
     });
 
-    test('accumulates rather than recomputing, so a pause can hold the sky still', () {
-      // Why this is an integrator and not `phase0 + angVel*t`. Advancing to 1s
-      // in one step and in fifty must agree — and the fifty-step path is the one
-      // the play/pause item will interrupt.
-      final RadarOrbits stepped = RadarOrbits.seed(kFallbackAsteroids);
-      final List<double> before = <double>[
-        for (final RadarOrbit o in stepped.orbits) o.phase,
-      ];
-      for (int i = 0; i < 50; i++) {
-        stepped.advance(0.02);
-      }
+    test(
+      'accumulates rather than recomputing, so a pause can hold the sky still',
+      () {
+        // Why this is an integrator and not `phase0 + angVel*t`. Advancing to 1s
+        // in one step and in fifty must agree — and the fifty-step path is the one
+        // the play/pause item will interrupt.
+        final RadarOrbits stepped = RadarOrbits.seed(kFallbackAsteroids);
+        final List<double> before = <double>[
+          for (final RadarOrbit o in stepped.orbits) o.phase,
+        ];
+        for (int i = 0; i < 50; i++) {
+          stepped.advance(0.02);
+        }
 
-      expect(stepped.moonPhase, closeTo(0.32 * 1.0, 1e-9));
-      for (final (int i, RadarOrbit orbit) in stepped.orbits.indexed) {
-        expect(orbit.phase - before[i], closeTo(orbit.angVel * 1.0, 1e-9));
-      }
-    });
+        expect(stepped.moonPhase, closeTo(0.32 * 1.0, 1e-9));
+        for (final (int i, RadarOrbit orbit) in stepped.orbits.indexed) {
+          expect(orbit.phase - before[i], closeTo(orbit.angVel * 1.0, 1e-9));
+        }
+      },
+    );
   });
 
   group('RadarOrbits.positionOf', () {
-    const RadarGeometry geometry = RadarGeometry(size: Size(390, 700), maxLd: 60);
+    const RadarGeometry geometry = RadarGeometry(
+      size: Size(390, 700),
+      maxLd: 60,
+    );
 
     test('adds the lane offset after zoom, never through it', () {
       // `radiusFor(ld)*zoom + rOff` (`index.html:845`). `rOff` is a few pixels
@@ -180,7 +260,12 @@ void main() {
 
       final double ring = geometry.radiusFor(rock.asteroid.missLunar);
       for (final double zoom in <double>[0.35, 1, 6.5]) {
-        final Offset at = orbits.positionOf(rock, geometry: geometry, zoom: zoom, viewRot: 0);
+        final Offset at = orbits.positionOf(
+          rock,
+          geometry: geometry,
+          zoom: zoom,
+          viewRot: 0,
+        );
         expect(
           at.dx - geometry.center.dx,
           closeTo(ring * zoom + rock.rOff, 1e-9),
@@ -192,7 +277,8 @@ void main() {
     test('places an animal on its own ring at its own angle', () {
       final RadarOrbits orbits = RadarOrbits.seed(kFallbackAsteroids);
       final RadarOrbit rock = orbits.orbits[3]; // rOff 3.4, phase 3.19 rad
-      final double radius = geometry.radiusFor(rock.asteroid.missLunar) + rock.rOff;
+      final double radius =
+          geometry.radiusFor(rock.asteroid.missLunar) + rock.rOff;
       final Offset at = orbits.positionOf(
         rock,
         geometry: geometry,
@@ -201,7 +287,10 @@ void main() {
       );
 
       expect((at - geometry.center).distance, closeTo(radius, 1e-9));
-      expect((at - geometry.center).direction, closeTo(rock.phase - 2 * math.pi, 1e-9));
+      expect(
+        (at - geometry.center).direction,
+        closeTo(rock.phase - 2 * math.pi, 1e-9),
+      );
     });
 
     test('rides the Moon on the 1× ring, because that ring is its orbit', () {
@@ -238,7 +327,10 @@ void main() {
   });
 
   group('viewRot', () {
-    const RadarGeometry geometry = RadarGeometry(size: Size(390, 700), maxLd: 60);
+    const RadarGeometry geometry = RadarGeometry(
+      size: Size(390, 700),
+      maxLd: 60,
+    );
 
     test('turns every animal and the Moon by one shared rotation', () {
       // **The bug this exists to fail on.** `viewRot` is added at two call sites
@@ -284,8 +376,9 @@ void main() {
       // and a rotation would have to be undone rather than simply set to 0 by
       // the ⤢ button.
       final RadarOrbits orbits = RadarOrbits.seed(kFallbackAsteroids);
-      final List<double> phases =
-          orbits.orbits.map((RadarOrbit o) => o.phase).toList();
+      final List<double> phases = orbits.orbits
+          .map((RadarOrbit o) => o.phase)
+          .toList();
 
       for (final RadarOrbit orbit in orbits.orbits) {
         final double resting =
@@ -293,7 +386,12 @@ void main() {
                     geometry.center)
                 .distance;
         final double spun =
-            (orbits.positionOf(orbit, geometry: geometry, zoom: 1, viewRot: 2.4) -
+            (orbits.positionOf(
+                      orbit,
+                      geometry: geometry,
+                      zoom: 1,
+                      viewRot: 2.4,
+                    ) -
                     geometry.center)
                 .distance;
         // The whole point of rotating rather than re-placing: how far the animal
@@ -311,7 +409,10 @@ void main() {
   });
 
   group('RadarOrbits.hitTest', () {
-    const RadarGeometry geometry = RadarGeometry(size: Size(390, 700), maxLd: 60);
+    const RadarGeometry geometry = RadarGeometry(
+      size: Size(390, 700),
+      maxLd: 60,
+    );
     final RadarOrbits orbits = RadarOrbits.seed(kFallbackAsteroids);
 
     Offset centreOf(RadarOrbit orbit, {double viewRot = 0}) =>
@@ -345,7 +446,8 @@ void main() {
       final RadarOrbit target = orbits.orbits[7];
       expect(target.asteroid.name, '2015 TB145');
       final double reach = target.chipRadius + 12;
-      final Offset out = (centreOf(target) - geometry.center) /
+      final Offset out =
+          (centreOf(target) - geometry.center) /
           (centreOf(target) - geometry.center).distance;
 
       expect(hit(centreOf(target) + out * (reach - 0.5)), same(target));
@@ -431,7 +533,10 @@ void main() {
   });
 
   group('the Close-flybys filter', () {
-    const RadarGeometry geometry = RadarGeometry(size: Size(390, 700), maxLd: 31.5);
+    const RadarGeometry geometry = RadarGeometry(
+      size: Size(390, 700),
+      maxLd: 31.5,
+    );
     // One waving, one just passing (`flybyTag` is `hazardous || missLunar < 1`).
     final RadarOrbits orbits = RadarOrbits.seed(<Asteroid>[
       _rock(missLunar: 0.4),
@@ -468,13 +573,14 @@ void main() {
       // that is not on screen.
       Offset at(RadarOrbit o) =>
           orbits.positionOf(o, geometry: geometry, zoom: 1, viewRot: 0);
-      RadarOrbit? hit(Offset p, {required bool onlyCloseFlybys}) => orbits.hitTest(
-        p,
-        geometry: geometry,
-        zoom: 1,
-        viewRot: 0,
-        onlyCloseFlybys: onlyCloseFlybys,
-      );
+      RadarOrbit? hit(Offset p, {required bool onlyCloseFlybys}) =>
+          orbits.hitTest(
+            p,
+            geometry: geometry,
+            zoom: 1,
+            viewRot: 0,
+            onlyCloseFlybys: onlyCloseFlybys,
+          );
 
       // Off: both are hittable where they sit.
       expect(hit(at(passing), onlyCloseFlybys: false), same(passing));

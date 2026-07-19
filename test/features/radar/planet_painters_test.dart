@@ -35,7 +35,12 @@ void main() {
       // `arc(x, y, r*2.3)` (`index.html:750-752`) — the gradient and the disc
       // share an edge, so the glow ends exactly where it stops being drawn
       // rather than being cut off mid-ramp.
-      await _paint(tester, (Canvas c, Offset at, double r, {required bool showLabels}) {
+      await _paint(tester, (
+        Canvas c,
+        Offset at,
+        double r, {
+        required bool showLabels,
+      }) {
         paintGlow(c, at, r, colour: _neptuneGlow, alpha: 0.6);
       });
 
@@ -48,7 +53,12 @@ void main() {
       // alpha by the same constant is arithmetically identical — and costs no
       // `saveLayer`. Pinned at the core, which is flat colour: 0.3 × 0.6 = 0.18
       // of `rgb(60,110,230)` over black.
-      await _paint(tester, (Canvas c, Offset at, double r, {required bool showLabels}) {
+      await _paint(tester, (
+        Canvas c,
+        Offset at,
+        double r, {
+        required bool showLabels,
+      }) {
         paintGlow(c, at, r, colour: _neptuneGlow, alpha: 0.6);
       });
 
@@ -59,7 +69,9 @@ void main() {
       );
     });
 
-    testWidgets('fades along one hue instead of dragging through black', (tester) async {
+    testWidgets('fades along one hue instead of dragging through black', (
+      tester,
+    ) async {
       // The deviation from `index.html:751`, and the reason it is not optional.
       // Canvas interpolates gradient stops in *premultiplied* space, where
       // `rgb(60,110,230)` → `rgba(0,0,0,0)` holds its colour and drops its
@@ -71,7 +83,12 @@ void main() {
       // where alpha is 0.09 and the two behaviours differ by a clean factor of
       // two: `0.09 × (60,110,230)` here, against `0.09 × (30,55,115)` if the
       // far stop were the literal transparent black.
-      await _paint(tester, (Canvas c, Offset at, double r, {required bool showLabels}) {
+      await _paint(tester, (
+        Canvas c,
+        Offset at,
+        double r, {
+        required bool showLabels,
+      }) {
         paintGlow(c, at, r, colour: _neptuneGlow, alpha: 0.6);
       });
 
@@ -87,8 +104,20 @@ void main() {
     testWidgets('draws the body, then the shadow over it', (tester) async {
       // Two fills of radius r (`index.html:744`, `747`). The second is the
       // terminator and must land on top, or the planet is a flat disc.
-      await _paint(tester, (Canvas c, Offset at, double r, {required bool showLabels}) {
-        paintSphere(c, at, r, lit: _mercuryLit, mid: _mercuryMid, dark: _mercuryDark);
+      await _paint(tester, (
+        Canvas c,
+        Offset at,
+        double r, {
+        required bool showLabels,
+      }) {
+        paintSphere(
+          c,
+          at,
+          r,
+          lit: _mercuryLit,
+          mid: _mercuryMid,
+          dark: _mercuryDark,
+        );
       });
 
       expect(
@@ -97,18 +126,35 @@ void main() {
           ..circle(x: 100, y: 100, radius: 20)
           ..circle(x: 100, y: 100, radius: 20),
       );
-      expect(_calls(tester).where((_Call c) => c.method == #drawCircle), hasLength(2));
+      expect(
+        _calls(tester).where((_Call c) => c.method == #drawCircle),
+        hasLength(2),
+      );
     });
 
-    testWidgets('lights every planet from the upper left, like Earth', (tester) async {
+    testWidgets('lights every planet from the upper left, like Earth', (
+      tester,
+    ) async {
       // `createRadialGradient(x-r*.35, y-r*.35, …)` (`index.html:742`) plus a
       // shadow pooling at `+r*.55` (`index.html:746`). The direction is not
       // arbitrary: Earth and the animal tokens are lit from the same corner
       // (`radar_painter.dart`), so one imaginary sun lights the whole field. A
       // planet lit from the other side would read as a sticker on the scene
       // rather than a thing in it.
-      await _paint(tester, (Canvas c, Offset at, double r, {required bool showLabels}) {
-        paintSphere(c, at, r, lit: _mercuryLit, mid: _mercuryMid, dark: _mercuryDark);
+      await _paint(tester, (
+        Canvas c,
+        Offset at,
+        double r, {
+        required bool showLabels,
+      }) {
+        paintSphere(
+          c,
+          at,
+          r,
+          lit: _mercuryLit,
+          mid: _mercuryMid,
+          dark: _mercuryDark,
+        );
       });
 
       // Two points mirrored through the centre, so the only thing that can
@@ -122,7 +168,9 @@ void main() {
   });
 
   group('the six planets', () {
-    testWidgets('each glows, then is a sphere, and says its name', (tester) async {
+    testWidgets('each glows, then is a sphere, and says its name', (
+      tester,
+    ) async {
       // The shared shape of `index.html:759-788`: a halo at 2.3r, the body at r,
       // the terminator at r, then a 9px name 11px under the rim.
       for (final (String name, PlanetPainter draw) in <(String, PlanetPainter)>[
@@ -155,8 +203,9 @@ void main() {
       );
     });
 
-    testWidgets('drops every name when the Labels chip is off, keeping the body',
-        (tester) async {
+    testWidgets('drops every name when the Labels chip is off, keeping the body', (
+      tester,
+    ) async {
       // `if (!Radar.showLabels) return` at the top of `pLabel` (`index.html:755`)
       // — the Labels chip switches the planets' names off with the animals' and
       // the Sun's. The body is scenery and stays; only the caption goes. Saturn
@@ -179,17 +228,25 @@ void main() {
       );
     });
 
-    testWidgets('hangs every name 11px under the rim, and Saturn 11px under its rings',
-        (tester) async {
-      // `fillText(name, x, y + r + 11)` (`index.html:757`) — except Saturn,
-      // which passes `r * 1.1` (`index.html:787`) so its name clears the rings
-      // instead of being struck through by them. At r = 20 that is 133, not 131.
-      await _paint(tester, paintJupiter);
-      expect(_painterOf(tester), paints..paragraph(offset: _labelOffset('Jupiter', 131)));
+    testWidgets(
+      'hangs every name 11px under the rim, and Saturn 11px under its rings',
+      (tester) async {
+        // `fillText(name, x, y + r + 11)` (`index.html:757`) — except Saturn,
+        // which passes `r * 1.1` (`index.html:787`) so its name clears the rings
+        // instead of being struck through by them. At r = 20 that is 133, not 131.
+        await _paint(tester, paintJupiter);
+        expect(
+          _painterOf(tester),
+          paints..paragraph(offset: _labelOffset('Jupiter', 131)),
+        );
 
-      await _paint(tester, paintSaturn);
-      expect(_painterOf(tester), paints..paragraph(offset: _labelOffset('Saturn', 133)));
-    });
+        await _paint(tester, paintSaturn);
+        expect(
+          _painterOf(tester),
+          paints..paragraph(offset: _labelOffset('Saturn', 133)),
+        );
+      },
+    );
   });
 
   group('paintSun', () {
@@ -215,7 +272,9 @@ void main() {
       );
     });
 
-    testWidgets('hangs its name 12px under the rim, not the planets\' 11', (tester) async {
+    testWidgets('hangs its name 12px under the rim, not the planets\' 11', (
+      tester,
+    ) async {
       // `fillText('Sun', sx, sy + sr + 12)` (`index.html:806`) — one pixel lower
       // than `pLabel`'s 11 (`index.html:757`), because `drawPlanets` writes the
       // Sun's caption out longhand instead of calling `pLabel`. A pixel is
@@ -225,10 +284,15 @@ void main() {
       // object in a blue scene.
       await _paint(tester, paintSun);
 
-      expect(_painterOf(tester), paints..paragraph(offset: _labelOffset('Sun', 132)));
+      expect(
+        _painterOf(tester),
+        paints..paragraph(offset: _labelOffset('Sun', 132)),
+      );
     });
 
-    testWidgets('keeps its disc but drops its name when Labels is off', (tester) async {
+    testWidgets('keeps its disc but drops its name when Labels is off', (
+      tester,
+    ) async {
       // `if (Radar.showLabels)` around the caption alone (`index.html:806`) — the
       // Sun is scenery a child must never try to tap, so the Planets chip is what
       // removes it; the Labels chip only takes its name. Two circles as ever, no
@@ -246,7 +310,9 @@ void main() {
       );
     });
 
-    testWidgets('burns white off-centre and cools to orange at the rim', (tester) async {
+    testWidgets('burns white off-centre and cools to orange at the rim', (
+      tester,
+    ) async {
       // `createRadialGradient(sx-6, sy-6, 4, sx, sy, sr)` with `#fff7db` →
       // `#ffd166` → `#f2731d` (`index.html:803-804`).
       //
@@ -266,16 +332,25 @@ void main() {
       final Color rim = px.at(const Offset(112, 112));
       expect(rim.r, greaterThan(rim.g), reason: 'orange');
       expect(rim.g, greaterThan(rim.b));
-      expect(rim.b, lessThan(0.35), reason: 'cooled well past the #ffd166 midpoint');
+      expect(
+        rim.b,
+        lessThan(0.35),
+        reason: 'cooled well past the #ffd166 midpoint',
+      );
 
       // And the core really is off-centre: the exact middle of the disc is
       // already past the white and into the body colour.
-      expect(_luma(px.at(const Offset(94, 94))), greaterThan(_luma(px.at(_at))));
+      expect(
+        _luma(px.at(const Offset(94, 94))),
+        greaterThan(_luma(px.at(_at))),
+      );
     });
   });
 
   group('paintJupiter', () {
-    testWidgets('rules five bands across the planet, then the red spot', (tester) async {
+    testWidgets('rules five bands across the planet, then the red spot', (
+      tester,
+    ) async {
       // `index.html:773-775`. The offsets are the prototype's own literals and
       // are neither evenly spaced nor symmetrical about the equator — the
       // irregularity is what stops Jupiter reading as a barcode, so it is ported
@@ -302,7 +377,9 @@ void main() {
       }
     });
 
-    testWidgets('clips the bands to the planet rather than across the sky', (tester) async {
+    testWidgets('clips the bands to the planet rather than across the sky', (
+      tester,
+    ) async {
       // The one clip on this screen that is load-bearing. Every band is a rect
       // spanning the planet's full width, so its corners reach 1.01r–1.27r —
       // without the clip, Jupiter is a disc with five stripes ruled straight
@@ -320,7 +397,10 @@ void main() {
       // Past the rim: the glow's faint tail and nothing else. Unclipped, the
       // band would land here at roughly twice this brightness.
       expect(_luma(pixels.at(const Offset(118, 87.6))), lessThan(25));
-      expect(_calls(tester).where((_Call c) => c.method == #clipPath), hasLength(1));
+      expect(
+        _calls(tester).where((_Call c) => c.method == #clipPath),
+        hasLength(1),
+      );
     });
 
     testWidgets('puts the red spot south-east of centre', (tester) async {
@@ -345,7 +425,12 @@ void main() {
       await _paint(tester, paintMars);
       final _Pixels marked = await _pixels(tester);
 
-      await _paint(tester, (Canvas c, Offset at, double r, {required bool showLabels}) {
+      await _paint(tester, (
+        Canvas c,
+        Offset at,
+        double r, {
+        required bool showLabels,
+      }) {
         paintSphere(c, at, r, lit: _marsLit, mid: _marsMid, dark: _marsDark);
       });
       final _Pixels bare = await _pixels(tester);
@@ -357,7 +442,9 @@ void main() {
       expect(_luma(marked.at(plain)), lessThan(_luma(bare.at(plain)) - 10));
     });
 
-    testWidgets('has a clip that can never fire, at any radius', (tester) async {
+    testWidgets('has a clip that can never fire, at any radius', (
+      tester,
+    ) async {
       // **Dead, and pinned as dead so the next reader stops looking for the
       // input that triggers it** — the third such on this screen, after the
       // radar's `rr < 7` cull and two of `chipSizeFor`'s four clamps.
@@ -369,10 +456,11 @@ void main() {
       // clip a frame, and because the cap misses the rim by 0.2% of the radius,
       // which is luck rather than design: nudge the cap and the clip starts
       // earning its keep.
-      for (final (double cx, double cy, double rx, double ry) in <(double, double, double, double)>[
-        (-0.3, 0.2, 0.4, 0.28), // the plain
-        (0.2, -0.75, 0.35, 0.2), // the cap
-      ]) {
+      for (final (double cx, double cy, double rx, double ry)
+          in <(double, double, double, double)>[
+            (-0.3, 0.2, 0.4, 0.28), // the plain
+            (0.2, -0.75, 0.35, 0.2), // the cap
+          ]) {
         double furthest = 0;
         for (double t = 0; t < math.pi * 2; t += 0.0005) {
           furthest = math.max(
@@ -385,12 +473,17 @@ void main() {
 
       // And it really is still there, doing its nothing.
       await _paint(tester, paintMars);
-      expect(_calls(tester).where((_Call c) => c.method == #clipPath), hasLength(1));
+      expect(
+        _calls(tester).where((_Call c) => c.method == #clipPath),
+        hasLength(1),
+      );
     });
   });
 
   group('paintSaturn', () {
-    testWidgets('draws the back of the ring, then the planet, then the front', (tester) async {
+    testWidgets('draws the back of the ring, then the planet, then the front', (
+      tester,
+    ) async {
       // **The order is the whole illusion** (`index.html:779-786`). One flat
       // ellipse passes behind the globe and in front of it, so it is drawn as
       // two half-arcs with the sphere painted between them — and the planet
@@ -410,7 +503,9 @@ void main() {
       );
     });
 
-    testWidgets('hides the back arc behind the globe but not beside it', (tester) async {
+    testWidgets('hides the back arc behind the globe but not beside it', (
+      tester,
+    ) async {
       // The occlusion itself, rather than the call order that produces it.
       //
       // **Measured against Saturn with its rings taken away** — the bare sphere,
@@ -424,8 +519,20 @@ void main() {
       await _paint(tester, paintSaturn);
       final _Pixels ringed = await _pixels(tester);
 
-      await _paint(tester, (Canvas c, Offset at, double r, {required bool showLabels}) {
-        paintSphere(c, at, r, lit: _saturnLit, mid: _saturnMid, dark: _saturnDark);
+      await _paint(tester, (
+        Canvas c,
+        Offset at,
+        double r, {
+        required bool showLabels,
+      }) {
+        paintSphere(
+          c,
+          at,
+          r,
+          lit: _saturnLit,
+          mid: _saturnMid,
+          dark: _saturnDark,
+        );
       });
       final _Pixels bare = await _pixels(tester);
 
@@ -440,7 +547,10 @@ void main() {
       final Offset across = _onRing(math.pi / 2);
       expect((across - _at).distance, lessThan(_r));
       expect(ringed.at(across), isNot(bare.at(across)));
-      expect(_luma(ringed.at(across)), greaterThan(_luma(bare.at(across)) + 40));
+      expect(
+        _luma(ringed.at(across)),
+        greaterThan(_luma(bare.at(across)) + 40),
+      );
 
       // t = π + 0.4 — the back arc again, out past the rim with nothing to hide
       // behind, so it is on show: `rgba(220,205,165,.5)` over the faint tail of
@@ -448,7 +558,12 @@ void main() {
       // arc that was simply never drawn.
       final Offset beside = _onRing(math.pi + 0.4);
       expect((beside - _at).distance, greaterThan(_r));
-      _expectPixel(ringed, beside, const Color.fromARGB(255, 114, 106, 85), tolerance: 3);
+      _expectPixel(
+        ringed,
+        beside,
+        const Color.fromARGB(255, 114, 106, 85),
+        tolerance: 3,
+      );
     });
 
     testWidgets('tilts all three arcs together', (tester) async {
@@ -486,7 +601,9 @@ void main() {
       expect(arcs[2].center - _at, isNot(_leansUpLeft));
     });
 
-    testWidgets('strokes the far half dimmer than the near half', (tester) async {
+    testWidgets('strokes the far half dimmer than the near half', (
+      tester,
+    ) async {
       // `.5` against `.85` (`index.html:779`, `784`) — the far side reads as
       // being in the planet's own shadow, which is what sells the ring as
       // something the light has to get past rather than a hoop drawn round a
@@ -568,20 +685,28 @@ Offset _labelOffset(String name, double baseline) {
 
   return Offset(
     100 - measured.width / 2,
-    baseline - measured.computeDistanceToActualBaseline(TextBaseline.alphabetic),
+    baseline -
+        measured.computeDistanceToActualBaseline(TextBaseline.alphabetic),
   );
 }
 
-double _luma(Color c) => 0.2126 * c.r * 255 + 0.7152 * c.g * 255 + 0.0722 * c.b * 255;
+double _luma(Color c) =>
+    0.2126 * c.r * 255 + 0.7152 * c.g * 255 + 0.0722 * c.b * 255;
 
-void _expectPixel(_Pixels pixels, Offset at, Color expected, {double tolerance = 2}) {
+void _expectPixel(
+  _Pixels pixels,
+  Offset at,
+  Color expected, {
+  double tolerance = 2,
+}) {
   final Color actual = pixels.at(at);
   expect(actual.a, closeTo(expected.a, 0.01), reason: 'alpha at $at');
-  for (final (String channel, double got, double want) in <(String, double, double)>[
-    ('red', actual.r * 255, expected.r * 255),
-    ('green', actual.g * 255, expected.g * 255),
-    ('blue', actual.b * 255, expected.b * 255),
-  ]) {
+  for (final (String channel, double got, double want)
+      in <(String, double, double)>[
+        ('red', actual.r * 255, expected.r * 255),
+        ('green', actual.g * 255, expected.g * 255),
+        ('blue', actual.b * 255, expected.b * 255),
+      ]) {
     expect(got, closeTo(want, tolerance), reason: '$channel at $at');
   }
 }
@@ -620,11 +745,10 @@ List<_Call> _calls(WidgetTester tester) {
   final List<_Call> calls = <_Call>[];
   expect(
     _painterOf(tester),
-    paints
-      ..everything((Symbol method, List<dynamic> arguments) {
-        calls.add((method: method, args: arguments));
-        return true;
-      }),
+    paints..everything((Symbol method, List<dynamic> arguments) {
+      calls.add((method: method, args: arguments));
+      return true;
+    }),
   );
   return calls;
 }

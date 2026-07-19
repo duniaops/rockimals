@@ -31,8 +31,18 @@ void main() {
       // pixels of arc, so doubling the radius gives twice as many dashes of the
       // same length — not the same dashes stretched. Getting this backwards
       // looks fine on one ring and wrong across six.
-      final small = dashedCircle(Offset.zero, 50, on: 3, off: 5).computeMetrics().toList();
-      final big = dashedCircle(Offset.zero, 100, on: 3, off: 5).computeMetrics().toList();
+      final small = dashedCircle(
+        Offset.zero,
+        50,
+        on: 3,
+        off: 5,
+      ).computeMetrics().toList();
+      final big = dashedCircle(
+        Offset.zero,
+        100,
+        on: 3,
+        off: 5,
+      ).computeMetrics().toList();
 
       expect(small.length, closeTo(2 * math.pi * 50 / 8, 1));
       expect(big.length, closeTo(2 * math.pi * 100 / 8, 1));
@@ -48,7 +58,12 @@ void main() {
 
     test('honours the gap as well as the dash', () {
       // A pattern of [2, 7] is a period of 9, not of 2.
-      final dashes = dashedCircle(Offset.zero, 90, on: 2, off: 7).computeMetrics().toList();
+      final dashes = dashedCircle(
+        Offset.zero,
+        90,
+        on: 2,
+        off: 7,
+      ).computeMetrics().toList();
 
       expect(dashes.length, closeTo(2 * math.pi * 90 / 9, 1));
       expect(dashes.first.length, closeTo(2, 0.01));
@@ -65,23 +80,32 @@ void main() {
       // is 3 on, 5 off), not 7/2π of it.
       const double radius = 80;
       final dashes = dashedCircle(Offset.zero, radius, on: 3, off: 5);
-      final double inked = dashes
-          .computeMetrics()
-          .fold(0.0, (double sum, ui.PathMetric m) => sum + m.length);
+      final double inked = dashes.computeMetrics().fold(
+        0.0,
+        (double sum, ui.PathMetric m) => sum + m.length,
+      );
 
       expect(inked, closeTo(2 * math.pi * radius * 3 / 8, 1.5));
     });
 
-    test('cuts the last dash at the top of the loop rather than wrapping it', () {
-      // Canvas restarts a dash pattern per sub-path and simply stops at the
-      // path's end, so the final dash is whatever is left. 2π×50 = 314.16, and
-      // 314.16 / 8 = 39.27 periods — the last one has 0.27×8 = 2.16px of room
-      // for a 3px dash.
-      final dashes = dashedCircle(Offset.zero, 50, on: 3, off: 5).computeMetrics().toList();
+    test(
+      'cuts the last dash at the top of the loop rather than wrapping it',
+      () {
+        // Canvas restarts a dash pattern per sub-path and simply stops at the
+        // path's end, so the final dash is whatever is left. 2π×50 = 314.16, and
+        // 314.16 / 8 = 39.27 periods — the last one has 0.27×8 = 2.16px of room
+        // for a 3px dash.
+        final dashes = dashedCircle(
+          Offset.zero,
+          50,
+          on: 3,
+          off: 5,
+        ).computeMetrics().toList();
 
-      expect(dashes.last.length, closeTo(2.16, 0.05));
-      expect(dashes.last.length, lessThan(3));
-    });
+        expect(dashes.last.length, closeTo(2.16, 0.05));
+        expect(dashes.last.length, lessThan(3));
+      },
+    );
   });
 
   group('ringLabelText', () {
@@ -110,72 +134,95 @@ void main() {
 
   group('RadarPainter', () {
     testWidgets(
-        'draws space, then the backdrop, then the rings, then the Moon, then Earth on top',
-        (tester) async {
-      // `index.html:818-877` — the prototype's order, and every step of it is a
-      // decision about what may cover what. The scenery goes down before
-      // anything a child has to read, and Earth is last because it is the
-      // smallest and most important object on the screen, so nothing is allowed
-      // to cover it. The order *is* the assertion.
-      //
-      // **Asserted on the recorded call sequence rather than with a `paints`
-      // pattern, and the backdrop is exactly why.** `paints` walks forward to
-      // the next call of the method named and then matches its arguments
-      // strictly, so it can only describe a canvas on which nothing else draws
-      // in between — which stopped being true the moment scenery landed
-      // underneath (every planet draws circles; Saturn strokes paths). The old
-      // pattern passed because the layer happened to be alone on the frame.
-      // Indices say the same thing without needing it to be.
-      final PlanetBackdrop backdrop = PlanetBackdrop.seed();
-      await _radar(tester, backdrop: backdrop);
+      'draws space, then the backdrop, then the rings, then the Moon, then Earth on top',
+      (tester) async {
+        // `index.html:818-877` — the prototype's order, and every step of it is a
+        // decision about what may cover what. The scenery goes down before
+        // anything a child has to read, and Earth is last because it is the
+        // smallest and most important object on the screen, so nothing is allowed
+        // to cover it. The order *is* the assertion.
+        //
+        // **Asserted on the recorded call sequence rather than with a `paints`
+        // pattern, and the backdrop is exactly why.** `paints` walks forward to
+        // the next call of the method named and then matches its arguments
+        // strictly, so it can only describe a canvas on which nothing else draws
+        // in between — which stopped being true the moment scenery landed
+        // underneath (every planet draws circles; Saturn strokes paths). The old
+        // pattern passed because the layer happened to be alone on the frame.
+        // Indices say the same thing without needing it to be.
+        final PlanetBackdrop backdrop = PlanetBackdrop.seed();
+        await _radar(tester, backdrop: backdrop);
 
-      final List<({Symbol method, List<dynamic> args})> calls = _calls(tester);
-      int at(bool Function(({Symbol method, List<dynamic> args}) call) test, String what) {
-        final int i = calls.indexWhere(test);
-        expect(i, isNonNegative, reason: 'no $what on the frame');
-        return i;
-      }
+        final List<({Symbol method, List<dynamic> args})> calls = _calls(
+          tester,
+        );
+        int at(
+          bool Function(({Symbol method, List<dynamic> args}) call) test,
+          String what,
+        ) {
+          final int i = calls.indexWhere(test);
+          expect(i, isNonNegative, reason: 'no $what on the frame');
+          return i;
+        }
 
-      bool circleAt(({Symbol method, List<dynamic> args}) call, Offset where, double r) =>
-          call.method == #drawCircle &&
-          ((call.args[0] as Offset) - where).distance < 0.01 &&
-          ((call.args[1] as double) - r).abs() < 0.01;
+        bool circleAt(
+          ({Symbol method, List<dynamic> args}) call,
+          Offset where,
+          double r,
+        ) =>
+            call.method == #drawCircle &&
+            ((call.args[0] as Offset) - where).distance < 0.01 &&
+            ((call.args[1] as double) - r).abs() < 0.01;
 
-      const RadarGeometry geometry = RadarGeometry(size: _size, maxLd: 60);
-      // Neptune is the last row of `PLANETS` (`index.html:795`) and so the last
-      // thing the backdrop paints — if *it* is behind the rings, all of the
-      // scenery is. Its glow: 2.3 × a 12px disc.
-      final Offset neptune = backdrop.positionOf(
-        backdrop.planets.last,
-        geometry: geometry,
-        zoom: 1,
-        ts: 0,
-      );
+        const RadarGeometry geometry = RadarGeometry(size: _size, maxLd: 60);
+        // Neptune is the last row of `PLANETS` (`index.html:795`) and so the last
+        // thing the backdrop paints — if *it* is behind the rings, all of the
+        // scenery is. Its glow: 2.3 × a 12px disc.
+        final Offset neptune = backdrop.positionOf(
+          backdrop.planets.last,
+          geometry: geometry,
+          zoom: 1,
+          ts: 0,
+        );
 
-      final int space = at((c) => c.method == #drawRect, 'space');
-      final int sun = at(
-        (c) => circleAt(c, backdrop.sunPosition(geometry: geometry, zoom: 1, ts: 0), 44 * 2.3),
-        "the Sun's glow",
-      );
-      final int scenery = at((c) => circleAt(c, neptune, 12 * 2.3), "Neptune's glow");
-      final int rings = at(
-        (c) =>
-            c.method == #drawPath &&
-            (((c.args[0] as Path).getBounds().center) - _centre).distance < 1,
-        'a distance ring',
-      );
-      // The Moon, out on the 1× ring rather than at the centre — it is the only
-      // thing on the field that is neither scale nor planet.
-      final int moon = at((c) => c.method == #drawCircle && c.args[1] == 5.0, 'the Moon');
-      final int glow = at((c) => circleAt(c, _centre, 27.5), "Earth's glow");
-      final int earth = at((c) => circleAt(c, _centre, 15), 'Earth');
+        final int space = at((c) => c.method == #drawRect, 'space');
+        final int sun = at(
+          (c) => circleAt(
+            c,
+            backdrop.sunPosition(geometry: geometry, zoom: 1, ts: 0),
+            44 * 2.3,
+          ),
+          "the Sun's glow",
+        );
+        final int scenery = at(
+          (c) => circleAt(c, neptune, 12 * 2.3),
+          "Neptune's glow",
+        );
+        final int rings = at(
+          (c) =>
+              c.method == #drawPath &&
+              (((c.args[0] as Path).getBounds().center) - _centre).distance < 1,
+          'a distance ring',
+        );
+        // The Moon, out on the 1× ring rather than at the centre — it is the only
+        // thing on the field that is neither scale nor planet.
+        final int moon = at(
+          (c) => c.method == #drawCircle && c.args[1] == 5.0,
+          'the Moon',
+        );
+        final int glow = at((c) => circleAt(c, _centre, 27.5), "Earth's glow");
+        final int earth = at((c) => circleAt(c, _centre, 15), 'Earth');
 
-      expect(
-        <int>[space, sun, scenery, rings, moon, glow, earth],
-        orderedEquals(<int>[space, sun, scenery, rings, moon, glow, earth]..sort()),
-        reason: 'space, the Sun, the last planet, the rings, the Moon, then Earth',
-      );
-    });
+        expect(
+          <int>[space, sun, scenery, rings, moon, glow, earth],
+          orderedEquals(
+            <int>[space, sun, scenery, rings, moon, glow, earth]..sort(),
+          ),
+          reason:
+              'space, the Sun, the last planet, the rings, the Moon, then Earth',
+        );
+      },
+    );
 
     testWidgets('breathes the glow without moving the planet', (tester) async {
       // The "calm" of `specs/02-live-radar.md:28`, made literal: a ~1.9s breath
@@ -193,7 +240,9 @@ void main() {
       expect(_painterOf(tester), _drawsCircle(radius: equals(15.0)));
     });
 
-    testWidgets('paints the rings the sky reaches and no others', (tester) async {
+    testWidgets('paints the rings the sky reaches and no others', (
+      tester,
+    ) async {
       // One path around Earth per visible ring, so the count is the legend's
       // honesty: a sky that only reaches 8.4 Moon-distances must not be drawn
       // with a 50× ring on it.
@@ -210,44 +259,46 @@ void main() {
       expect(_ringPaths(tester), hasLength(6));
     });
 
-    testWidgets('strokes the rings dashed, the Moon\'s more solidly than the rest',
-        (tester) async {
-      // `setLineDash([3,5])` on the 1× and `[2,7]` on the others
-      // (`index.html:828`) — the Moon's own ring gets longer dashes and smaller
-      // gaps, so it reads as the one real thing out there and the rest as the
-      // measuring marks they are.
-      //
-      // Asserted through the painter rather than on `dashedCircle` alone,
-      // because the pure function being right says nothing about this file
-      // calling it with the prototype's numbers: solid rings would satisfy
-      // every other test here.
-      await _radar(tester);
+    testWidgets(
+      'strokes the rings dashed, the Moon\'s more solidly than the rest',
+      (tester) async {
+        // `setLineDash([3,5])` on the 1× and `[2,7]` on the others
+        // (`index.html:828`) — the Moon's own ring gets longer dashes and smaller
+        // gaps, so it reads as the one real thing out there and the rest as the
+        // measuring marks they are.
+        //
+        // Asserted through the painter rather than on `dashedCircle` alone,
+        // because the pure function being right says nothing about this file
+        // calling it with the prototype's numbers: solid rings would satisfy
+        // every other test here.
+        await _radar(tester);
 
-      final List<List<double>> rings = _ringDashes(tester);
-      final List<double> radii = _ringRadii(tester);
-      expect(rings, hasLength(6));
+        final List<List<double>> rings = _ringDashes(tester);
+        final List<double> radii = _ringRadii(tester);
+        expect(rings, hasLength(6));
 
-      for (int i = 0; i < rings.length; i++) {
-        // The 1× ring is [3, 5]; every ring beyond it is [2, 7] — shorter
-        // marks, wider gaps.
-        final double on = i == 0 ? 3 : 2;
-        final double period = i == 0 ? 8 : 9;
+        for (int i = 0; i < rings.length; i++) {
+          // The 1× ring is [3, 5]; every ring beyond it is [2, 7] — shorter
+          // marks, wider gaps.
+          final double on = i == 0 ? 3 : 2;
+          final double period = i == 0 ? 8 : 9;
 
-        // The dash length, on every dash but the last (which the loop cuts).
-        expect(
-          rings[i].take(rings[i].length - 1),
-          everyElement(closeTo(on, 0.01)),
-          reason: 'ring $i dash length',
-        );
-        // And the gap, which only shows up as *how many* dashes fit round the
-        // ring — the dash length alone is the same for two different patterns.
-        expect(
-          rings[i].length,
-          closeTo(2 * math.pi * radii[i] / period, 1),
-          reason: 'ring $i dash count',
-        );
-      }
-    });
+          // The dash length, on every dash but the last (which the loop cuts).
+          expect(
+            rings[i].take(rings[i].length - 1),
+            everyElement(closeTo(on, 0.01)),
+            reason: 'ring $i dash length',
+          );
+          // And the gap, which only shows up as *how many* dashes fit round the
+          // ring — the dash length alone is the same for two different patterns.
+          expect(
+            rings[i].length,
+            closeTo(2 * math.pi * radii[i] / period, 1),
+            reason: 'ring $i dash count',
+          );
+        }
+      },
+    );
 
     testWidgets('zooms the rings without zooming Earth', (tester) async {
       // The prototype scales ring radii by `zoom` (`index.html:826`) and strokes
@@ -326,8 +377,10 @@ void main() {
 
       expect(px.at(1, _size.height - 2), const Color(0xFF040A17));
       // Brighter towards the middle, which is what makes it a glow.
-      expect(px.at(_size.width / 2, _size.height * 0.44 - 60).b,
-          greaterThan(px.at(1, _size.height - 2).b));
+      expect(
+        px.at(_size.width / 2, _size.height * 0.44 - 60).b,
+        greaterThan(px.at(1, _size.height - 2).b),
+      );
     });
   });
 
@@ -341,16 +394,26 @@ void main() {
           (c.radius - radius).abs() < 0.01,
     );
 
-    testWidgets('the Planets chip clears the Sun and the six planets', (tester) async {
+    testWidgets('the Planets chip clears the Sun and the six planets', (
+      tester,
+    ) async {
       // `if (Radar.showPlanets)` wraps the whole of `drawPlanets`, Sun included
       // (`index.html:818`) — so the chip must clear the 44px orange glare in the
       // corner along with the planets, not leave it bleeding across a
       // switched-off backdrop.
       await _radar(tester);
-      expect(hasCircle(tester, sunGlow), isTrue, reason: 'the premise: the Sun is on');
+      expect(
+        hasCircle(tester, sunGlow),
+        isTrue,
+        reason: 'the premise: the Sun is on',
+      );
 
       await _radar(tester, layers: const RadarLayers(planets: false));
-      expect(hasCircle(tester, sunGlow), isFalse, reason: 'no Sun, and no planets with it');
+      expect(
+        hasCircle(tester, sunGlow),
+        isFalse,
+        reason: 'no Sun, and no planets with it',
+      );
     });
 
     testWidgets('the Rings chip clears the distance rings', (tester) async {
@@ -359,99 +422,125 @@ void main() {
 
       // Moon off as well, so its fallback track cannot stand in for a ring and
       // make an empty chip look like it did nothing.
-      await _radar(tester, layers: const RadarLayers(rings: false, moon: false));
+      await _radar(
+        tester,
+        layers: const RadarLayers(rings: false, moon: false),
+      );
       expect(_ringPaths(tester), isEmpty);
     });
 
-    testWidgets('keeps the Moon\'s track when the rings are off but the Moon is not',
-        (tester) async {
-      // The coupling this item owns (`index.html:835`): Rings off, Moon on —
-      // the 1× ring is still stroked so the Moon is never floating on nothing.
-      await _radar(tester, layers: const RadarLayers(rings: false));
+    testWidgets(
+      'keeps the Moon\'s track when the rings are off but the Moon is not',
+      (tester) async {
+        // The coupling this item owns (`index.html:835`): Rings off, Moon on —
+        // the 1× ring is still stroked so the Moon is never floating on nothing.
+        await _radar(tester, layers: const RadarLayers(rings: false));
 
-      final List<Path> track = _ringPaths(tester);
-      expect(track, hasLength(1), reason: 'exactly the Moon\'s own track');
-      // It rides the 1× ring — same radius the Moon disc does.
-      expect(
-        _ringRadii(tester).first,
-        closeTo(const RadarGeometry(size: _size, maxLd: 60).radiusFor(1), 0.5),
-      );
-      // And it is dashed on the Moon's own [3, 5] pattern, not a solid stroke.
-      final List<double> dashes = <double>[
-        for (final ui.PathMetric d in track.first.computeMetrics()) d.length,
-      ];
-      expect(dashes.length, greaterThan(1));
-      expect(dashes.first, closeTo(3, 0.01));
-    });
+        final List<Path> track = _ringPaths(tester);
+        expect(track, hasLength(1), reason: 'exactly the Moon\'s own track');
+        // It rides the 1× ring — same radius the Moon disc does.
+        expect(
+          _ringRadii(tester).first,
+          closeTo(
+            const RadarGeometry(size: _size, maxLd: 60).radiusFor(1),
+            0.5,
+          ),
+        );
+        // And it is dashed on the Moon's own [3, 5] pattern, not a solid stroke.
+        final List<double> dashes = <double>[
+          for (final ui.PathMetric d in track.first.computeMetrics()) d.length,
+        ];
+        expect(dashes.length, greaterThan(1));
+        expect(dashes.first, closeTo(3, 0.01));
+      },
+    );
 
-    testWidgets('the Moon chip clears the Moon, and draws no track in its place',
-        (tester) async {
-      await _radar(tester);
-      expect(hasCircle(tester, 5), isTrue, reason: 'the premise: the 5px Moon disc');
+    testWidgets(
+      'the Moon chip clears the Moon, and draws no track in its place',
+      (tester) async {
+        await _radar(tester);
+        expect(
+          hasCircle(tester, 5),
+          isTrue,
+          reason: 'the premise: the 5px Moon disc',
+        );
 
-      await _radar(tester, layers: const RadarLayers(moon: false));
-      expect(hasCircle(tester, 5), isFalse, reason: 'no Moon');
-      // Rings are still on, so the six real rings remain — and none of them is a
-      // stray Moon track, which only appears when the Moon itself is drawn.
-      expect(_ringPaths(tester), hasLength(6));
-    });
+        await _radar(tester, layers: const RadarLayers(moon: false));
+        expect(hasCircle(tester, 5), isFalse, reason: 'no Moon');
+        // Rings are still on, so the six real rings remain — and none of them is a
+        // stray Moon track, which only appears when the Moon itself is drawn.
+        expect(_ringPaths(tester), hasLength(6));
+      },
+    );
 
-    testWidgets('the Close-flybys chip thins the sky to the animals that are waving',
-        (tester) async {
-      // `if (Radar.showHaz && !a.hazardous)` (`index.html:843`), read through the
-      // tag (plan decision 2). Counted by the 2px stroke that is the animals'
-      // rings alone (the halo is 2.5, the distance rings 1, Saturn's arcs paths).
-      final Asteroid waving = _rock(name: '2020 AA', ld: 0.4);
-      final Asteroid passing = _rock(name: '2020 BB', ld: 30);
+    testWidgets(
+      'the Close-flybys chip thins the sky to the animals that are waving',
+      (tester) async {
+        // `if (Radar.showHaz && !a.hazardous)` (`index.html:843`), read through the
+        // tag (plan decision 2). Counted by the 2px stroke that is the animals'
+        // rings alone (the halo is 2.5, the distance rings 1, Saturn's arcs paths).
+        final Asteroid waving = _rock(name: '2020 AA', ld: 0.4);
+        final Asteroid passing = _rock(name: '2020 BB', ld: 30);
 
-      List<({Offset at, double radius, Paint paint})> animalRings() => <({Offset at, double radius, Paint paint})>[
-        for (final ({Offset at, double radius, Paint paint}) c in _circles(tester))
-          if (c.paint.style == PaintingStyle.stroke && c.paint.strokeWidth == 2) c,
-      ];
+        List<({Offset at, double radius, Paint paint})> animalRings() =>
+            <({Offset at, double radius, Paint paint})>[
+              for (final ({Offset at, double radius, Paint paint}) c
+                  in _circles(tester))
+                if (c.paint.style == PaintingStyle.stroke &&
+                    c.paint.strokeWidth == 2)
+                  c,
+            ];
 
-      await _radar(tester, sky: <Asteroid>[waving, passing], maxLd: 31.5);
-      expect(animalRings(), hasLength(2), reason: 'the premise: both are on');
+        await _radar(tester, sky: <Asteroid>[waving, passing], maxLd: 31.5);
+        expect(animalRings(), hasLength(2), reason: 'the premise: both are on');
 
-      await _radar(
-        tester,
-        sky: <Asteroid>[waving, passing],
-        maxLd: 31.5,
-        layers: const RadarLayers(closeFlybysOnly: true),
-      );
-      expect(animalRings(), hasLength(1), reason: 'only the one waving');
-    });
+        await _radar(
+          tester,
+          sky: <Asteroid>[waving, passing],
+          maxLd: 31.5,
+          layers: const RadarLayers(closeFlybysOnly: true),
+        );
+        expect(animalRings(), hasLength(1), reason: 'only the one waving');
+      },
+    );
 
-    testWidgets('the Labels chip clears the planets\', the Sun\'s, and the animals\' names',
-        (tester) async {
-      // The Labels chip is one chip over three layers (`index.html:755`, `806`,
-      // `864`). Isolated by differencing counts rather than reading text a
-      // paragraph does not carry: the planet/Sun names show up as (empty on −
-      // empty off), and the animal name as the extra paragraph a waving animal
-      // adds beyond its own emoji.
-      const RadarLayers off = RadarLayers(labels: false);
-      final Asteroid waving = _rock(name: '2020 AA', ld: 0.4);
+    testWidgets(
+      'the Labels chip clears the planets\', the Sun\'s, and the animals\' names',
+      (tester) async {
+        // The Labels chip is one chip over three layers (`index.html:755`, `806`,
+        // `864`). Isolated by differencing counts rather than reading text a
+        // paragraph does not carry: the planet/Sun names show up as (empty on −
+        // empty off), and the animal name as the extra paragraph a waving animal
+        // adds beyond its own emoji.
+        const RadarLayers off = RadarLayers(labels: false);
+        final Asteroid waving = _rock(name: '2020 AA', ld: 0.4);
 
-      await _radar(tester, maxLd: 31.5);
-      final int emptyOn = _paragraphOffsets(tester).length;
-      await _radar(tester, sky: <Asteroid>[waving], maxLd: 31.5);
-      final int wavingOn = _paragraphOffsets(tester).length;
+        await _radar(tester, maxLd: 31.5);
+        final int emptyOn = _paragraphOffsets(tester).length;
+        await _radar(tester, sky: <Asteroid>[waving], maxLd: 31.5);
+        final int wavingOn = _paragraphOffsets(tester).length;
 
-      await _radar(tester, maxLd: 31.5, layers: off);
-      final int emptyOff = _paragraphOffsets(tester).length;
-      await _radar(tester, sky: <Asteroid>[waving], maxLd: 31.5, layers: off);
-      final int wavingOff = _paragraphOffsets(tester).length;
+        await _radar(tester, maxLd: 31.5, layers: off);
+        final int emptyOff = _paragraphOffsets(tester).length;
+        await _radar(tester, sky: <Asteroid>[waving], maxLd: 31.5, layers: off);
+        final int wavingOff = _paragraphOffsets(tester).length;
 
-      // Five planet names and the Sun's (Mercury has none) go quiet — the ring
-      // labels, "Earth" and "Moon" are not label-gated and stay.
-      expect(emptyOn - emptyOff, 6, reason: 'the planets and the Sun');
-      // On, a waving animal adds its emoji, its wave and its name; off, the
-      // emoji and the wave. **The wave is not label-gated, deliberately**: it
-      // is the icon half of "never rely on colour alone"
-      // (`specs/06-title-polish-safety.md:23`), so turning names off must not
-      // take the app back to marking a close flyby by ring colour alone.
-      expect(wavingOn - emptyOn, 3, reason: 'emoji, wave and name');
-      expect(wavingOff - emptyOff, 2, reason: 'emoji and wave — the name is gone');
-    });
+        // Five planet names and the Sun's (Mercury has none) go quiet — the ring
+        // labels, "Earth" and "Moon" are not label-gated and stay.
+        expect(emptyOn - emptyOff, 6, reason: 'the planets and the Sun');
+        // On, a waving animal adds its emoji, its wave and its name; off, the
+        // emoji and the wave. **The wave is not label-gated, deliberately**: it
+        // is the icon half of "never rely on colour alone"
+        // (`specs/06-title-polish-safety.md:23`), so turning names off must not
+        // take the app back to marking a close flyby by ring colour alone.
+        expect(wavingOn - emptyOn, 3, reason: 'emoji, wave and name');
+        expect(
+          wavingOff - emptyOff,
+          2,
+          reason: 'emoji and wave — the name is gone',
+        );
+      },
+    );
   });
 
   _animalTests();
@@ -517,9 +606,11 @@ Offset _animalAt(Asteroid rock) {
 
 /// The selection halo — the only 2.5px stroke on the whole field, which is what
 /// lets it be found without knowing where the animal has orbited to.
-({Offset at, double radius, Paint paint}) _halo(WidgetTester tester) => _circles(
-  tester,
-).singleWhere((({Offset at, double radius, Paint paint}) c) => c.paint.strokeWidth == 2.5);
+({Offset at, double radius, Paint paint}) _halo(WidgetTester tester) =>
+    _circles(tester).singleWhere(
+      (({Offset at, double radius, Paint paint}) c) =>
+          c.paint.strokeWidth == 2.5,
+    );
 
 /// The selection caret — the only **filled** path on the whole frame, which is
 /// what lets it be found without knowing where the animal has orbited to.
@@ -532,10 +623,11 @@ Offset _animalAt(Asteroid rock) {
 ({Path path, Paint paint}) _caret(WidgetTester tester) =>
     _filledPaths(tester).single;
 
-List<({Path path, Paint paint})> _filledPaths(WidgetTester tester) => <({Path path, Paint paint})>[
-  for (final ({Path path, Paint paint}) drawn in radarPaths(tester))
-    if (drawn.paint.style == PaintingStyle.fill) drawn,
-];
+List<({Path path, Paint paint})> _filledPaths(WidgetTester tester) =>
+    <({Path path, Paint paint})>[
+      for (final ({Path path, Paint paint}) drawn in radarPaths(tester))
+        if (drawn.paint.style == PaintingStyle.fill) drawn,
+    ];
 
 /// A rock with only what the radar reads. [ld] and [diaMax] are the two inputs
 /// that decide everything on screen: where it orbits and how big it is drawn.
@@ -567,7 +659,9 @@ Asteroid _rock({
 /// space around it, so it is the one thing rasterised.
 void _animalTests() {
   group('RadarPainter — animals', () {
-    testWidgets('draws a token, then its ring, then the animal in it', (tester) async {
+    testWidgets('draws a token, then its ring, then the animal in it', (
+      tester,
+    ) async {
       // The order is the guardrail (`index.html:852-862`). An emoji straight
       // onto deep space is dim and, next to a big one, reads as switched off —
       // and `specs/02-live-radar.md:28` is explicit that no animal may ever look
@@ -582,9 +676,15 @@ void _animalTests() {
       // backdrop ended, since the Sun alone puts two circles on the canvas first.
       // Asking for the circles *at the animal* is what the test meant all along,
       // and it cannot be knocked over by anything drawn elsewhere.
-      final List<({Offset at, double radius, Paint paint})> chip =
-          _chipAt(tester, _animalAt(rock));
-      expect(chip, hasLength(2), reason: 'an unselected animal is a token and a ring');
+      final List<({Offset at, double radius, Paint paint})> chip = _chipAt(
+        tester,
+        _animalAt(rock),
+      );
+      expect(
+        chip,
+        hasLength(2),
+        reason: 'an unselected animal is a token and a ring',
+      );
       final ({Offset at, double radius, Paint paint}) token = chip[0];
       final ({Offset at, double radius, Paint paint}) ring = chip[1];
 
@@ -594,14 +694,17 @@ void _animalTests() {
       expect(
         token.paint.shader,
         isNotNull,
-        reason: 'a lit gradient, not a flat disc — it is what makes the animal '
+        reason:
+            'a lit gradient, not a flat disc — it is what makes the animal '
             'sit in something rather than float on the field',
       );
       expect(ring.paint.style, PaintingStyle.stroke);
       expect(ring.paint.strokeWidth, 2);
     });
 
-    testWidgets('sizes each animal by the real rock, not by the species', (tester) async {
+    testWidgets('sizes each animal by the real rock, not by the species', (
+      tester,
+    ) async {
       // Two animals, four orders of magnitude apart in real diameter. The one on
       // screen must be bigger — and both must still be big enough to see.
       final Asteroid mouse = _rock(name: '2020 SW', ld: 5, diaMax: 4);
@@ -609,17 +712,24 @@ void _animalTests() {
       await _radar(tester, sky: <Asteroid>[mouse, whale]);
 
       final RadarOrbits orbits = RadarOrbits.seed(<Asteroid>[mouse, whale]);
-      expect(orbits.orbits[0].chipRadius, lessThan(orbits.orbits[1].chipRadius));
+      expect(
+        orbits.orbits[0].chipRadius,
+        lessThan(orbits.orbits[1].chipRadius),
+      );
       // Both are drawn at the size the ladder gave them.
       final List<double> radii = <double>[
-        for (final ({Offset at, double radius, Paint paint}) c in _circles(tester))
+        for (final ({Offset at, double radius, Paint paint}) c in _circles(
+          tester,
+        ))
           if (c.paint.style == PaintingStyle.stroke) c.radius,
       ];
       expect(radii, contains(closeTo(orbits.orbits[0].chipRadius, 0.01)));
       expect(radii, contains(closeTo(orbits.orbits[1].chipRadius, 0.01)));
     });
 
-    testWidgets('rings a close flyby orange and everyone else quietly', (tester) async {
+    testWidgets('rings a close flyby orange and everyone else quietly', (
+      tester,
+    ) async {
       // `index.html:854`. The orange is a *greeting*, not a warning
       // (`CLAUDE.md:64`) — and it is the only thing on this screen that marks
       // NASA's flag at all.
@@ -632,21 +742,39 @@ void _animalTests() {
 
       final Paint wavingRing = _chipAt(
         tester,
-        orbits.positionOf(orbits.orbits[0], geometry: geometry, zoom: 1, viewRot: 0),
+        orbits.positionOf(
+          orbits.orbits[0],
+          geometry: geometry,
+          zoom: 1,
+          viewRot: 0,
+        ),
       ).last.paint;
       final Paint passingRing = _chipAt(
         tester,
-        orbits.positionOf(orbits.orbits[1], geometry: geometry, zoom: 1, viewRot: 0),
+        orbits.positionOf(
+          orbits.orbits[1],
+          geometry: geometry,
+          zoom: 1,
+          viewRot: 0,
+        ),
       ).last.paint;
 
       // `isSameColorAs`, not `equals`: `Paint.color` round-trips through float32,
       // so a colour comes back a few ulps from the one that went in and `==` is
       // false between two Colours that print identically.
-      expect(wavingRing.color, isSameColorAs(const Color.fromRGBO(232, 140, 60, 0.95)));
-      expect(passingRing.color, isSameColorAs(const Color.fromRGBO(120, 150, 200, 0.45)));
+      expect(
+        wavingRing.color,
+        isSameColorAs(const Color.fromRGBO(232, 140, 60, 0.95)),
+      );
+      expect(
+        passingRing.color,
+        isSameColorAs(const Color.fromRGBO(120, 150, 200, 0.45)),
+      );
     });
 
-    testWidgets('rings a flagged rock even when it passes far away', (tester) async {
+    testWidgets('rings a flagged rock even when it passes far away', (
+      tester,
+    ) async {
       // `flybyTag`'s rule is `hazardous || missLunar < 1`, and the radar reads
       // the tag rather than the raw flag — so the ring here and the badge on the
       // detail screen can never disagree about which animals are waving.
@@ -666,7 +794,9 @@ void _animalTests() {
       );
     });
 
-    testWidgets('gives the selected animal a white ring that breathes', (tester) async {
+    testWidgets('gives the selected animal a white ring that breathes', (
+      tester,
+    ) async {
       // `index.html:855-857` — a second ring at `chip + 3 + pulse*3`, on the
       // same breath as Earth's glow. White because it is the only colour on this
       // field that means nothing else.
@@ -682,7 +812,10 @@ void _animalTests() {
       );
       final double chip = orbits.orbits[0].chipRadius;
 
-      final ({Offset at, double radius, Paint paint}) halo = _chipAt(tester, at).last;
+      final ({Offset at, double radius, Paint paint}) halo = _chipAt(
+        tester,
+        at,
+      ).last;
       expect(halo.paint.color, isSameColorAs(const Color(0xFFFFFFFF)));
       expect(halo.paint.strokeWidth, 2.5);
       // At rest the sine is 0, so pulse is 0.5 and the halo starts mid-breath.
@@ -709,7 +842,9 @@ void _animalTests() {
       await _radar(tester, sky: <Asteroid>[rock], selected: rock);
 
       final Offset at = _animalAt(rock);
-      final double chip = RadarOrbits.seed(<Asteroid>[rock]).orbits[0].chipRadius;
+      final double chip = RadarOrbits.seed(<Asteroid>[
+        rock,
+      ]).orbits[0].chipRadius;
       final Rect bounds = _caret(tester).path.getBounds();
 
       expect(
@@ -733,9 +868,12 @@ void _animalTests() {
         reason: 'the apex is on the token\'s axis',
       );
       expect(
-        _caret(tester).path.contains(Offset(bounds.left + 0.5, bounds.top + 0.5)),
+        _caret(
+          tester,
+        ).path.contains(Offset(bounds.left + 0.5, bounds.top + 0.5)),
         isFalse,
-        reason: 'the wide edge is the far one — the arrow points up at the animal',
+        reason:
+            'the wide edge is the far one — the arrow points up at the animal',
       );
     });
 
@@ -749,11 +887,16 @@ void _animalTests() {
       await _radar(tester, sky: <Asteroid>[rock], selected: rock);
 
       final Offset at = _animalAt(rock);
-      final double chip = RadarOrbits.seed(<Asteroid>[rock]).orbits[0].chipRadius;
+      final double chip = RadarOrbits.seed(<Asteroid>[
+        rock,
+      ]).orbits[0].chipRadius;
 
       // At rest the sine is 0, so pulse is 0.5 and the halo is mid-breath — the
       // same frame `gives the selected animal a white ring that breathes` pins.
-      expect(_caret(tester).path.getBounds().top, closeTo(at.dy + chip + 3 + 1.5 + 1.5, 0.001));
+      expect(
+        _caret(tester).path.getBounds().top,
+        closeTo(at.dy + chip + 3 + 1.5 + 1.5, 0.001),
+      );
 
       // A quarter period on the halo is at full stretch, and the caret has
       // moved out with it — found by the fill rather than by where it was,
@@ -763,11 +906,14 @@ void _animalTests() {
       expect(
         moved.path.getBounds().top - _halo(tester).at.dy,
         closeTo(chip + 6 + 1.5, 0.001),
-        reason: 'still 1.5px outside the halo, wherever the breath has taken it',
+        reason:
+            'still 1.5px outside the halo, wherever the breath has taken it',
       );
     });
 
-    testWidgets('the caret is the only filled path on the frame', (tester) async {
+    testWidgets('the caret is the only filled path on the frame', (
+      tester,
+    ) async {
       // `_caret` finds the mark by its fill, which is only a safe identifier
       // while every other path on this canvas is stroked — the distance rings
       // and Saturn's arcs. This is that claim, held where it will fail loudly
@@ -794,8 +940,12 @@ void _animalTests() {
 
       const RadarGeometry geometry = RadarGeometry(size: _size, maxLd: 60);
       final RadarOrbits orbits = RadarOrbits.seed(<Asteroid>[a, b, c]);
-      final Offset at =
-          orbits.positionOf(orbits.orbits[1], geometry: geometry, zoom: 1, viewRot: 0);
+      final Offset at = orbits.positionOf(
+        orbits.orbits[1],
+        geometry: geometry,
+        zoom: 1,
+        viewRot: 0,
+      );
 
       final List<({Path path, Paint paint})> carets = _filledPaths(tester);
       expect(carets, hasLength(1));
@@ -829,19 +979,36 @@ void _animalTests() {
       final RadarOrbits orbits = RadarOrbits.seed(<Asteroid>[a, b]);
 
       expect(
-        _chipAt(tester, orbits.positionOf(orbits.orbits[0], geometry: geometry, zoom: 1, viewRot: 0)),
+        _chipAt(
+          tester,
+          orbits.positionOf(
+            orbits.orbits[0],
+            geometry: geometry,
+            zoom: 1,
+            viewRot: 0,
+          ),
+        ),
         hasLength(3),
         reason: 'token, ring, halo',
       );
       expect(
-        _chipAt(tester, orbits.positionOf(orbits.orbits[1], geometry: geometry, zoom: 1, viewRot: 0)),
+        _chipAt(
+          tester,
+          orbits.positionOf(
+            orbits.orbits[1],
+            geometry: geometry,
+            zoom: 1,
+            viewRot: 0,
+          ),
+        ),
         hasLength(2),
         reason: 'token and ring only',
       );
     });
 
-    testWidgets('selects by designation, so nothing depends on object identity',
-        (tester) async {
+    testWidgets('selects by designation, so nothing depends on object identity', (
+      tester,
+    ) async {
       // The prototype compares references (`Radar.selected===a`) because it only
       // ever has the one array. The designation is this app's identity for a rock
       // (plan decision 12), and it does not care which list the asteroid came out
@@ -863,7 +1030,9 @@ void _animalTests() {
       expect(_chipAt(tester, at), hasLength(3), reason: 'it is still selected');
     });
 
-    testWidgets('carries every animal round its own ring as time passes', (tester) async {
+    testWidgets('carries every animal round its own ring as time passes', (
+      tester,
+    ) async {
       // The orbit loop, seen through the painter rather than through the model:
       // the pure integrator being right says nothing about whether this file
       // reads it. Both animals must move, and the closer one must move further.
@@ -872,11 +1041,17 @@ void _animalTests() {
       await _radar(tester, sky: <Asteroid>[near, far], maxLd: 31.5);
 
       final List<Offset> before = <Offset>[
-        for (final ({Offset at, double radius, Paint paint}) c in _circles(tester)) c.at,
+        for (final ({Offset at, double radius, Paint paint}) c in _circles(
+          tester,
+        ))
+          c.at,
       ];
       await tester.pump(const Duration(seconds: 2));
       final List<Offset> after = <Offset>[
-        for (final ({Offset at, double radius, Paint paint}) c in _circles(tester)) c.at,
+        for (final ({Offset at, double radius, Paint paint}) c in _circles(
+          tester,
+        ))
+          c.at,
       ];
 
       expect(after, isNot(before), reason: 'the sky is alive');
@@ -884,7 +1059,9 @@ void _animalTests() {
       expect(after.last, before.last);
     });
 
-    testWidgets('names the animals that are waving, and no others', (tester) async {
+    testWidgets('names the animals that are waving, and no others', (
+      tester,
+    ) async {
       // `index.html:864`. Sixty names at once would be a wall of text on the one
       // screen a five-year-old opens the app to; the rest introduce themselves
       // when they are tapped.
@@ -900,20 +1077,33 @@ void _animalTests() {
       await _radar(tester, maxLd: 31.5);
       final int base = _paragraphOffsets(tester).length;
 
-      await _radar(tester, sky: <Asteroid>[_rock(name: '2020 BB', ld: 30)], maxLd: 31.5);
+      await _radar(
+        tester,
+        sky: <Asteroid>[_rock(name: '2020 BB', ld: 30)],
+        maxLd: 31.5,
+      );
       expect(
-        _paragraphOffsets(tester), hasLength(base + 1),
-        reason: 'its emoji and nothing else — a rock just passing keeps its name to itself',
+        _paragraphOffsets(tester),
+        hasLength(base + 1),
+        reason:
+            'its emoji and nothing else — a rock just passing keeps its name to itself',
       );
 
-      await _radar(tester, sky: <Asteroid>[_rock(name: '2020 AA', ld: 0.4)], maxLd: 31.5);
+      await _radar(
+        tester,
+        sky: <Asteroid>[_rock(name: '2020 AA', ld: 0.4)],
+        maxLd: 31.5,
+      );
       expect(
-        _paragraphOffsets(tester), hasLength(base + 3),
+        _paragraphOffsets(tester),
+        hasLength(base + 3),
         reason: 'emoji, wave and name — a close flyby says hello, twice over',
       );
     });
 
-    testWidgets('sits the name above the animal, not across it', (tester) async {
+    testWidgets('sits the name above the animal, not across it', (
+      tester,
+    ) async {
       // `y - em*0.6 - 4` (`index.html:867`) — clear of the emoji's own box, so
       // the name never lands on the animal's face.
       //
@@ -933,10 +1123,14 @@ void _animalTests() {
       );
 
       await _radar(tester, sky: <Asteroid>[rock], maxLd: 31.5);
-      final Set<({Offset at, double width})> unnamed = _paragraphOffsets(tester).toSet();
+      final Set<({Offset at, double width})> unnamed = _paragraphOffsets(
+        tester,
+      ).toSet();
 
       await _radar(tester, sky: <Asteroid>[rock], maxLd: 31.5, selected: rock);
-      final Set<({Offset at, double width})> named = _paragraphOffsets(tester).toSet();
+      final Set<({Offset at, double width})> named = _paragraphOffsets(
+        tester,
+      ).toSet();
 
       final ({Offset at, double width}) name = named.difference(unnamed).single;
       expect(
@@ -1018,12 +1212,14 @@ void _animalTests() {
       final Asteroid waving = _rock(name: '2020 BB', ld: 0.5);
 
       await _radar(tester, sky: <Asteroid>[passing], layers: noLabels);
-      final Set<({Offset at, double width})> quiet =
-          _paragraphOffsets(tester).toSet();
+      final Set<({Offset at, double width})> quiet = _paragraphOffsets(
+        tester,
+      ).toSet();
 
       await _radar(tester, sky: <Asteroid>[waving], layers: noLabels);
-      final Set<({Offset at, double width})> withWave =
-          _paragraphOffsets(tester).toSet();
+      final Set<({Offset at, double width})> withWave = _paragraphOffsets(
+        tester,
+      ).toSet();
 
       final RadarOrbits orbits = RadarOrbits.seed(<Asteroid>[waving]);
       final Offset at = orbits.positionOf(
@@ -1035,8 +1231,9 @@ void _animalTests() {
 
       // Two offsets differ — the emoji moved with the rock's new distance, and
       // the wave is new — so the wave is the one up and to the right of centre.
-      final Iterable<({Offset at, double width})> fresh =
-          withWave.difference(quiet);
+      final Iterable<({Offset at, double width})> fresh = withWave.difference(
+        quiet,
+      );
       expect(
         fresh.any((o) => o.at.dx > at.dx && o.at.dy < at.dy),
         isTrue,
@@ -1044,7 +1241,9 @@ void _animalTests() {
       );
     });
 
-    testWidgets('names the selected animal even when it is only passing', (tester) async {
+    testWidgets('names the selected animal even when it is only passing', (
+      tester,
+    ) async {
       // `showLabels && (close || sel)` (`index.html:864`) — being looked at is
       // reason enough to say your name, however far away you are.
       final Asteroid passing = _rock(name: '2020 BB', ld: 30);
@@ -1060,7 +1259,9 @@ void _animalTests() {
       expect(_paragraphOffsets(tester), hasLength(unnamed + 1));
     });
 
-    testWidgets('draws a busy day, and lays each label out only once', (tester) async {
+    testWidgets('draws a busy day, and lays each label out only once', (
+      tester,
+    ) async {
       // The automatable half of "a busy day (60+) holds ~60fps". The frame rate
       // itself needs a device this machine does not have (no Xcode, no Android
       // SDK — the plan's human-gated item), and is NOT claimed here. What can be
@@ -1119,18 +1320,24 @@ void _animalTests() {
       await _radar(tester);
 
       const RadarGeometry geometry = RadarGeometry(size: _size, maxLd: 60);
-      final Offset moon = RadarOrbits.seed(const <Asteroid>[])
-          .moonPosition(geometry: geometry, zoom: 1, viewRot: 0);
+      final Offset moon = RadarOrbits.seed(
+        const <Asteroid>[],
+      ).moonPosition(geometry: geometry, zoom: 1, viewRot: 0);
       final _Pixels pixels = await _paintedPixels(tester);
 
       expect(pixels.at(moon.dx, moon.dy), const Color(0xFFCFD6DE));
       // A 5px disc and not a smear: eight pixels out is space again.
       expect(pixels.at(moon.dx + 8, moon.dy), isNot(const Color(0xFFCFD6DE)));
       // And it really is out on the 1× ring rather than sitting on Earth.
-      expect((moon - geometry.center).distance, closeTo(geometry.radiusFor(1), 0.01));
+      expect(
+        (moon - geometry.center).distance,
+        closeTo(geometry.radiusFor(1), 0.01),
+      );
     });
 
-    testWidgets('carries viewRot to the animals *and* the Moon', (tester) async {
+    testWidgets('carries viewRot to the animals *and* the Moon', (
+      tester,
+    ) async {
       // **The one bug the pure orbit tests cannot see.** `RadarOrbits` is now
       // proven to turn everything by one shared angle, but it can only turn what
       // it is asked to: `viewRot` reaches the field through two separate calls
@@ -1167,10 +1374,7 @@ void _animalTests() {
 
       expect(
         _circles(tester).map((c) => c.at),
-        containsAll(<Matcher>[
-          _near(moon),
-          _near(animal),
-        ]),
+        containsAll(<Matcher>[_near(moon), _near(animal)]),
         reason: 'a Moon left at three o’clock means it never got the rotation',
       );
     });
@@ -1179,10 +1383,8 @@ void _animalTests() {
 
 /// Matches an [Offset] within a pixel of [at] — the painter and the test compute
 /// the same trigonometry, so this is about float noise, not tolerance.
-Matcher _near(Offset at) => predicate<Offset>(
-  (Offset o) => (o - at).distance < 1,
-  'within 1px of $at',
-);
+Matcher _near(Offset at) =>
+    predicate<Offset>((Offset o) => (o - at).distance < 1, 'within 1px of $at');
 
 /// Where every string the painter laid down this frame was drawn, and how wide
 /// it is.
@@ -1214,7 +1416,9 @@ List<Path> _ringPaths(WidgetTester tester) => <Path>[
 /// The length of each dash on each ring, outward.
 List<List<double>> _ringDashes(WidgetTester tester) => <List<double>>[
   for (final Path ring in _ringPaths(tester))
-    <double>[for (final ui.PathMetric dash in ring.computeMetrics()) dash.length],
+    <double>[
+      for (final ui.PathMetric dash in ring.computeMetrics()) dash.length,
+    ],
 ];
 
 /// The radius of each ring, taken from the path the painter actually drew
@@ -1232,7 +1436,8 @@ PaintPattern _drawsCircle({required Matcher radius}) =>
     paints..something((Symbol method, List<dynamic> arguments) {
       if (method != #drawCircle) return false;
       final Offset centre = arguments[0] as Offset;
-      return centre == _centre && radius.matches(arguments[1], <dynamic, dynamic>{});
+      return centre == _centre &&
+          radius.matches(arguments[1], <dynamic, dynamic>{});
     });
 
 /// Every canvas call the painter recorded, in order.

@@ -65,7 +65,8 @@ class SettingsScreen extends ConsumerWidget {
                     // games (`specs/08-settings-about.md:33-35`).
                     emoji: '🔊',
                     label: 'Sound',
-                    hint: 'Plays happy little sounds in the games and when you '
+                    hint:
+                        'Plays happy little sounds in the games and when you '
                         'win a badge.',
                     value: ref.watch(soundOnProvider),
                     // Flips through `toggle()` and discards the row's `next`.
@@ -116,7 +117,8 @@ class SettingsScreen extends ConsumerWidget {
                     // order a grown-up would notice them.
                     // **Drop the last four words when v1.1 lands** — see
                     // `little_kids_mode.dart`, and the plan item that owns it.
-                    hint: 'Read-aloud names, bigger buttons and simpler games — '
+                    hint:
+                        'Read-aloud names, bigger buttons and simpler games — '
                         'coming soon.',
                     value: ref.watch(littleKidsModeProvider),
                     // `choose(next)` rather than the 🔊 row's `toggle()`: this

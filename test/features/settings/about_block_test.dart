@@ -119,7 +119,9 @@ void main() {
 
       expect(
         _styleOf(tester, AboutBlock.disclaimer).fontSize,
-        greaterThanOrEqualTo(_styleOf(tester, AboutBlock.attribution).fontSize!),
+        greaterThanOrEqualTo(
+          _styleOf(tester, AboutBlock.attribution).fontSize!,
+        ),
       );
     });
 
@@ -176,7 +178,11 @@ void main() {
           .whereType<File>()
           .where((File f) => f.path.endsWith('.dart'))
           .toList();
-      expect(sources, isNotEmpty, reason: 'the grep must have something to grep');
+      expect(
+        sources,
+        isNotEmpty,
+        reason: 'the grep must have something to grep',
+      );
 
       for (final File source in sources) {
         expect(
@@ -189,7 +195,8 @@ void main() {
           // agent to stop writing the comment. The narrower form loses nothing:
           // `launchUrl` is unreachable without this line.
           isNot(contains("import 'package:url_launcher")),
-          reason: '${source.path} reaches outside the app; Settings is not '
+          reason:
+              '${source.path} reaches outside the app; Settings is not '
               'parent-gated, so the JPL link behind core/safety/parent_gate.dart '
               'is the only outbound link this app is allowed',
         );
@@ -216,7 +223,8 @@ void main() {
             matching: find.byType(tappable),
           ),
           findsNothing,
-          reason: 'a $tappable in the About block is a link or a button; '
+          reason:
+              'a $tappable in the About block is a link or a button; '
               'the block is text only',
         );
       }
@@ -235,15 +243,21 @@ void main() {
           matching: find.byType(RichText),
         ),
       );
-      expect(paragraphs, isNotEmpty, reason: 'the walk must have something to '
-          'walk');
+      expect(
+        paragraphs,
+        isNotEmpty,
+        reason:
+            'the walk must have something to '
+            'walk',
+      );
 
       for (final RichText paragraph in paragraphs) {
         paragraph.text.visitChildren((InlineSpan span) {
           expect(
             span is TextSpan ? span.recognizer : null,
             isNull,
-            reason: 'a tappable span in the About block is an outbound link '
+            reason:
+                'a tappable span in the About block is an outbound link '
                 'in disguise',
           );
           return true;

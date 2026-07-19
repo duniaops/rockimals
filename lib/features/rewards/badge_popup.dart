@@ -225,7 +225,10 @@ class _BadgeCelebration extends StatelessWidget {
           opacity: _fade.transform(t),
           child: ClipRect(
             child: BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: _scrimBlur, sigmaY: _scrimBlur),
+              filter: ui.ImageFilter.blur(
+                sigmaX: _scrimBlur,
+                sigmaY: _scrimBlur,
+              ),
               child: ColoredBox(
                 color: _scrim,
                 child: Center(
@@ -388,7 +391,10 @@ class _HoppingEmojiState extends State<_HoppingEmoji>
     return AnimatedBuilder(
       animation: _controller,
       // `font-size:64px` (`index.html:251`).
-      child: Text(widget.emoji, style: const TextStyle(fontSize: 64, height: 1)),
+      child: Text(
+        widget.emoji,
+        style: const TextStyle(fontSize: 64, height: 1),
+      ),
       builder: (BuildContext context, Widget? child) {
         // `hop` is `translateY(…) rotate(…)`, and a CSS transform list applies
         // right-to-left — so the rotation is the inner one. The same nesting

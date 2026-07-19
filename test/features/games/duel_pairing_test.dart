@@ -66,8 +66,12 @@ void main() {
     test('deals the only qualifying pair when the sky offers just one', () {
       // Three near-identical rocks and one outlier: the only pairing that
       // clears the gap is the outlier against one of the others.
-      final Asteroid outlier =
-          _rock('2020 ZZZ', diaMax: 3000, missLunar: 0.3, velKps: 30);
+      final Asteroid outlier = _rock(
+        '2020 ZZZ',
+        diaMax: 3000,
+        missLunar: 0.3,
+        velKps: 30,
+      );
       final List<Asteroid> sky = <Asteroid>[
         _rock('2020 AAA', diaMax: 100, missLunar: 5, velKps: 15),
         _rock('2020 BBB', diaMax: 100, missLunar: 5, velKps: 15),
@@ -89,8 +93,12 @@ void main() {
       // Defensive rather than reachable — the repository never yields fewer
       // than six (plan decision 10) — but the give-up is what makes it safe,
       // and a rule that only holds on good input is not a rule.
-      final Asteroid lonely =
-          _rock('2020 AAA', diaMax: 100, missLunar: 5, velKps: 15);
+      final Asteroid lonely = _rock(
+        '2020 AAA',
+        diaMax: 100,
+        missLunar: 5,
+        velKps: 15,
+      );
       final DuelPair pair = dealDuelPair(<Asteroid>[lonely], Random(1));
 
       expect(pair.a, same(lonely));
@@ -99,9 +107,18 @@ void main() {
   });
 
   group('winnerIsA', () {
-    final Asteroid strong =
-        _rock('2020 AAA', diaMax: 3000, missLunar: 0.3, velKps: 30);
-    final Asteroid weak = _rock('2020 DDD', diaMax: 5, missLunar: 40, velKps: 6);
+    final Asteroid strong = _rock(
+      '2020 AAA',
+      diaMax: 3000,
+      missLunar: 0.3,
+      velKps: 30,
+    );
+    final Asteroid weak = _rock(
+      '2020 DDD',
+      diaMax: 5,
+      missLunar: 40,
+      velKps: 6,
+    );
 
     test('the more powerful animal wins from either side of the board', () {
       expect(DuelPair(a: strong, b: weak).winnerIsA, isTrue);
@@ -113,7 +130,12 @@ void main() {
       // `danger(a) >= danger(b)` (`index.html:1048`). With `>` a tie would grade
       // *both* taps as wrong, which is the one outcome a kids-first game must
       // never produce.
-      final Asteroid twin = _rock('2020 BBB', diaMax: 5, missLunar: 40, velKps: 6);
+      final Asteroid twin = _rock(
+        '2020 BBB',
+        diaMax: 5,
+        missLunar: 40,
+        velKps: 6,
+      );
       expect(power(twin), power(weak));
 
       expect(DuelPair(a: weak, b: twin).winnerIsA, isTrue);
@@ -125,9 +147,18 @@ void main() {
       // prototype ranks on the raw double (`index.html:1048`), so this pair has
       // a winner even though the board looks tied. The deal's gap rule exists
       // to keep it off the screen — but the comparison must still be decisive.
-      final Asteroid a = _rock('2020 EEE', diaMax: 100, missLunar: 5, velKps: 15);
-      final Asteroid b =
-          _rock('2020 FFF', diaMax: 100, missLunar: 5, velKps: 15.02);
+      final Asteroid a = _rock(
+        '2020 EEE',
+        diaMax: 100,
+        missLunar: 5,
+        velKps: 15,
+      );
+      final Asteroid b = _rock(
+        '2020 FFF',
+        diaMax: 100,
+        missLunar: 5,
+        velKps: 15.02,
+      );
       expect(powerStars(a), powerStars(b));
       expect(power(a), isNot(power(b)));
 

@@ -58,8 +58,9 @@ final Provider<Store> storeProvider = Provider<Store>(
 /// rebuilt between listeners would only reopen a connection nothing asked for.
 final Provider<AsteroidRepository> asteroidRepositoryProvider =
     Provider<AsteroidRepository>(
-      (Ref ref) =>
-          AsteroidRepository(CachingFeedSource(NeoWsClient(), ref.watch(storeProvider))),
+      (Ref ref) => AsteroidRepository(
+        CachingFeedSource(NeoWsClient(), ref.watch(storeProvider)),
+      ),
       name: 'asteroidRepository',
     );
 
@@ -82,27 +83,29 @@ final Provider<AsteroidRepository> asteroidRepositoryProvider =
 /// would mean that promise broke — a bug to fix in the repository, not a state
 /// for the UI to render. Nothing is caught here to paper over it: swallowing it
 /// would hide the bug and leave a child on a spinner forever.
-final FutureProvider<AsteroidFeed> asteroidFeedProvider =
-    FutureProvider<AsteroidFeed>((Ref ref) async {
-      final AsteroidRepository repository = ref.watch(
-        asteroidRepositoryProvider,
-      );
-      final AsteroidFeed feed = await repository.loadData();
+final FutureProvider<AsteroidFeed>
+asteroidFeedProvider = FutureProvider<AsteroidFeed>(
+  (Ref ref) async {
+    final AsteroidRepository repository = ref.watch(asteroidRepositoryProvider);
+    final AsteroidFeed feed = await repository.loadData();
 
-      // Tomorrow's sky, warmed onto the disk for tomorrow's launch
-      // (`specs/06-title-polish-safety.md:38`). **Unawaited on purpose** — the
-      // child's sky is in hand and returning it must not wait on a second
-      // request; `prefetchTomorrow` never throws, so nothing here can turn a
-      // resolved feed into an error.
-      //
-      // **Skipped on the sample set**, which is the one signal available up here
-      // that the network just failed. Prefetching over a dead connection would
-      // spend the ceiling again for an answer that cannot come, and on a live
-      // connection it costs one request a day against a key a household shares.
-      if (!feed.usingFallback) unawaited(repository.prefetchTomorrow());
+    // Tomorrow's sky, warmed onto the disk for tomorrow's launch
+    // (`specs/06-title-polish-safety.md:38`). **Unawaited on purpose** — the
+    // child's sky is in hand and returning it must not wait on a second
+    // request; `prefetchTomorrow` never throws, so nothing here can turn a
+    // resolved feed into an error.
+    //
+    // **Skipped on the sample set**, which is the one signal available up here
+    // that the network just failed. Prefetching over a dead connection would
+    // spend the ceiling again for an answer that cannot come, and on a live
+    // connection it costs one request a day against a key a household shares.
+    if (!feed.usingFallback) unawaited(repository.prefetchTomorrow());
 
-      return feed;
-    }, name: 'asteroidFeed', retry: _neverRetry);
+    return feed;
+  },
+  name: 'asteroidFeed',
+  retry: _neverRetry,
+);
 
 /// Riverpod 3 retries a failed provider **by default** — ten attempts on a
 /// 200ms→6400ms backoff (`ProviderContainer.defaultRetry`), roughly 25 seconds

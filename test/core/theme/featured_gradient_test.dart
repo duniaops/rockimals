@@ -58,8 +58,9 @@ void main() {
   group('kFeaturedGradient — the only copy in the app', () {
     test('no Dart file outside this token restates the hex values', () {
       final List<String> offenders = <String>[];
-      for (final FileSystemEntity entity
-          in Directory('lib').listSync(recursive: true)) {
+      for (final FileSystemEntity entity in Directory(
+        'lib',
+      ).listSync(recursive: true)) {
         if (entity is! File || !entity.path.endsWith('.dart')) continue;
         if (entity.path.endsWith('core/theme/featured_gradient.dart')) continue;
         final String source = entity.readAsStringSync();

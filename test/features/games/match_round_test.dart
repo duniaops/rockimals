@@ -104,10 +104,7 @@ void main() {
 
       // The board renders straight off this list; a stray `sort` in a widget
       // would reorder the buttons under a child's finger.
-      expect(
-        () => round.options.add(kAnimals.first),
-        throwsUnsupportedError,
-      );
+      expect(() => round.options.add(kAnimals.first), throwsUnsupportedError);
     });
   });
 

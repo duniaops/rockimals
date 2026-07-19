@@ -107,7 +107,10 @@ void main() {
       await tester.pumpWidget(_app(MemoryStore()));
 
       expect(_barFill(tester), 0);
-      expect(find.text('50 more points to unlock 🐭 Mouse Scout'), findsOneWidget);
+      expect(
+        find.text('50 more points to unlock 🐭 Mouse Scout'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('swaps the bar for the master line once every tier is passed', (
@@ -119,7 +122,9 @@ void main() {
       await tester.pumpWidget(_app(MemoryStore(points: 1000)));
 
       expect(
-        find.text('🏆 All animal badges collected — you’re a Space Zoo Master!'),
+        find.text(
+          '🏆 All animal badges collected — you’re a Space Zoo Master!',
+        ),
         findsOneWidget,
       );
       expect(find.byType(FractionallySizedBox), findsNothing);
@@ -201,7 +206,9 @@ void main() {
       // Every badge, including the ones still ahead — a locked tile is an
       // invitation that says what to do, and a shelf of only what you have is a
       // receipt (`specs/05`: "locked dimmed with their goal").
-      await tester.pumpWidget(_app(MemoryStore(badges: const <String>['play'])));
+      await tester.pumpWidget(
+        _app(MemoryStore(badges: const <String>['play'])),
+      );
 
       for (final AnimalBadge badge in kBadges) {
         expect(find.text(badge.title), findsOneWidget, reason: badge.id);
@@ -227,16 +234,16 @@ void main() {
       // opacity is invisible to a screen reader — so without a label an unearned
       // badge would be announced exactly like a won one.
       final SemanticsHandle handle = tester.ensureSemantics();
-      await tester.pumpWidget(_app(MemoryStore(badges: const <String>['play'])));
+      await tester.pumpWidget(
+        _app(MemoryStore(badges: const <String>['play'])),
+      );
 
       expect(
         find.bySemanticsLabel('Lift Off, earned. Play your first game'),
         findsOneWidget,
       );
       expect(
-        find.bySemanticsLabel(
-          'Mouse Scout, not earned yet. Earn 50 points',
-        ),
+        find.bySemanticsLabel('Mouse Scout, not earned yet. Earn 50 points'),
         findsOneWidget,
       );
 
@@ -291,10 +298,7 @@ void main() {
       addTearDown(tester.view.reset);
 
       await tester.pumpWidget(
-        _scoped(
-          _container(MemoryStore(points: 320)),
-          textScale: 1.5,
-        ),
+        _scoped(_container(MemoryStore(points: 320)), textScale: 1.5),
       );
       await tester.pumpAndSettle();
 
@@ -345,7 +349,10 @@ void main() {
 
       expect(find.text('30'), findsOneWidget);
       expect(_barFill(tester), closeTo(0.6, 1e-9));
-      expect(find.text('20 more points to unlock 🐭 Mouse Scout'), findsOneWidget);
+      expect(
+        find.text('20 more points to unlock 🐭 Mouse Scout'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('a new best answer streak moves the 🔥 stat', (tester) async {
@@ -379,10 +386,15 @@ void main() {
 
       expect(find.text('🏅 1'), findsOneWidget);
       expect(_tileOpacity(tester, 'Mouse Scout'), 1);
-      expect(find.text('100 more points to unlock 🦊 Fox Explorer'), findsOneWidget);
+      expect(
+        find.text('100 more points to unlock 🦊 Fox Explorer'),
+        findsOneWidget,
+      );
     });
 
-    testWidgets('a restart finds the same numbers on the shelf', (tester) async {
+    testWidgets('a restart finds the same numbers on the shelf', (
+      tester,
+    ) async {
       // A fresh container over the same store — the "relaunch" seam.
       // `store_test.dart` owns the disk half; what this asks is that nothing on
       // this screen is held only in memory.
@@ -405,9 +417,9 @@ void main() {
 }
 
 /// The bar's fill, 0…1, read off the box that actually renders it.
-double _barFill(WidgetTester tester) =>
-    tester.widget<FractionallySizedBox>(find.byType(FractionallySizedBox))
-        .widthFactor!;
+double _barFill(WidgetTester tester) => tester
+    .widget<FractionallySizedBox>(find.byType(FractionallySizedBox))
+    .widthFactor!;
 
 /// The opacity a badge tile is drawn at, found through its title — `1` for an
 /// earned badge, `0.4` for one still ahead.

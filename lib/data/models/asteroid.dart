@@ -97,7 +97,9 @@ class Asteroid {
     // hazard flag is not an unflagged asteroid; it is not an asteroid.
     final Object? hazardous = json['hazardous'];
     if (hazardous is! bool) {
-      throw FormatException('cache: expected a bool at "hazardous", got: $hazardous');
+      throw FormatException(
+        'cache: expected a bool at "hazardous", got: $hazardous',
+      );
     }
 
     return Asteroid(

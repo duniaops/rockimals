@@ -18,12 +18,15 @@ void main() {
       expect(capRadarAnimals(ordinary), same(ordinary));
     });
 
-    test('keeps the whole sky at exactly the cap — the boundary is not off by one', () {
-      final List<Asteroid> full = _rocks(kMaxRadarAnimals);
+    test(
+      'keeps the whole sky at exactly the cap — the boundary is not off by one',
+      () {
+        final List<Asteroid> full = _rocks(kMaxRadarAnimals);
 
-      expect(capRadarAnimals(full), hasLength(kMaxRadarAnimals));
-      expect(capRadarAnimals(full), same(full));
-    });
+        expect(capRadarAnimals(full), hasLength(kMaxRadarAnimals));
+        expect(capRadarAnimals(full), same(full));
+      },
+    );
 
     test('trims a busy day to the cap', () {
       expect(capRadarAnimals(_rocks(200)), hasLength(kMaxRadarAnimals));

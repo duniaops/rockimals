@@ -295,11 +295,12 @@ List<double> _radarCircles(WidgetTester tester) {
     ),
   );
   final List<double> radii = <double>[];
-  final Matcher collector = (paints
-    ..something((Symbol method, List<dynamic> arguments) {
-      if (method == #drawCircle) radii.add(arguments[1] as double);
-      return false;
-    })) as Matcher;
+  final Matcher collector =
+      (paints..something((Symbol method, List<dynamic> arguments) {
+            if (method == #drawCircle) radii.add(arguments[1] as double);
+            return false;
+          }))
+          as Matcher;
   collector.matches(canvas, <dynamic, dynamic>{});
   return radii;
 }

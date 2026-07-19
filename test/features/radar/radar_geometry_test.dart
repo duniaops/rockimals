@@ -66,7 +66,10 @@ void main() {
       const double k = 0.25;
       final double geometricMean = math.sqrt(k * (60 + k)) - k;
 
-      expect(geometry.radiusFor(geometricMean), closeTo((inner + r0) / 2, 1e-9));
+      expect(
+        geometry.radiusFor(geometricMean),
+        closeTo((inner + r0) / 2, 1e-9),
+      );
       // ~3.6 LD — not 30. Sanity that the line above is testing the log and not
       // an arithmetic midpoint that a linear scale would also satisfy.
       expect(geometricMean, closeTo(3.63, 0.01));
@@ -81,14 +84,20 @@ void main() {
       // ~86% of the way.
       final double halfway = (inner + r0) / 2;
       expect(geometry.radiusFor(30), greaterThan(halfway));
-      expect((geometry.radiusFor(30) - inner) / (r0 - inner), closeTo(0.874, 0.001));
+      expect(
+        (geometry.radiusFor(30) - inner) / (r0 - inner),
+        closeTo(0.874, 0.001),
+      );
     });
 
     test('tracks the field it is given rather than a fixed size', () {
       // `R0` is `min(W, H*0.9)/2 - 28` (`index.html:665`), so a narrow phone is
       // width-bound and a wide one height-bound. The floor is *not* scaled —
       // Earth is 15px on every device, so the gap that clears it is too.
-      const RadarGeometry narrow = RadarGeometry(size: Size(300, 900), maxLd: 60);
+      const RadarGeometry narrow = RadarGeometry(
+        size: Size(300, 900),
+        maxLd: 60,
+      );
       const RadarGeometry wide = RadarGeometry(size: Size(900, 300), maxLd: 60);
 
       expect(narrow.r0, 300 / 2 - 28);
@@ -113,14 +122,20 @@ void main() {
     test('reaches 5% past the furthest animal in the sky', () {
       // The margin that keeps the furthest animal just inside the outer ring
       // instead of sitting on the edge of the screen.
-      expect(RadarGeometry.maxLdFor(_sky(<double>[3, 20, 11])), closeTo(21, 1e-9));
+      expect(
+        RadarGeometry.maxLdFor(_sky(<double>[3, 20, 11])),
+        closeTo(21, 1e-9),
+      );
     });
 
     test('floors at 8 LD when the whole sky is close', () {
       // Without the floor, a day where nothing came further than half a Moon-
       // distance would zoom the scale so far in that the rings stop meaning
       // anything — and every ring but the 1× would vanish with them.
-      expect(RadarGeometry.maxLdFor(_sky(<double>[0.2, 0.5])), closeTo(8.4, 1e-9));
+      expect(
+        RadarGeometry.maxLdFor(_sky(<double>[0.2, 0.5])),
+        closeTo(8.4, 1e-9),
+      );
       // The floor is on the *max*, then the headroom applies: 8 × 1.05.
       expect(RadarGeometry.maxLdFor(_sky(<double>[7.9])), closeTo(8.4, 1e-9));
       expect(RadarGeometry.maxLdFor(_sky(<double>[9])), closeTo(9.45, 1e-9));
@@ -136,27 +151,33 @@ void main() {
       expect(RadarGeometry.maxLdFor(_sky(<double>[57])), closeTo(59.85, 1e-9));
     });
 
-    test('answers a usable field for an empty sky rather than dividing by zero',
-        () {
-      // The app is never in this state — the repository substitutes the sample
-      // sky rather than hand anyone an empty feed — but `radiusFor` divides by
-      // `log10(maxLd + k) - log10(k)`, so a zero here would poison every
-      // radius on the screen with NaN.
-      expect(RadarGeometry.maxLdFor(const <Asteroid>[]), closeTo(8.4, 1e-9));
-      expect(
-        const RadarGeometry(size: field, maxLd: 8.4).radiusFor(1),
-        isNot(isNaN),
-      );
-    });
+    test(
+      'answers a usable field for an empty sky rather than dividing by zero',
+      () {
+        // The app is never in this state — the repository substitutes the sample
+        // sky rather than hand anyone an empty feed — but `radiusFor` divides by
+        // `log10(maxLd + k) - log10(k)`, so a zero here would poison every
+        // radius on the screen with NaN.
+        expect(RadarGeometry.maxLdFor(const <Asteroid>[]), closeTo(8.4, 1e-9));
+        expect(
+          const RadarGeometry(size: field, maxLd: 8.4).radiusFor(1),
+          isNot(isNaN),
+        );
+      },
+    );
   });
 
   group('RadarGeometry.visibleRings', () {
     test('offers all six rings on a sky that reaches them', () {
       const RadarGeometry geometry = RadarGeometry(size: field, maxLd: 60);
-      expect(
-        geometry.visibleRings(zoom: 1).map((r) => r.ld),
-        <int>[1, 2, 5, 10, 20, 50],
-      );
+      expect(geometry.visibleRings(zoom: 1).map((r) => r.ld), <int>[
+        1,
+        2,
+        5,
+        10,
+        20,
+        50,
+      ]);
     });
 
     test('drops rings the sky does not reach', () {
@@ -173,7 +194,13 @@ void main() {
       // `l <= MAXLD`, not `<`. A sky whose furthest animal is at 19.05 LD gives
       // maxLd 20.0025 and keeps its 20× ring, with the animal just inside it.
       const RadarGeometry geometry = RadarGeometry(size: field, maxLd: 20);
-      expect(geometry.visibleRings(zoom: 1).map((r) => r.ld), <int>[1, 2, 5, 10, 20]);
+      expect(geometry.visibleRings(zoom: 1).map((r) => r.ld), <int>[
+        1,
+        2,
+        5,
+        10,
+        20,
+      ]);
     });
 
     test('reports each ring at its scaled radius', () {
@@ -181,7 +208,10 @@ void main() {
       final rings = geometry.visibleRings(zoom: 2);
 
       for (final ring in rings) {
-        expect(ring.radius, closeTo(geometry.radiusFor(ring.ld.toDouble()) * 2, 1e-9));
+        expect(
+          ring.radius,
+          closeTo(geometry.radiusFor(ring.ld.toDouble()) * 2, 1e-9),
+        );
       }
     });
 
@@ -217,10 +247,17 @@ void main() {
       // far outside the field at the 6.5 zoom ceiling, which costs a frame and
       // draws nothing anyone can see.
       const RadarGeometry geometry = RadarGeometry(size: field, maxLd: 60);
-      final visible = geometry.visibleRings(zoom: 6.5).map((r) => r.ld).toList();
+      final visible = geometry
+          .visibleRings(zoom: 6.5)
+          .map((r) => r.ld)
+          .toList();
 
       expect(visible, isNotEmpty, reason: 'the inner rings still fit');
-      expect(visible, isNot(contains(50)), reason: '167 × 6.5 is way off-screen');
+      expect(
+        visible,
+        isNot(contains(50)),
+        reason: '167 × 6.5 is way off-screen',
+      );
       for (final ring in geometry.visibleRings(zoom: 6.5)) {
         expect(ring.radius, lessThanOrEqualTo(field.longestSide));
       }
@@ -235,21 +272,24 @@ void main() {
       // throws, an animal is just quietly the wrong size.
       const Map<String, ({double emoji, double chip})> expected =
           <String, ({double emoji, double chip})>{
-        '2011 EW': (emoji: 21.81904789905254, chip: 15.709714487317827),
-        '2006 QV89': (emoji: 18.032194302458574, chip: 12.983179897770173),
-        '2020 SW': (emoji: 15, chip: 10.799999999999999),
-        '433 Eros': (emoji: 28.8, chip: 20.736),
-        '2004 BL86': (emoji: 23.58930768058237, chip: 16.984301530019305),
-        '2012 DA14': (emoji: 17.093544180555362, chip: 12.30735180999986),
-        '99942 Apophis': (emoji: 22.297394068305852, chip: 16.054123729180212),
-        '2015 TB145': (emoji: 23.58930768058237, chip: 16.984301530019305),
-        '2010 WC9': (emoji: 19.837955848367358, chip: 14.283328210824497),
-        '2001 FO32': (emoji: 24.824011775106012, chip: 17.87328847807633),
-        '2005 YU55': (emoji: 22.481105387053795, chip: 16.18639587867873),
-        '2019 OK': (emoji: 19.837955848367358, chip: 14.283328210824497),
-        '2018 LF16': (emoji: 20.9974509270196, chip: 15.118164667454112),
-        '2013 TX68': (emoji: 17.465952331323194, chip: 12.575485678552699),
-      };
+            '2011 EW': (emoji: 21.81904789905254, chip: 15.709714487317827),
+            '2006 QV89': (emoji: 18.032194302458574, chip: 12.983179897770173),
+            '2020 SW': (emoji: 15, chip: 10.799999999999999),
+            '433 Eros': (emoji: 28.8, chip: 20.736),
+            '2004 BL86': (emoji: 23.58930768058237, chip: 16.984301530019305),
+            '2012 DA14': (emoji: 17.093544180555362, chip: 12.30735180999986),
+            '99942 Apophis': (
+              emoji: 22.297394068305852,
+              chip: 16.054123729180212,
+            ),
+            '2015 TB145': (emoji: 23.58930768058237, chip: 16.984301530019305),
+            '2010 WC9': (emoji: 19.837955848367358, chip: 14.283328210824497),
+            '2001 FO32': (emoji: 24.824011775106012, chip: 17.87328847807633),
+            '2005 YU55': (emoji: 22.481105387053795, chip: 16.18639587867873),
+            '2019 OK': (emoji: 19.837955848367358, chip: 14.283328210824497),
+            '2018 LF16': (emoji: 20.9974509270196, chip: 15.118164667454112),
+            '2013 TX68': (emoji: 17.465952331323194, chip: 12.575485678552699),
+          };
 
       for (final Asteroid rock in kFallbackAsteroids) {
         final ({double emoji, double chip}) got = chipSizeFor(rock.diaMax);
@@ -328,7 +368,10 @@ void main() {
       // The Moon rides its own ring, so the two must scale as one thing. If they
       // could come apart, the unit every distance on this screen is quoted in
       // would be sitting somewhere other than where the screen says it is.
-      const RadarGeometry geometry = RadarGeometry(size: Size(390, 700), maxLd: 60);
+      const RadarGeometry geometry = RadarGeometry(
+        size: Size(390, 700),
+        maxLd: 60,
+      );
       for (final double zoom in <double>[0.35, 1, 2.5, 6.5]) {
         expect(
           geometry.moonRadius(zoom: zoom),

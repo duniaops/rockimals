@@ -154,8 +154,11 @@ void paintPlanetLabel(
   required bool showLabels,
 }) {
   if (!showLabels) return;
-  radarLabel(name, size: 9, colour: _planetLabelColour)
-      .paint(canvas, at.dx, at.dy + radius + 11);
+  radarLabel(
+    name,
+    size: 9,
+    colour: _planetLabelColour,
+  ).paint(canvas, at.dx, at.dy + radius + 11);
 }
 
 // ── The six planets, in the prototype's own order (`index.html:759-788`).
@@ -175,7 +178,14 @@ void paintMercury(
   required bool showLabels,
 }) {
   paintGlow(canvas, at, radius, colour: _mercuryGlow, alpha: 0.5);
-  paintSphere(canvas, at, radius, lit: _mercuryLit, mid: _mercuryMid, dark: _mercuryDark);
+  paintSphere(
+    canvas,
+    at,
+    radius,
+    lit: _mercuryLit,
+    mid: _mercuryMid,
+    dark: _mercuryDark,
+  );
 }
 
 void paintVenus(
@@ -185,7 +195,14 @@ void paintVenus(
   required bool showLabels,
 }) {
   paintGlow(canvas, at, radius, colour: _venusGlow, alpha: 0.6);
-  paintSphere(canvas, at, radius, lit: _venusLit, mid: _venusMid, dark: _venusDark);
+  paintSphere(
+    canvas,
+    at,
+    radius,
+    lit: _venusLit,
+    mid: _venusMid,
+    dark: _venusDark,
+  );
   paintPlanetLabel(canvas, at, radius, 'Venus', showLabels: showLabels);
 }
 
@@ -196,7 +213,14 @@ void paintNeptune(
   required bool showLabels,
 }) {
   paintGlow(canvas, at, radius, colour: _neptuneGlow, alpha: 0.6);
-  paintSphere(canvas, at, radius, lit: _neptuneLit, mid: _neptuneMid, dark: _neptuneDark);
+  paintSphere(
+    canvas,
+    at,
+    radius,
+    lit: _neptuneLit,
+    mid: _neptuneMid,
+    dark: _neptuneDark,
+  );
   paintPlanetLabel(canvas, at, radius, 'Neptune', showLabels: showLabels);
 }
 
@@ -219,7 +243,14 @@ void paintMars(
   required bool showLabels,
 }) {
   paintGlow(canvas, at, radius, colour: _marsGlow, alpha: 0.6);
-  paintSphere(canvas, at, radius, lit: _marsLit, mid: _marsMid, dark: _marsDark);
+  paintSphere(
+    canvas,
+    at,
+    radius,
+    lit: _marsLit,
+    mid: _marsMid,
+    dark: _marsDark,
+  );
 
   canvas.save();
   canvas.clipPath(Path()..addOval(Rect.fromCircle(center: at, radius: radius)));
@@ -263,7 +294,14 @@ void paintJupiter(
   required bool showLabels,
 }) {
   paintGlow(canvas, at, radius, colour: _jupiterGlow, alpha: 0.55);
-  paintSphere(canvas, at, radius, lit: _jupiterLit, mid: _jupiterMid, dark: _jupiterDark);
+  paintSphere(
+    canvas,
+    at,
+    radius,
+    lit: _jupiterLit,
+    mid: _jupiterMid,
+    dark: _jupiterDark,
+  );
 
   canvas.save();
   canvas.clipPath(Path()..addOval(Rect.fromCircle(center: at, radius: radius)));
@@ -327,7 +365,14 @@ void paintSaturn(
     width: radius * 0.15,
   );
 
-  paintSphere(canvas, at, radius, lit: _saturnLit, mid: _saturnMid, dark: _saturnDark);
+  paintSphere(
+    canvas,
+    at,
+    radius,
+    lit: _saturnLit,
+    mid: _saturnMid,
+    dark: _saturnDark,
+  );
 
   _paintRingArc(
     canvas,
@@ -435,8 +480,11 @@ void paintSun(
   // and its own 12px drop rather than the planets' 11. Routing it through
   // `pLabel` would silently restyle it, so the two stay separate — which is
   // what the prototype is saying by not calling `pLabel` here itself.
-  radarLabel('Sun', size: 9, colour: _sunLabelColour)
-      .paint(canvas, at.dx, at.dy + radius + 12);
+  radarLabel(
+    'Sun',
+    size: 9,
+    colour: _sunLabelColour,
+  ).paint(canvas, at.dx, at.dy + radius + 12);
 }
 
 // ── The backdrop's palette, ported from `index.html:741-788` and `801-806`.

@@ -236,7 +236,11 @@ Uint8List encodeWav(List<ToneNote> notes, {int sampleRate = kSampleRate}) {
   out.setUint16(22, channels, Endian.little);
   out.setUint32(24, sampleRate, Endian.little);
   out.setUint32(28, byteRate, Endian.little);
-  out.setUint16(32, channels * bitsPerSample ~/ 8, Endian.little); // block align
+  out.setUint16(
+    32,
+    channels * bitsPerSample ~/ 8,
+    Endian.little,
+  ); // block align
   out.setUint16(34, bitsPerSample, Endian.little);
   // "data" sub-chunk.
   out.setUint32(36, 0x64617461); // "data"

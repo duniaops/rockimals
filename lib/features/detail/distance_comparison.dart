@@ -123,7 +123,8 @@ class _Track extends StatelessWidget {
       // The dots and their tiny emoji ticks are decorative; a reader hears the
       // one fact that matters — where the asteroid falls between Earth and the
       // Moon — without spelling out 🌙/☄️. The header above carries the rest.
-      label: 'On a track from Earth to the Moon, this asteroid passes at '
+      label:
+          'On a track from Earth to the Moon, this asteroid passes at '
           '$astLabel.',
       child: ExcludeSemantics(child: _buildTrack()),
     );
@@ -158,9 +159,12 @@ class _Track extends StatelessWidget {
                   key: ValueKey<String>('dist-track'),
                   decoration: BoxDecoration(
                     color: _trackFill,
-                    borderRadius: BorderRadius.all(Radius.circular(_trackRadius)),
-                    border:
-                        Border.fromBorderSide(BorderSide(color: Palette.line)),
+                    borderRadius: BorderRadius.all(
+                      Radius.circular(_trackRadius),
+                    ),
+                    border: Border.fromBorderSide(
+                      BorderSide(color: Palette.line),
+                    ),
                   ),
                 ),
               ),
@@ -251,7 +255,10 @@ class _Track extends StatelessWidget {
       top: trackMidY - size / 2,
       width: size,
       height: size,
-      child: DecoratedBox(key: ValueKey<String>(keyValue), decoration: decoration),
+      child: DecoratedBox(
+        key: ValueKey<String>(keyValue),
+        decoration: decoration,
+      ),
     );
   }
 
@@ -286,4 +293,3 @@ class _Track extends StatelessWidget {
     );
   }
 }
-

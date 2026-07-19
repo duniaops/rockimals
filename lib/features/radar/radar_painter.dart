@@ -268,7 +268,11 @@ class RadarPainter extends CustomPainter {
   /// the same lit background whatever their size, so the size difference stays a
   /// size difference and does not turn into a difference in how *alive* they
   /// look.
-  void _paintAnimals(Canvas canvas, RadarGeometry geometry, {required double pulse}) {
+  void _paintAnimals(
+    Canvas canvas,
+    RadarGeometry geometry, {
+    required double pulse,
+  }) {
     // Two [Paint]s recoloured per animal, rather than two per animal per frame.
     final Paint fill = Paint();
     final Paint stroke = Paint()..style = PaintingStyle.stroke;
@@ -278,8 +282,9 @@ class RadarPainter extends CustomPainter {
     // decision 2). Iterating [RadarOrbits.visible] — the same list the hit test
     // walks — is what stops a filtered animal from being tappable while off
     // screen.
-    for (final RadarOrbit orbit
-        in orbits.visible(onlyCloseFlybys: layers.closeFlybysOnly)) {
+    for (final RadarOrbit orbit in orbits.visible(
+      onlyCloseFlybys: layers.closeFlybysOnly,
+    )) {
       final Offset at = orbits.positionOf(
         orbit,
         geometry: geometry,
@@ -323,7 +328,10 @@ class RadarPainter extends CustomPainter {
         _paintSelectionCaret(canvas, at, chip: chip, halo: halo);
       }
 
-      _emoji(orbit.critter.animal.emoji, orbit.emojiSize).paintCentred(canvas, at);
+      _emoji(
+        orbit.critter.animal.emoji,
+        orbit.emojiSize,
+      ).paintCentred(canvas, at);
 
       // **The wave is the accessibility audit's addition, and it is the only
       // mark on this field the prototype does not have.**
@@ -342,10 +350,9 @@ class RadarPainter extends CustomPainter {
       // [RadarLabel] per distinct size (`radar_labels.dart`), exactly as the
       // animal emoji beside it does — no per-frame layout (`CLAUDE.md:80`).
       if (orbit.isCloseFlyby) {
-        _wave(orbit.emojiSize * _waveScale).paintCentred(
-          canvas,
-          at.translate(chip * 0.8, -chip * 0.8),
-        );
+        _wave(
+          orbit.emojiSize * _waveScale,
+        ).paintCentred(canvas, at.translate(chip * 0.8, -chip * 0.8));
       }
 
       // Only the animals waving and the one being looked at say their names,
@@ -354,11 +361,10 @@ class RadarPainter extends CustomPainter {
       // screen a five-year-old is meant to be able to read; the rest introduce
       // themselves when they are tapped.
       if (layers.labels && (orbit.isCloseFlyby || isSelected)) {
-        _animalName(orbit.critter.first, selected: isSelected).paint(
-          canvas,
-          at.dx,
-          at.dy - orbit.emojiSize * 0.6 - 4,
-        );
+        _animalName(
+          orbit.critter.first,
+          selected: isSelected,
+        ).paint(canvas, at.dx, at.dy - orbit.emojiSize * 0.6 - 4);
       }
     }
 
@@ -414,7 +420,11 @@ class RadarPainter extends CustomPainter {
 
   /// Earth: a glow that breathes, the planet, and its name
   /// (`index.html:870-876`).
-  void _paintEarth(Canvas canvas, RadarGeometry geometry, {required double pulse}) {
+  void _paintEarth(
+    Canvas canvas,
+    RadarGeometry geometry, {
+    required double pulse,
+  }) {
     final Offset center = geometry.center;
 
     // The glow is the only thing on this layer that moves. It is a slow breath
@@ -645,8 +655,12 @@ RadarLabel _emoji(String emoji, double size) =>
 /// animal emoji asks for it, and the same opaque white: a colour emoji carries
 /// its own bitmap and ignores the fill, so this colour only matters to a
 /// monochrome fallback glyph.
-RadarLabel _wave(double size) =>
-    radarLabel(kCloseFlybyGlyph, size: size, colour: _emojiColour, family: 'serif');
+RadarLabel _wave(double size) => radarLabel(
+  kCloseFlybyGlyph,
+  size: size,
+  colour: _emojiColour,
+  family: 'serif',
+);
 
 /// How big the wave is against the animal it belongs to. Small enough to read
 /// as a mark *on* the token rather than a second animal beside it, big enough
@@ -662,6 +676,14 @@ RadarLabel _animalName(String first, {required bool selected}) => radarLabel(
   weight: selected ? FontWeight.bold : null,
 );
 
-final RadarLabel _earthLabel = RadarLabel('Earth', fontSize: 10, colour: _earthLabelColour);
+final RadarLabel _earthLabel = RadarLabel(
+  'Earth',
+  fontSize: 10,
+  colour: _earthLabelColour,
+);
 
-final RadarLabel _moonLabel = RadarLabel('Moon', fontSize: 9, colour: _moonLabelColour);
+final RadarLabel _moonLabel = RadarLabel(
+  'Moon',
+  fontSize: 9,
+  colour: _moonLabelColour,
+);

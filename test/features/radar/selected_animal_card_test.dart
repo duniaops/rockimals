@@ -325,7 +325,9 @@ Future<void> _tapAnimal(WidgetTester tester) async {
   );
   await tester.tapAt(at);
   await tester.pump(); // build the card
-  await tester.pump(const Duration(milliseconds: 250)); // finish the 200ms slide
+  await tester.pump(
+    const Duration(milliseconds: 250),
+  ); // finish the 200ms slide
 }
 
 /// The radar's own canvas — named by its painter, since a `Material`'s ink is a

@@ -87,7 +87,11 @@ Asteroid pickCloserAnchor(List<Asteroid> pool, Random random) {
 /// subsumes it for every real rock (a rock's distance from itself is 0). It only
 /// earns its keep if a distance is ever `NaN`, where every comparison is false —
 /// which this port makes unreachable by throwing on a malformed feed instead.
-CloserRound dealCloserRound(List<Asteroid> pool, Asteroid anchor, Random random) {
+CloserRound dealCloserRound(
+  List<Asteroid> pool,
+  Asteroid anchor,
+  Random random,
+) {
   assert(pool.isNotEmpty, 'a round needs a sky to draw from');
   late Asteroid challenger;
   int attempts = 0;

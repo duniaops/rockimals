@@ -29,18 +29,17 @@ import 'package:rockimals/features/detail/grown_up_facts.dart';
 /// question only this panel can answer: does *this* link go through it, and
 /// with the right URL.
 void main() {
-  final Asteroid eros =
-      kFallbackAsteroids.firstWhere((Asteroid a) => a.name == '433 Eros');
-  final Asteroid rabbit =
-      kFallbackAsteroids.firstWhere((Asteroid a) => a.name == '2020 SW');
+  final Asteroid eros = kFallbackAsteroids.firstWhere(
+    (Asteroid a) => a.name == '433 Eros',
+  );
+  final Asteroid rabbit = kFallbackAsteroids.firstWhere(
+    (Asteroid a) => a.name == '2020 SW',
+  );
 
   // A gate whose answer we know: 3 + 9 = 12.
   const ParentGateChallenge fixed = ParentGateChallenge(3, 9);
 
-  Future<List<Uri>> pumpPanel(
-    WidgetTester tester,
-    Asteroid rock,
-  ) async {
+  Future<List<Uri>> pumpPanel(WidgetTester tester, Asteroid rock) async {
     final List<Uri> launched = <Uri>[];
     await tester.pumpWidget(
       MaterialApp(
@@ -164,9 +163,7 @@ void main() {
       // invoked.
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [
-            followsProvider.overrideWith(_MemFollows.new),
-          ],
+          overrides: [followsProvider.overrideWith(_MemFollows.new)],
           child: MaterialApp(home: DetailScreen(asteroid: eros)),
         ),
       );
@@ -184,17 +181,17 @@ void main() {
 /// app may not open builds it here rather than growing the model an API with a
 /// single caller.
 Asteroid _withJpl(Asteroid rock, String jpl) => Asteroid(
-      name: rock.name,
-      diaMax: rock.diaMax,
-      diaMin: rock.diaMin,
-      hazardous: rock.hazardous,
-      missLunar: rock.missLunar,
-      missKm: rock.missKm,
-      velKps: rock.velKps,
-      mag: rock.mag,
-      jpl: jpl,
-      date: rock.date,
-    );
+  name: rock.name,
+  diaMax: rock.diaMax,
+  diaMin: rock.diaMin,
+  hazardous: rock.hazardous,
+  missLunar: rock.missLunar,
+  missKm: rock.missKm,
+  velKps: rock.velKps,
+  mag: rock.mag,
+  jpl: jpl,
+  date: rock.date,
+);
 
 /// A follow set held in memory — the widget tester's fake clock hangs on a real
 /// `Box.put`, so the detail-screen mount (which reads [followsProvider]) is kept

@@ -114,11 +114,7 @@ class AboutBlock extends StatelessWidget {
               SizedBox(height: 14),
               // A hairline between the claims and the footnote — the same
               // `--line2` rule the back-bar uses (`index.html:92`).
-              Divider(
-                color: Palette.line2,
-                height: 1,
-                thickness: 1,
-              ),
+              Divider(color: Palette.line2, height: 1, thickness: 1),
               SizedBox(height: 10),
               Text(
                 AppVersion.display,

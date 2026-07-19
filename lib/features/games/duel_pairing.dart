@@ -83,7 +83,8 @@ DuelPair dealDuelPair(List<Asteroid> pool, Random random) {
     a = pool[random.nextInt(pool.length)];
     b = pool[random.nextInt(pool.length)];
     attempts++;
-  } while ((identical(a, b) || (power(a) - power(b)).abs() < kDuelMinPowerGap) &&
+  } while ((identical(a, b) ||
+          (power(a) - power(b)).abs() < kDuelMinPowerGap) &&
       attempts < kDuelMaxDealAttempts);
   return DuelPair(a: a, b: b);
 }

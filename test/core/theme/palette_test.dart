@@ -54,10 +54,7 @@ void main() {
       // fail here rather than be silently unported. The two dead ones are
       // listed because they *are* declared — being unported is a decision this
       // suite records, not an oversight it should hide.
-      expect(
-        declared.keys.toSet(),
-        <String>{...ported.keys, 'navy', 'card2'},
-      );
+      expect(declared.keys.toSet(), <String>{...ported.keys, 'navy', 'card2'});
     });
   });
 

@@ -40,7 +40,8 @@ void main() {
         expect(
           (round.challenger.missLunar - round.anchor.missLunar).abs(),
           greaterThanOrEqualTo(kCloserMinLunarGap),
-          reason: 'two distances a child cannot tell apart is not a fair '
+          reason:
+              'two distances a child cannot tell apart is not a fair '
               'question',
         );
       }
@@ -65,28 +66,34 @@ void main() {
       expect(flatSky, contains(round.challenger));
     });
 
-    test('accepts a challenger exactly at the gap, and redraws just inside it',
-        () {
-      // 0.05 apart is acceptable (the rule is strictly `<`); 0.049 is not. With
-      // only these two rocks the deal must take the far one every time or spin
-      // out its cap on the near one.
-      final Asteroid anchor = _rock('2020 AAA', missLunar: 1);
-      final Asteroid atGap = _rock('2020 BBB', missLunar: 1.05);
-      final Random random = Random(3);
+    test(
+      'accepts a challenger exactly at the gap, and redraws just inside it',
+      () {
+        // 0.05 apart is acceptable (the rule is strictly `<`); 0.049 is not. With
+        // only these two rocks the deal must take the far one every time or spin
+        // out its cap on the near one.
+        final Asteroid anchor = _rock('2020 AAA', missLunar: 1);
+        final Asteroid atGap = _rock('2020 BBB', missLunar: 1.05);
+        final Random random = Random(3);
 
-      for (int i = 0; i < 20; i++) {
-        expect(
-          dealCloserRound(<Asteroid>[anchor, atGap], anchor, random).challenger,
-          same(atGap),
-        );
-      }
+        for (int i = 0; i < 20; i++) {
+          expect(
+            dealCloserRound(
+              <Asteroid>[anchor, atGap],
+              anchor,
+              random,
+            ).challenger,
+            same(atGap),
+          );
+        }
 
-      final Asteroid insideGap = _rock('2020 CCC', missLunar: 1.049);
-      final _CountingRandom counting = _CountingRandom(Random(3));
-      dealCloserRound(<Asteroid>[anchor, insideGap], anchor, counting);
-      // It never settled: it exhausted the cap looking for something better.
-      expect(counting.draws, kCloserMaxDealAttempts);
-    });
+        final Asteroid insideGap = _rock('2020 CCC', missLunar: 1.049);
+        final _CountingRandom counting = _CountingRandom(Random(3));
+        dealCloserRound(<Asteroid>[anchor, insideGap], anchor, counting);
+        // It never settled: it exhausted the cap looking for something better.
+        expect(counting.draws, kCloserMaxDealAttempts);
+      },
+    );
   });
 
   group('challengerIsCloser', () {

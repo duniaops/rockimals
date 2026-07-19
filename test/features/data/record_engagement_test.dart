@@ -64,7 +64,9 @@ void main() {
 
       expect(container.read(dayStreakProvider), 2);
       expect(store.lastPlayedDate, '2026-07-19');
-      expect(seen, <int>[2], reason: 'the flame must be told, not just re-read');
+      expect(seen, <int>[
+        2,
+      ], reason: 'the flame must be told, not just re-read');
     });
 
     test('and the same day writes nothing and repaints nothing', () async {

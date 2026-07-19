@@ -14,9 +14,12 @@ import 'package:rockimals/data/neows_client.dart';
 /// dead network, a rate-limited key, a feed NASA served empty, and a record
 /// with a corrupt number all resolve to the same friendly sky.
 class AsteroidRepository {
-  AsteroidRepository(this._source, {DateTime Function()? now, Duration? loadCeiling})
-    : _now = now ?? DateTime.now,
-      _loadCeiling = loadCeiling ?? _defaultLoadCeiling;
+  AsteroidRepository(
+    this._source, {
+    DateTime Function()? now,
+    Duration? loadCeiling,
+  }) : _now = now ?? DateTime.now,
+       _loadCeiling = loadCeiling ?? _defaultLoadCeiling;
 
   final AsteroidFeedSource _source;
 

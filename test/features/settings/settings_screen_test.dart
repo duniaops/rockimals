@@ -96,7 +96,10 @@ void main() {
       // The title, and the proof it is a *route*: the Profile tab it was opened
       // from is still mounted underneath rather than replaced.
       expect(find.text('Settings'), findsOneWidget);
-      expect(find.byType(MySpaceZooScreen, skipOffstage: false), findsOneWidget);
+      expect(
+        find.byType(MySpaceZooScreen, skipOffstage: false),
+        findsOneWidget,
+      );
     });
 
     testWidgets('the ‹ Back pill returns to the Profile', (tester) async {
@@ -198,12 +201,14 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        tester.widget<Scaffold>(
-          find.descendant(
-            of: find.byType(SettingsScreen),
-            matching: find.byType(Scaffold),
-          ),
-        ).bottomNavigationBar,
+        tester
+            .widget<Scaffold>(
+              find.descendant(
+                of: find.byType(SettingsScreen),
+                matching: find.byType(Scaffold),
+              ),
+            )
+            .bottomNavigationBar,
         isNull,
       );
     });
@@ -244,14 +249,20 @@ void main() {
           )
           .map((Text t) => (t.data ?? '').toLowerCase());
 
-      expect(copy, isNotEmpty, reason: 'the sweep must have something to sweep');
+      expect(
+        copy,
+        isNotEmpty,
+        reason: 'the sweep must have something to sweep',
+      );
       for (final String line in copy) {
         expect(line, isNot(contains('reduced motion')));
         expect(line, isNot(contains('reduce motion')));
       }
     });
 
-    testWidgets('is off on a fresh install with no OS flag set', (tester) async {
+    testWidgets('is off on a fresh install with no OS flag set', (
+      tester,
+    ) async {
       await _openSettings(tester);
 
       expect(tester.widget<Switch>(_switchFor('Calm motion')).value, isFalse);
@@ -331,8 +342,12 @@ void main() {
       late final Store store;
       await _openSettings(tester, onStore: (Store s) => store = s);
 
-      await tester.tap(find.text('Slows the radar down and keeps the animals '
-          'calmer.'));
+      await tester.tap(
+        find.text(
+          'Slows the radar down and keeps the animals '
+          'calmer.',
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(store.reducedMotion, isTrue);
@@ -533,11 +548,7 @@ void main() {
       expect(
         tester.getTopLeft(find.text('Little Kids mode')).dy,
         lessThan(
-          tester
-              .getTopLeft(
-                find.textContaining('Asteroid data from NASA'),
-              )
-              .dy,
+          tester.getTopLeft(find.textContaining('Asteroid data from NASA')).dy,
         ),
       );
     });
@@ -717,13 +728,17 @@ Finder _switchFor(String label) => find.descendant(
 /// engine.
 Widget _app({
   double textScale = 1,
+
   /// The child's stored 🐢 Calm motion choice, or null for "never chose".
   bool? reducedMotion,
+
   /// The stored 🔊 Sound value. True is [Store.soundOn]'s own default.
   bool soundOn = true,
+
   /// The stored 🧸 Little Kids mode value. False is the fresh-install state,
   /// and — unlike Calm motion — there is no third "never chose" to express.
   bool littleKidsMode = false,
+
   /// Handed back so a test can ask what the toggle wrote.
   void Function(Store store)? onStore,
 }) {

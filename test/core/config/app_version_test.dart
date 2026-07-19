@@ -30,14 +30,18 @@ void main() {
     multiLine: true,
   ).firstMatch(pubspec);
 
-  test('pubspec.yaml declares a parseable version — the premise of this file', () {
-    expect(
-      declared,
-      isNotNull,
-      reason: 'no `version: X.Y.Z+B` line in pubspec.yaml; the tests below '
-          'would silently have nothing to compare against',
-    );
-  });
+  test(
+    'pubspec.yaml declares a parseable version — the premise of this file',
+    () {
+      expect(
+        declared,
+        isNotNull,
+        reason:
+            'no `version: X.Y.Z+B` line in pubspec.yaml; the tests below '
+            'would silently have nothing to compare against',
+      );
+    },
+  );
 
   test('AppVersion.name matches pubspec.yaml', () {
     expect(AppVersion.name, declared!.group(1));
@@ -51,8 +55,11 @@ void main() {
     // The format is pinned here rather than at the widget, so a change to how
     // the About block reads fails in one place. "Rockimals" is in the string
     // because this line is often screenshotted on its own.
-    expect(AppVersion.display, 'Rockimals ${AppVersion.name} '
-        '(build ${AppVersion.build})');
+    expect(
+      AppVersion.display,
+      'Rockimals ${AppVersion.name} '
+      '(build ${AppVersion.build})',
+    );
     expect(AppVersion.display, contains(AppVersion.name));
     expect(AppVersion.display, contains(AppVersion.build));
   });

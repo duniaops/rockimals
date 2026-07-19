@@ -173,7 +173,12 @@ final List<AnimalBadge> kBadges = List<AnimalBadge>.unmodifiable(<AnimalBadge>[
     title: 'Elephant Expert',
     goal: 600,
   ),
-  AnimalBadge.points(id: 'whale', emoji: '🐋', title: 'Whale Master', goal: 1000),
+  AnimalBadge.points(
+    id: 'whale',
+    emoji: '🐋',
+    title: 'Whale Master',
+    goal: 1000,
+  ),
   AnimalBadge(
     id: 'fire',
     emoji: '🔥',

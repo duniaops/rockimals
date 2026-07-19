@@ -138,7 +138,10 @@ void main() {
 
     // `.btn.ghost{color:var(--ink)}` (`index.html:56`) — the dark-on-orange
     // colour above would be invisible on the ghost's transparent fill.
-    expect(tester.widget<Text>(find.text('⭐ Follow')).style?.color, Palette.ink);
+    expect(
+      tester.widget<Text>(find.text('⭐ Follow')).style?.color,
+      Palette.ink,
+    );
   });
 
   testWidgets('grows itself to the 48dp floor rather than staying 43', (

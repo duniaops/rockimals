@@ -178,10 +178,7 @@ void main() {
 
     test('points can never be taken away (a negative award asserts)', () {
       final GameActions actions = actionsOn(store);
-      expect(
-        () => actions.awardPoints(-1),
-        throwsA(isA<AssertionError>()),
-      );
+      expect(() => actions.awardPoints(-1), throwsA(isA<AssertionError>()));
     });
 
     /// `specs/05`, "Wire points": *points accumulate across all four games and
@@ -396,31 +393,36 @@ void main() {
       if (tempDir.existsSync()) await tempDir.delete(recursive: true);
     });
 
-    test('an award through the real provider updates the hub snapshot', () async {
-      final ProviderContainer container = ProviderContainer(
-        overrides: <Override>[storeProvider.overrideWithValue(store)],
-      );
-      addTearDown(container.dispose);
+    test(
+      'an award through the real provider updates the hub snapshot',
+      () async {
+        final ProviderContainer container = ProviderContainer(
+          overrides: <Override>[storeProvider.overrideWithValue(store)],
+        );
+        addTearDown(container.dispose);
 
-      // Read it first, so it is memoised — the whole failure being fixed is
-      // that a *cached* snapshot outlived the game that changed it.
-      expect(container.read(gamesHubStatsProvider).points, 0);
+        // Read it first, so it is memoised — the whole failure being fixed is
+        // that a *cached* snapshot outlived the game that changed it.
+        expect(container.read(gamesHubStatsProvider).points, 0);
 
-      final List<int> seen = <int>[];
-      container.listen<GamesHubStats>(
-        gamesHubStatsProvider,
-        (GamesHubStats? _, GamesHubStats next) => seen.add(next.points),
-      );
+        final List<int> seen = <int>[];
+        container.listen<GamesHubStats>(
+          gamesHubStatsProvider,
+          (GamesHubStats? _, GamesHubStats next) => seen.add(next.points),
+        );
 
-      await container.read(gameActionsProvider).awardPoints(10);
-      expect(container.read(gamesHubStatsProvider).points, 10);
-      expect(seen, <int>[10], reason: 'the hub must be told, not just re-read');
+        await container.read(gameActionsProvider).awardPoints(10);
+        expect(container.read(gamesHubStatsProvider).points, 10);
+        expect(seen, <int>[
+          10,
+        ], reason: 'the hub must be told, not just re-read');
 
-      // And a best earned in a game reaches the card's "Best n" tag the same
-      // way, without a relaunch.
-      await container.read(gameActionsProvider).setBestDuel(3);
-      expect(container.read(gamesHubStatsProvider).bestDuel, 3);
-    });
+        // And a best earned in a game reaches the card's "Best n" tag the same
+        // way, without a relaunch.
+        await container.read(gameActionsProvider).setBestDuel(3);
+        expect(container.read(gamesHubStatsProvider).bestDuel, 3);
+      },
+    );
 
     /// The item's headline Done-when: *playing on a new day advances the flame
     /// without a relaunch*. The failure this replaces is not a wrong number but
@@ -458,7 +460,9 @@ void main() {
       await container.read(gameActionsProvider).markPlayed();
 
       expect(container.read(dayStreakProvider), 2);
-      expect(seen, <int>[2], reason: 'the flame must be told, not just re-read');
+      expect(seen, <int>[
+        2,
+      ], reason: 'the flame must be told, not just re-read');
     });
   });
 
@@ -512,9 +516,7 @@ void main() {
             soundOnProvider.overrideWith(() => StubSoundOn(true)),
             reducedMotionProvider.overrideWith(StubCalmMotion.new),
           ],
-          child: MaterialApp(
-            home: _Launcher(onReaction: reactions.add),
-          ),
+          child: MaterialApp(home: _Launcher(onReaction: reactions.add)),
         ),
       );
 
@@ -645,7 +647,8 @@ class _Launcher extends StatelessWidget {
         child: ElevatedButton(
           onPressed: () => Navigator.of(context).push<void>(
             MaterialPageRoute<void>(
-              builder: (BuildContext context) => _StubGame(onReaction: onReaction),
+              builder: (BuildContext context) =>
+                  _StubGame(onReaction: onReaction),
             ),
           ),
           child: const Text('Open the game'),

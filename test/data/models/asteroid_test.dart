@@ -35,7 +35,10 @@ void main() {
       expect(a.missKm, 26128432.854274542);
       expect(a.velKps, 15.0684989645);
       expect(a.mag, 25.79);
-      expect(a.jpl, 'https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=3582056');
+      expect(
+        a.jpl,
+        'https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=3582056',
+      );
       expect(a.date, '2026-07-14');
     });
 
@@ -43,7 +46,11 @@ void main() {
       // The only true in the capture. Never shown as "hazardous" to a kid, but
       // it has to survive parsing: it is a term in power() and it is half of
       // what makes an animal a "close flyby".
-      final Map<String, Object?> neo = _neo(byDate, '2026-07-15', '(2011 LA19)');
+      final Map<String, Object?> neo = _neo(
+        byDate,
+        '2026-07-15',
+        '(2011 LA19)',
+      );
 
       final Asteroid a = Asteroid.fromNeoWs(
         neo,
@@ -142,7 +149,9 @@ void main() {
       // Not an error — the feed does include these, and the prototype skips the
       // rock. The caller needs to tell "skip" apart from "broken".
       expect(
-        Asteroid.firstCloseApproach(_syntheticNeo(closeApproaches: <Object?>[])),
+        Asteroid.firstCloseApproach(
+          _syntheticNeo(closeApproaches: <Object?>[]),
+        ),
         isNull,
       );
       expect(
@@ -199,9 +208,7 @@ void main() {
 
       for (final String key in json.keys) {
         expect(
-          () => Asteroid.fromJson(
-            Map<String, Object?>.of(json)..remove(key),
-          ),
+          () => Asteroid.fromJson(Map<String, Object?>.of(json)..remove(key)),
           throwsFormatException,
           reason: 'a cache entry missing "$key" must not parse',
         );
@@ -258,7 +265,9 @@ List<Asteroid> _parseFixture() {
   for (final MapEntry<String, Object?> day in byDate.entries) {
     for (final Object? neo in day.value! as List<Object?>) {
       final Map<String, Object?> record = neo! as Map<String, Object?>;
-      final Map<String, Object?>? approach = Asteroid.firstCloseApproach(record);
+      final Map<String, Object?>? approach = Asteroid.firstCloseApproach(
+        record,
+      );
       if (approach == null) continue;
       parsed.add(Asteroid.fromNeoWs(record, approach, day.key));
     }
@@ -272,11 +281,15 @@ Map<String, Object?> _loadFeedByDate() {
   return feed['near_earth_objects']! as Map<String, Object?>;
 }
 
-Map<String, Object?> _neo(Map<String, Object?> byDate, String date, String name) {
+Map<String, Object?> _neo(
+  Map<String, Object?> byDate,
+  String date,
+  String name,
+) {
   final List<Object?> day = byDate[date]! as List<Object?>;
-  return day
-      .cast<Map<String, Object?>>()
-      .firstWhere((neo) => neo['name'] == name);
+  return day.cast<Map<String, Object?>>().firstWhere(
+    (neo) => neo['name'] == name,
+  );
 }
 
 List<Asteroid> _parseAll(Map<String, Object?> byDate) {

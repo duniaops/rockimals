@@ -89,9 +89,27 @@ class RadarLabel {
 /// the field, and one per name shown — a few dozen in total, all of them
 /// reachable again on the very next frame. Records are structurally equal in
 /// Dart, so the key is just the style.
-final Map<({String text, double size, Color colour, String? family, FontWeight? weight}), RadarLabel>
+final Map<
+  ({
+    String text,
+    double size,
+    Color colour,
+    String? family,
+    FontWeight? weight,
+  }),
+  RadarLabel
+>
 _labels =
-    <({String text, double size, Color colour, String? family, FontWeight? weight}), RadarLabel>{};
+    <
+      ({
+        String text,
+        double size,
+        Color colour,
+        String? family,
+        FontWeight? weight,
+      }),
+      RadarLabel
+    >{};
 
 RadarLabel radarLabel(
   String text, {
@@ -101,5 +119,11 @@ RadarLabel radarLabel(
   FontWeight? weight,
 }) => _labels.putIfAbsent(
   (text: text, size: size, colour: colour, family: family, weight: weight),
-  () => RadarLabel(text, fontSize: size, colour: colour, family: family, weight: weight),
+  () => RadarLabel(
+    text,
+    fontSize: size,
+    colour: colour,
+    family: family,
+    weight: weight,
+  ),
 );

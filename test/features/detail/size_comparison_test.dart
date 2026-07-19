@@ -16,8 +16,7 @@ import 'package:rockimals/features/detail/size_comparison.dart';
 /// mounts the panel and reads that its shapes, captions and "≈ N×" line render
 /// the prototype's values for a giant and a tiny animal.
 void main() {
-  group('bestRef — last-match-wins over the literal source order (decision 8)',
-      () {
+  group('bestRef — last-match-wins over the literal source order (decision 8)', () {
     test('too small to reach the second rung → Human (the default)', () {
       // 1 * 1.6 = 1.6, below Human's own 1.8, so nothing qualifies and the pick
       // stays the first entry.
@@ -30,8 +29,7 @@ void main() {
       expect(bestRef(20).title, 'Blue whale');
     });
 
-    test('100 m → Statue of Liberty, NOT Football pitch (the decision-8 pin)',
-        () {
+    test('100 m → Statue of Liberty, NOT Football pitch (the decision-8 pin)', () {
       // 100 * 1.6 = 160: both Football pitch (105) and Statue of Liberty (93)
       // qualify. The table lists Football pitch *first*, so last-match-wins
       // returns Statue of Liberty. A max-by, or a re-sorted array, would return
@@ -71,29 +69,35 @@ void main() {
     // 433 Eros — 16 800 m, the giant of the sample sky. bestRef(16800) is Burj
     // Khalifa (830 m); the ratio 16800/830 ≈ 20.2 is ≥ 10, so it renders with no
     // decimals.
-    final Asteroid whale =
-        kFallbackAsteroids.firstWhere((Asteroid a) => a.name == '433 Eros');
+    final Asteroid whale = kFallbackAsteroids.firstWhere(
+      (Asteroid a) => a.name == '433 Eros',
+    );
 
     // 2020 SW — 9 m, tiny. bestRef(9): 9 * 1.6 = 14.4, so Bus (12) is the last
     // qualifier. The ratio 9/12 = 0.75 is < 10, so it renders one decimal (0.8),
     // exercising the other branch of the "≈ N×" formatter.
-    final Asteroid tiny =
-        kFallbackAsteroids.firstWhere((Asteroid a) => a.name == '2020 SW');
+    final Asteroid tiny = kFallbackAsteroids.firstWhere(
+      (Asteroid a) => a.name == '2020 SW',
+    );
 
     Future<void> pump(WidgetTester tester, Asteroid rock) {
       return tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
             body: Center(
-              child: SizedBox(width: 360, child: SizeComparison(asteroid: rock)),
+              child: SizedBox(
+                width: 360,
+                child: SizeComparison(asteroid: rock),
+              ),
             ),
           ),
         ),
       );
     }
 
-    testWidgets('a giant renders Burj Khalifa and a whole-number ratio',
-        (tester) async {
+    testWidgets('a giant renders Burj Khalifa and a whole-number ratio', (
+      tester,
+    ) async {
       await pump(tester, whale);
 
       // The panel header reads through the AnimalSystem's own size label, shown
@@ -115,8 +119,9 @@ void main() {
       expect(find.text('≈ 20× the burj khalifa'), findsOneWidget);
     });
 
-    testWidgets('a tiny animal renders the Bus and a one-decimal ratio',
-        (tester) async {
+    testWidgets('a tiny animal renders the Bus and a one-decimal ratio', (
+      tester,
+    ) async {
       await pump(tester, tiny);
 
       expect(find.text('9 m'), findsOneWidget); // round(diaMax)
@@ -130,8 +135,9 @@ void main() {
       expect(find.text('≈ 0.8× the bus'), findsOneWidget);
     });
 
-    testWidgets('the header speaks its natural-case label, not the caps',
-        (tester) async {
+    testWidgets('the header speaks its natural-case label, not the caps', (
+      tester,
+    ) async {
       final SemanticsHandle handle = tester.ensureSemantics();
       await pump(tester, whale);
 

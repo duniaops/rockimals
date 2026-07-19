@@ -19,9 +19,24 @@ void main() {
     // Three rocks whose every ordering field is distinct, so a sort that read
     // the wrong field would still reorder them and be caught. Closeness, size,
     // and speed each rank them in a different order.
-    final Asteroid near = _rock(name: 'Near', missLunar: 0.5, diaMax: 30, velKps: 5);
-    final Asteroid mid = _rock(name: 'Mid', missLunar: 3, diaMax: 800, velKps: 25);
-    final Asteroid far = _rock(name: 'Far', missLunar: 12, diaMax: 120, velKps: 15);
+    final Asteroid near = _rock(
+      name: 'Near',
+      missLunar: 0.5,
+      diaMax: 30,
+      velKps: 5,
+    );
+    final Asteroid mid = _rock(
+      name: 'Mid',
+      missLunar: 3,
+      diaMax: 800,
+      velKps: 25,
+    );
+    final Asteroid far = _rock(
+      name: 'Far',
+      missLunar: 12,
+      diaMax: 120,
+      velKps: 15,
+    );
     final List<Asteroid> source = <Asteroid>[mid, far, near];
 
     List<String> names(List<Asteroid> l) =>
@@ -29,39 +44,54 @@ void main() {
 
     test('Closest orders by missLunar ascending (the default sort)', () {
       expect(
-        names(skyAnimals(source, sort: SkySort.closest, closeFlybysOnly: false)),
+        names(
+          skyAnimals(source, sort: SkySort.closest, closeFlybysOnly: false),
+        ),
         <String>['Near', 'Mid', 'Far'],
       );
     });
 
     test('Biggest orders by diaMax descending', () {
       expect(
-        names(skyAnimals(source, sort: SkySort.biggest, closeFlybysOnly: false)),
+        names(
+          skyAnimals(source, sort: SkySort.biggest, closeFlybysOnly: false),
+        ),
         <String>['Mid', 'Far', 'Near'],
       );
     });
 
     test('Fastest orders by velKps descending', () {
       expect(
-        names(skyAnimals(source, sort: SkySort.fastest, closeFlybysOnly: false)),
+        names(
+          skyAnimals(source, sort: SkySort.fastest, closeFlybysOnly: false),
+        ),
         <String>['Mid', 'Far', 'Near'],
       );
     });
 
-    test('the filter keeps only close flybys, on flybyTag not raw hazardous', () {
-      // `Near` at 0.5 Moon-distances is a close flyby by distance alone; a
-      // hazardous rock at 5 is one by NASA's flag alone. `Far` at 12 and
-      // unflagged is not — this is the plan decision 2 fix the raw `hazardous`
-      // filter would miss (it would drop `Near`).
-      final Asteroid flagged =
-          _rock(name: 'Flagged', missLunar: 5, hazardous: true);
-      final List<Asteroid> pool = <Asteroid>[far, near, flagged, mid];
+    test(
+      'the filter keeps only close flybys, on flybyTag not raw hazardous',
+      () {
+        // `Near` at 0.5 Moon-distances is a close flyby by distance alone; a
+        // hazardous rock at 5 is one by NASA's flag alone. `Far` at 12 and
+        // unflagged is not — this is the plan decision 2 fix the raw `hazardous`
+        // filter would miss (it would drop `Near`).
+        final Asteroid flagged = _rock(
+          name: 'Flagged',
+          missLunar: 5,
+          hazardous: true,
+        );
+        final List<Asteroid> pool = <Asteroid>[far, near, flagged, mid];
 
-      final List<Asteroid> kept =
-          skyAnimals(pool, sort: SkySort.closest, closeFlybysOnly: true);
+        final List<Asteroid> kept = skyAnimals(
+          pool,
+          sort: SkySort.closest,
+          closeFlybysOnly: true,
+        );
 
-      expect(names(kept), <String>['Near', 'Flagged']);
-    });
+        expect(names(kept), <String>['Near', 'Flagged']);
+      },
+    );
 
     test('an empty result when no rock is a close flyby', () {
       // `mid` and `far` are both past the Moon and unflagged.
@@ -132,26 +162,27 @@ void main() {
       expect(find.byType(Rusty), findsNothing);
     });
 
-    testWidgets('shows the friendly empty state when nothing matches the filter', (
-      tester,
-    ) async {
-      // A sky with no close flybys at all — the filter empties the list.
-      await _mount(tester, _sky(<Asteroid>[_b, _c]));
+    testWidgets(
+      'shows the friendly empty state when nothing matches the filter',
+      (tester) async {
+        // A sky with no close flybys at all — the filter empties the list.
+        await _mount(tester, _sky(<Asteroid>[_b, _c]));
 
-      await tester.tap(find.text('👋 Close flybys only'));
-      await tester.pump();
+        await tester.tap(find.text('👋 Close flybys only'));
+        await tester.pump();
 
-      expect(find.byType(AnimalCard), findsNothing);
-      expect(
-        find.text('No close flybys in this window — good news! 🌍'),
-        findsOneWidget,
-      );
-      // The tone guardrail: never the prototype's "hazardous" wording.
-      expect(find.textContaining('hazardous'), findsNothing);
-      // And the mascot fronts the good news
-      // (`specs/06-title-polish-safety.md:18`).
-      expect(find.byType(Rusty), findsOneWidget);
-    });
+        expect(find.byType(AnimalCard), findsNothing);
+        expect(
+          find.text('No close flybys in this window — good news! 🌍'),
+          findsOneWidget,
+        );
+        // The tone guardrail: never the prototype's "hazardous" wording.
+        expect(find.textContaining('hazardous'), findsNothing);
+        // And the mascot fronts the good news
+        // (`specs/06-title-polish-safety.md:18`).
+        expect(find.byType(Rusty), findsOneWidget);
+      },
+    );
 
     testWidgets('the footer shows the real window for a live sky', (
       tester,
@@ -242,9 +273,24 @@ AsteroidFeed _sky(List<Asteroid> rocks) => AsteroidFeed(
 
 /// Three rocks whose closeness, size, and speed each rank them differently, so
 /// the widget order tests can tell the three sorts apart.
-final Asteroid _a = _rock(name: '2026 AA', missLunar: 0.5, diaMax: 30, velKps: 5);
-final Asteroid _b = _rock(name: '2026 BB', missLunar: 3, diaMax: 800, velKps: 25);
-final Asteroid _c = _rock(name: '2026 CC', missLunar: 12, diaMax: 120, velKps: 15);
+final Asteroid _a = _rock(
+  name: '2026 AA',
+  missLunar: 0.5,
+  diaMax: 30,
+  velKps: 5,
+);
+final Asteroid _b = _rock(
+  name: '2026 BB',
+  missLunar: 3,
+  diaMax: 800,
+  velKps: 25,
+);
+final Asteroid _c = _rock(
+  name: '2026 CC',
+  missLunar: 12,
+  diaMax: 120,
+  velKps: 15,
+);
 
 Asteroid _rock({
   required String name,

@@ -229,8 +229,9 @@ void main() {
   /// parser — stubbed only at Dio's socket, which is the one thing an aeroplane
   /// actually takes away.
   group('airplane mode', () {
-    testWidgets('a cold launch with no network reaches a radar full of animals',
-        (tester) async {
+    testWidgets('a cold launch with no network reaches a radar full of animals', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         ProviderScope(
           overrides: <Override>[
@@ -254,8 +255,11 @@ void main() {
 
       // The gate itself stays — it is the widget that *renders* the shell, not
       // one the shell replaces. What must be gone is the spinner behind it.
-      expect(find.byType(LoadingScreen), findsNothing,
-          reason: 'the gate must not strand a child on "Contacting NASA…"');
+      expect(
+        find.byType(LoadingScreen),
+        findsNothing,
+        reason: 'the gate must not strand a child on "Contacting NASA…"',
+      );
       expect(find.byType(AppShell), findsOneWidget);
 
       // A sky, and specifically the bundled one — the fourteen sample rocks the
@@ -263,7 +267,9 @@ void main() {
       final ProviderContainer container = ProviderScope.containerOf(
         tester.element(find.byType(RockimalsApp)),
       );
-      final AsteroidFeed feed = container.read(asteroidFeedProvider).requireValue;
+      final AsteroidFeed feed = container
+          .read(asteroidFeedProvider)
+          .requireValue;
       expect(feed.usingFallback, isTrue);
       expect(feed.asteroids, hasLength(14));
 
@@ -276,7 +282,9 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('and never leaves a prefetch pending behind it', (tester) async {
+    testWidgets('and never leaves a prefetch pending behind it', (
+      tester,
+    ) async {
       // The prefetch fires only when the sky is a real one, so an offline launch
       // must not start one at all. If it ever did, this test would fail at
       // teardown with a pending timer rather than anywhere near the cause —

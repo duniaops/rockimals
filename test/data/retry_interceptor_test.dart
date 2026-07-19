@@ -27,20 +27,23 @@ void main() {
       ]);
     });
 
-    test('a retried request that succeeds returns NASA\'s answer, not the error', () async {
-      // The whole point: one blip on a flaky connection must not cost a child
-      // today's real sky.
-      final _Socket socket = _Socket.script(<ResponseBody Function()>[
-        _error(503),
-        () => StubHttpAdapter.jsonResponse('{"element_count":1}'),
-      ]);
+    test(
+      'a retried request that succeeds returns NASA\'s answer, not the error',
+      () async {
+        // The whole point: one blip on a flaky connection must not cost a child
+        // today's real sky.
+        final _Socket socket = _Socket.script(<ResponseBody Function()>[
+          _error(503),
+          () => StubHttpAdapter.jsonResponse('{"element_count":1}'),
+        ]);
 
-      final Response<Object?> response = await socket.get();
+        final Response<Object?> response = await socket.get();
 
-      expect(response.statusCode, 200);
-      expect(socket.calls, 2);
-      expect(socket.slept, <Duration>[const Duration(milliseconds: 400)]);
-    });
+        expect(response.statusCode, 200);
+        expect(socket.calls, 2);
+        expect(socket.slept, <Duration>[const Duration(milliseconds: 400)]);
+      },
+    );
 
     test('retries a dropped connection and a stalled socket', () async {
       for (final DioExceptionType type in <DioExceptionType>[
@@ -59,21 +62,24 @@ void main() {
   });
 
   group('RetryInterceptor — what it must not retry', () {
-    test('never retries a 429, because an hourly limit outlasts any backoff', () async {
-      // The load-bearing exclusion, and the one that looks wrong. 429 is the
-      // textbook back-off-and-try-again status, but NASA rate-limits on a
-      // rolling hour: no delay a child would sit through can clear it. Retrying
-      // is guaranteed to fail, and it spends two more requests from a
-      // 30-per-hour allowance a whole household shares — so the one path a
-      // busy family reliably takes to the sample set would also be the path
-      // that makes the limit worse.
-      final _Socket socket = _Socket.always(_error(429));
+    test(
+      'never retries a 429, because an hourly limit outlasts any backoff',
+      () async {
+        // The load-bearing exclusion, and the one that looks wrong. 429 is the
+        // textbook back-off-and-try-again status, but NASA rate-limits on a
+        // rolling hour: no delay a child would sit through can clear it. Retrying
+        // is guaranteed to fail, and it spends two more requests from a
+        // 30-per-hour allowance a whole household shares — so the one path a
+        // busy family reliably takes to the sample set would also be the path
+        // that makes the limit worse.
+        final _Socket socket = _Socket.always(_error(429));
 
-      await expectLater(socket.get(), throwsA(isA<DioException>()));
+        await expectLater(socket.get(), throwsA(isA<DioException>()));
 
-      expect(socket.calls, 1);
-      expect(socket.slept, isEmpty);
-    });
+        expect(socket.calls, 1);
+        expect(socket.slept, isEmpty);
+      },
+    );
 
     test('never retries our own mistakes — a 400 or a 403', () async {
       // Deterministic and ours: a 400 means the app built a date NeoWs cannot
@@ -89,16 +95,19 @@ void main() {
       }
     });
 
-    test('stops after the schedule runs out rather than looping forever', () async {
-      // Re-issuing a request re-enters this same interceptor, so "retry" is an
-      // infinite loop unless the attempt count travels with the request. This
-      // asserts the counter survives the re-dispatch.
-      final _Socket socket = _Socket.always(_error(500));
+    test(
+      'stops after the schedule runs out rather than looping forever',
+      () async {
+        // Re-issuing a request re-enters this same interceptor, so "retry" is an
+        // infinite loop unless the attempt count travels with the request. This
+        // asserts the counter survives the re-dispatch.
+        final _Socket socket = _Socket.always(_error(500));
 
-      await expectLater(socket.get(), throwsA(isA<DioException>()));
+        await expectLater(socket.get(), throwsA(isA<DioException>()));
 
-      expect(socket.calls, 3);
-    });
+        expect(socket.calls, 3);
+      },
+    );
   });
 }
 
@@ -107,8 +116,9 @@ class _Socket {
   _Socket._(List<ResponseBody Function(RequestOptions)> script) {
     final StubHttpAdapter adapter = StubHttpAdapter((RequestOptions options) {
       final int index = calls++;
-      final ResponseBody Function(RequestOptions) reply =
-          index < script.length ? script[index] : script.last;
+      final ResponseBody Function(RequestOptions) reply = index < script.length
+          ? script[index]
+          : script.last;
       return reply(options);
     });
     _dio = Dio()..httpClientAdapter = adapter;
@@ -124,7 +134,10 @@ class _Socket {
   /// Answers each attempt from the list in turn; the last reply repeats.
   factory _Socket.script(List<ResponseBody Function()> replies) => _Socket._(
     replies
-        .map((ResponseBody Function() reply) => (RequestOptions _) => reply())
+        .map(
+          (ResponseBody Function() reply) =>
+              (RequestOptions _) => reply(),
+        )
         .toList(growable: false),
   );
 
@@ -140,7 +153,8 @@ class _Socket {
   int calls = 0;
   final List<Duration> slept = <Duration>[];
 
-  Future<Response<Object?>> get() => _dio.get<Object?>('https://api.nasa.gov/x');
+  Future<Response<Object?>> get() =>
+      _dio.get<Object?>('https://api.nasa.gov/x');
 }
 
 /// Dio turns a non-2xx into a `badResponse` DioException itself, so the socket

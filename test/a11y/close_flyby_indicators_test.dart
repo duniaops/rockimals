@@ -33,7 +33,9 @@ import '../support/memory_store.dart';
 void main() {
   group('the badge says which state it is in, in words and a glyph', () {
     testWidgets('a close flyby carries the wave and the words', (tester) async {
-      await tester.pumpWidget(_wrap(const FlybyBadge(tag: FlybyTag.closeFlyby)));
+      await tester.pumpWidget(
+        _wrap(const FlybyBadge(tag: FlybyTag.closeFlyby)),
+      );
 
       expect(find.textContaining(kCloseFlybyGlyph), findsOneWidget);
       expect(find.textContaining('close flyby'), findsOneWidget);
@@ -43,7 +45,9 @@ void main() {
       // The half that matters: two states that read the same in greyscale are
       // not two states. `just passing` shares no word with `close flyby`, so a
       // child who cannot see the fill still gets the answer.
-      await tester.pumpWidget(_wrap(const FlybyBadge(tag: FlybyTag.justPassing)));
+      await tester.pumpWidget(
+        _wrap(const FlybyBadge(tag: FlybyTag.justPassing)),
+      );
 
       expect(find.textContaining('just passing'), findsOneWidget);
       expect(find.textContaining(kCloseFlybyGlyph), findsNothing);
@@ -51,10 +55,14 @@ void main() {
     });
 
     testWidgets('the two states share no visible text', (tester) async {
-      await tester.pumpWidget(_wrap(const FlybyBadge(tag: FlybyTag.closeFlyby)));
+      await tester.pumpWidget(
+        _wrap(const FlybyBadge(tag: FlybyTag.closeFlyby)),
+      );
       final String close = _visibleText(tester);
 
-      await tester.pumpWidget(_wrap(const FlybyBadge(tag: FlybyTag.justPassing)));
+      await tester.pumpWidget(
+        _wrap(const FlybyBadge(tag: FlybyTag.justPassing)),
+      );
       final String passing = _visibleText(tester);
 
       expect(close, isNot(passing));

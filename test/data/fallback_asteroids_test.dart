@@ -32,7 +32,8 @@ void main() {
     test('gives every record the JPL lookup URL', () {
       expect(
         kFallbackAsteroids.every(
-          (Asteroid a) => a.jpl == 'https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html',
+          (Asteroid a) =>
+              a.jpl == 'https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html',
         ),
         isTrue,
       );
@@ -115,7 +116,11 @@ void main() {
       // diaMax swapped, or a stray zero. The detail screen renders these as the
       // range "{diaMin}–{diaMax} m", which reads as nonsense inverted.
       for (final Asteroid a in kFallbackAsteroids) {
-        expect(a.diaMin, lessThan(a.diaMax), reason: '${a.name} diameter range');
+        expect(
+          a.diaMin,
+          lessThan(a.diaMax),
+          reason: '${a.name} diameter range',
+        );
         expect(a.diaMin, greaterThan(0), reason: '${a.name} diameter');
         expect(a.missLunar, greaterThan(0), reason: '${a.name} miss distance');
         expect(a.velKps, greaterThan(0), reason: '${a.name} velocity');

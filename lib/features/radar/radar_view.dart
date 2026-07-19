@@ -310,7 +310,8 @@ class _RadarFieldState extends ConsumerState<_RadarField>
     // budget for how much the hand has *wandered*, not how far it has got: a
     // finger that goes out 50px and comes back to where it started has moved
     // 100, and meant to drag.
-    _moved += (event.localPosition.dx - previous.dx).abs() +
+    _moved +=
+        (event.localPosition.dx - previous.dx).abs() +
         (event.localPosition.dy - previous.dy).abs();
     _pointers[event.pointer] = event.localPosition;
 
@@ -342,7 +343,8 @@ class _RadarFieldState extends ConsumerState<_RadarField>
   /// still down at this instant, so `== 1` means it was the only one on the
   /// glass. A pinch never selects an animal, however still the fingers were.
   void _onPointerUp(PointerUpEvent event) {
-    final bool tap = _moved < _tapSlop &&
+    final bool tap =
+        _moved < _tapSlop &&
         (event.timeStamp - _downAt) < _tapWindow &&
         _pointers.length == 1;
     _endGesture(event.pointer);
@@ -661,7 +663,9 @@ class _HomeOverlay extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final List<Asteroid> today = ref.watch(todayListProvider).requireValue;
-    final FeedProvenance provenance = ref.watch(provenanceProvider).requireValue;
+    final FeedProvenance provenance = ref
+        .watch(provenanceProvider)
+        .requireValue;
     final int streak = ref.watch(dayStreakProvider);
 
     return SafeArea(
@@ -761,7 +765,11 @@ class _BrandDot extends StatelessWidget {
         gradient: RadialGradient(
           center: Alignment(-0.36, -0.4),
           radius: 0.9,
-          colors: <Color>[Color(0xFFFFD9A8), Color(0xFFB5651D), Color(0xFF6B3A12)],
+          colors: <Color>[
+            Color(0xFFFFD9A8),
+            Color(0xFFB5651D),
+            Color(0xFF6B3A12),
+          ],
           stops: <double>[0, 0.55, 1],
         ),
         // `box-shadow:0 0 16px rgba(232,87,31,.6)` — `--accent` at .6 (0x99).
@@ -833,8 +841,9 @@ class _StatStrip extends StatelessWidget {
     // `todayList.filter(a=>a.hazardous||a.missLunar<1)` (`index.html:453`) —
     // read through `flybyTag` so the count and the chips agree on what "close"
     // means (plan decision 2).
-    final int flybys =
-        today.where((Asteroid a) => flybyTag(a) == FlybyTag.closeFlyby).length;
+    final int flybys = today
+        .where((Asteroid a) => flybyTag(a) == FlybyTag.closeFlyby)
+        .length;
 
     return Wrap(
       spacing: 7,
@@ -851,8 +860,12 @@ class _StatStrip extends StatelessWidget {
         ),
         _HomeChip(
           spoken: 'Closest comes ${distLabel(closest.missLunar)}',
-          child: _chipText('📏 closest ', distLabel(closest.missLunar), '',
-              warn: false),
+          child: _chipText(
+            '📏 closest ',
+            distLabel(closest.missLunar),
+            '',
+            warn: false,
+          ),
         ),
         _HomeChip(
           // The `warn` treatment when the count is non-zero (`index.html:456`) —
@@ -895,8 +908,12 @@ String _spokenWhen(FeedProvenance provenance) => switch (provenance) {
 /// One strip chip's text (`.hchip`, `index.html:44-45`): a muted base with its
 /// number in white, or — when [warn] — the base in the soft red the prototype
 /// uses for a non-zero close-flyby count, the number still white.
-Widget _chipText(String prefix, String strong, String suffix,
-    {required bool warn}) {
+Widget _chipText(
+  String prefix,
+  String strong,
+  String suffix, {
+  required bool warn,
+}) {
   return Text.rich(
     TextSpan(
       style: TextStyle(
@@ -909,7 +926,10 @@ Widget _chipText(String prefix, String strong, String suffix,
         TextSpan(text: prefix),
         // `.hchip b{color:#fff}` — the number stays white even inside a warn
         // chip, so the count reads first.
-        TextSpan(text: strong, style: const TextStyle(color: _homeChipStrong)),
+        TextSpan(
+          text: strong,
+          style: const TextStyle(color: _homeChipStrong),
+        ),
         TextSpan(text: suffix),
       ],
     ),
@@ -1110,7 +1130,10 @@ class _SelectedAnimalCard extends ConsumerWidget {
       curve: Curves.ease,
       builder: (BuildContext context, double t, Widget? child) => Opacity(
         opacity: t,
-        child: Transform.translate(offset: Offset(0, 8 * (1 - t)), child: child),
+        child: Transform.translate(
+          offset: Offset(0, 8 * (1 - t)),
+          child: child,
+        ),
       ),
       child: Container(
         padding: const EdgeInsets.all(12),
@@ -1263,7 +1286,11 @@ class _HudButton extends StatelessWidget {
 /// screen reader announces the chip's state, not just its name — the nav's
 /// `Semantics(button:)` precedent, one layer on.
 class _RadarChip extends StatelessWidget {
-  const _RadarChip({required this.label, required this.on, required this.onTap});
+  const _RadarChip({
+    required this.label,
+    required this.on,
+    required this.onTap,
+  });
 
   final String label;
   final bool on;

@@ -31,8 +31,10 @@ void main() {
       // real designation (plan decision 12) — never the derived "Milo the Fox",
       // which points at a different animal in a build where the pool changed.
       expect(
-        followedAnimals(_sky, <String>{'2026 CC', '2026 AA'})
-            .map((Asteroid a) => a.name),
+        followedAnimals(_sky, <String>{
+          '2026 CC',
+          '2026 AA',
+        }).map((Asteroid a) => a.name),
         <String>['2026 AA', '2026 CC'],
       );
     });
@@ -43,8 +45,11 @@ void main() {
       // is deliberately given in the *wrong* order, so a dropped sort fails
       // rather than accidentally matching insertion order.
       expect(
-        followedAnimals(_sky, <String>{'2026 CC', '2026 BB', '2026 AA'})
-            .map((Asteroid a) => a.missLunar),
+        followedAnimals(_sky, <String>{
+          '2026 CC',
+          '2026 BB',
+          '2026 AA',
+        }).map((Asteroid a) => a.missLunar),
         <double>[0.5, 2, 9],
       );
     });
@@ -56,7 +61,10 @@ void main() {
       // that shows up two screens away from its cause.
       final List<Asteroid> source = <Asteroid>[..._sky];
       followedAnimals(source, <String>{'2026 AA', '2026 BB', '2026 CC'});
-      expect(source.map((Asteroid a) => a.name), _sky.map((Asteroid a) => a.name));
+      expect(
+        source.map((Asteroid a) => a.name),
+        _sky.map((Asteroid a) => a.name),
+      );
     });
 
     test('drops a followed animal that has left the window', () {
@@ -231,7 +239,9 @@ void main() {
       expect(find.text('⏳ approach 2026-07-17'), findsOneWidget);
     });
 
-    testWidgets('opens the detail screen when a card is tapped', (tester) async {
+    testWidgets('opens the detail screen when a card is tapped', (
+      tester,
+    ) async {
       // `acardEl`'s own `onclick = () => openDetail(a)` (`index.html:467`),
       // which the watchlist inherits by reusing the card — the same push the
       // Sky tab makes. Worth its own test because the card takes its `onTap`

@@ -71,7 +71,8 @@ class AnimalCard extends StatelessWidget {
     // the speed is a whole number here (`toFixed(0)`) — the HUD's is one decimal
     // (`index.html:722`); the two surfaces round differently on purpose, so this
     // is `.round()`, not `toStringAsFixed(1)`.
-    final String meta = '${sizeLabel(asteroid.diaMax)}'
+    final String meta =
+        '${sizeLabel(asteroid.diaMax)}'
         ' · ${distLabel(asteroid.missLunar)}'
         ' · ${asteroid.velKps.round()} km/s';
 
@@ -82,7 +83,8 @@ class AnimalCard extends StatelessWidget {
       // visual is excluded below and the meaning is said in words — the pattern
       // the nav, the chips, and the home strip all follow. `_spokenFlyby` drops
       // the badge emoji; the rest of the meta reads aloud fine.
-      label: '${c.name}, $meta, ${spokenFlyby(tag)}'
+      label:
+          '${c.name}, $meta, ${spokenFlyby(tag)}'
           '${footerLabel == null ? '' : ', $footerLabel'}',
       child: ExcludeSemantics(
         child: Material(

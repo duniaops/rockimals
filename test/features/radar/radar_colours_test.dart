@@ -42,8 +42,9 @@ import '../../support/radar_frame.dart';
 ///    probe inside one exact rather than an antialiasing lottery.
 void main() {
   group('the space behind everything', () {
-    testWidgets('is the prototype\'s own two-stop glow, corner to heart',
-        (WidgetTester tester) async {
+    testWidgets('is the prototype\'s own two-stop glow, corner to heart', (
+      WidgetTester tester,
+    ) async {
       // `.radarwrap`'s background (`index.html:170`): `#0c2044` at the heart,
       // `#040a17` from 72% out. Only the corner was pinned before this, which
       // left the near end — the colour of four-fifths of the screen — free to
@@ -73,8 +74,9 @@ void main() {
   });
 
   group('the distance rings', () {
-    testWidgets('strokes the Moon\'s ring brighter than the marks beyond it',
-        (WidgetTester tester) async {
+    testWidgets('strokes the Moon\'s ring brighter than the marks beyond it', (
+      WidgetTester tester,
+    ) async {
       // `rgba(207,214,222,.30)` on the 1× and `rgba(90,120,170,.16)` on the rest
       // (`index.html:827`). The difference is the whole legend: the 1× ring is
       // the Moon's own orbit — the unit every other ring is read against — and
@@ -97,8 +99,9 @@ void main() {
       }
     });
 
-    testWidgets('dims the Moon\'s track two points below the ring it replaces',
-        (WidgetTester tester) async {
+    testWidgets('dims the Moon\'s track two points below the ring it replaces', (
+      WidgetTester tester,
+    ) async {
       // With the Rings chip off the Moon keeps a track of its own so it is not
       // floating on nothing (`index.html:835`) — at `.28` rather than the `.30`
       // the 1× ring proper is stroked at, because here it is the Moon's orbit
@@ -122,8 +125,9 @@ void main() {
   });
 
   group('Earth', () {
-    testWidgets('breathes a 12% atmosphere, not a solid halo',
-        (WidgetTester tester) async {
+    testWidgets('breathes a 12% atmosphere, not a solid halo', (
+      WidgetTester tester,
+    ) async {
       // `rgba(120,180,255,.12)` (`index.html:873`). The radius is a sine and is
       // pinned elsewhere; what is pinned here is that the glow stays a hint of
       // atmosphere. At any greater alpha it stops being the calm
@@ -136,8 +140,9 @@ void main() {
       );
     });
 
-    testWidgets('is lit from up and to the left, through all three stops',
-        (WidgetTester tester) async {
+    testWidgets('is lit from up and to the left, through all three stops', (
+      WidgetTester tester,
+    ) async {
       // `#a9dcff` daylight → `#1c6fb0` ocean at 55% → `#0c355c` night
       // (`index.html:872`), on a two-circle gradient whose focal point is 4px up
       // and to the left. The whole disc is compared against a reference painted
@@ -165,8 +170,9 @@ void main() {
   });
 
   group('the animals\' tokens', () {
-    testWidgets('are the same lit navy however big the animal is',
-        (WidgetTester tester) async {
+    testWidgets('are the same lit navy however big the animal is', (
+      WidgetTester tester,
+    ) async {
       // `#20406e` → `#122a4d` (`index.html:853`), lit from up and to the left
       // like Earth so the tokens belong to the same scene. This is what
       // `specs/02-live-radar.md:28` rests on — the token is why no animal ever
@@ -179,7 +185,9 @@ void main() {
       );
       final RadarPixels frame = await rasteriseRadar(tester);
 
-      final ({Offset at, double chip}) token = _tokenOf(<Asteroid>[rock], rock.name);
+      final ({Offset at, double chip}) token = _tokenOf(<Asteroid>[
+        rock,
+      ], rock.name);
       final RadarPixels reference = await _render(
         tester,
         (Canvas canvas) => _paintToken(canvas, token.at, token.chip),
@@ -202,28 +210,34 @@ void main() {
   });
 
   group('the labels', () {
-    testWidgets('the rings and Earth say their names in muted, at two alphas',
-        (WidgetTester tester) async {
+    testWidgets('the rings and Earth say their names in muted, at two alphas', (
+      WidgetTester tester,
+    ) async {
       // `--muted` `#93a8ca` at `.55` on the ring labels (`index.html:830`) and
       // `.85` on "Earth" (`index.html:875`) — the same colour twice, and the
       // gap between the two alphas is the reading order of the screen: the
       // planet at the centre is what the child is looking at, and the rings are
       // the scale it is measured on. Flatten them to one value and the field
       // loses its foreground.
-      await pumpRadar(tester, layers: const RadarLayers(planets: false, moon: false));
+      await pumpRadar(
+        tester,
+        layers: const RadarLayers(planets: false, moon: false),
+      );
       final RadarPixels frame = await rasteriseRadar(tester);
       final RadarPixels background = await _radarBackground(tester);
 
-      final List<({Offset at, double width})> centred = <({Offset at, double width})>[
+      final List<({Offset at, double width})>
+      centred = <({Offset at, double width})>[
         for (final ({Offset at, double width}) label in radarParagraphs(tester))
           if ((label.at.dx + label.width / 2 - radarCentre.dx).abs() < 1) label,
       ];
       // Six ring labels above the planet and "Earth" below it — every string on
       // a sky with no Moon, no planets and no animals.
-      final List<({Offset at, double width})> rings = <({Offset at, double width})>[
-        for (final ({Offset at, double width}) label in centred)
-          if (label.at.dy < radarCentre.dy) label,
-      ];
+      final List<({Offset at, double width})> rings =
+          <({Offset at, double width})>[
+            for (final ({Offset at, double width}) label in centred)
+              if (label.at.dy < radarCentre.dy) label,
+          ];
       expect(rings, hasLength(6));
       expect(centred, hasLength(7));
 
@@ -247,8 +261,9 @@ void main() {
       );
     });
 
-    testWidgets('the Moon says its name brighter than the rings do',
-        (WidgetTester tester) async {
+    testWidgets('the Moon says its name brighter than the rings do', (
+      WidgetTester tester,
+    ) async {
       // `rgba(147,168,202,.8)` (`index.html:839`) — `--muted` a third time, and
       // a third alpha. The Moon is an object out there, not a measuring mark, so
       // it is named more brightly than the rings it rides among.
@@ -260,10 +275,11 @@ void main() {
       final RadarPixels background = await _radarBackground(tester);
 
       // The one label on this sky that is not centred on Earth.
-      final ({Offset at, double width}) moon = radarParagraphs(tester).singleWhere(
-        (({Offset at, double width}) l) =>
-            (l.at.dx + l.width / 2 - radarCentre.dx).abs() >= 1,
-      );
+      final ({Offset at, double width}) moon = radarParagraphs(tester)
+          .singleWhere(
+            (({Offset at, double width}) l) =>
+                (l.at.dx + l.width / 2 - radarCentre.dx).abs() >= 1,
+          );
 
       _expectInk(
         frame,
@@ -274,69 +290,78 @@ void main() {
       );
     });
 
-    testWidgets('an animal waving is named in warm amber, the tapped one in white',
-        (WidgetTester tester) async {
-      // `rgba(255,206,140,.9)` for a close flyby and flat white for the selected
-      // animal (`index.html:865-867`). The amber is the app's greeting colour
-      // (`CLAUDE.md:64`) and the white is the only colour on this field that
-      // means nothing else, which is what lets it mean "this one".
-      final Asteroid waving = _rock(name: '2020 AA', ld: 5, hazardous: true);
-      final Asteroid tapped = _rock(name: '2021 BB', ld: 9, diaMax: 900);
-      final List<Asteroid> sky = <Asteroid>[waving, tapped];
-      await pumpRadar(
-        tester,
-        sky: sky,
-        selected: tapped,
-        layers: const RadarLayers(planets: false, rings: false, moon: false),
-      );
-      final RadarPixels frame = await rasteriseRadar(tester);
-      final RadarPixels background = await _radarBackground(tester);
+    testWidgets(
+      'an animal waving is named in warm amber, the tapped one in white',
+      (WidgetTester tester) async {
+        // `rgba(255,206,140,.9)` for a close flyby and flat white for the selected
+        // animal (`index.html:865-867`). The amber is the app's greeting colour
+        // (`CLAUDE.md:64`) and the white is the only colour on this field that
+        // means nothing else, which is what lets it mean "this one".
+        final Asteroid waving = _rock(name: '2020 AA', ld: 5, hazardous: true);
+        final Asteroid tapped = _rock(name: '2021 BB', ld: 9, diaMax: 900);
+        final List<Asteroid> sky = <Asteroid>[waving, tapped];
+        await pumpRadar(
+          tester,
+          sky: sky,
+          selected: tapped,
+          layers: const RadarLayers(planets: false, rings: false, moon: false),
+        );
+        final RadarPixels frame = await rasteriseRadar(tester);
+        final RadarPixels background = await _radarBackground(tester);
 
-      _expectInk(
-        frame,
-        background,
-        _nameAbove(tester, _tokenOf(sky, waving.name)),
-        const Color.fromRGBO(255, 206, 140, 0.9),
-        reason: 'a close flyby\'s name',
-      );
-      _expectInk(
-        frame,
-        background,
-        _nameAbove(tester, _tokenOf(sky, tapped.name)),
-        const Color(0xFFFFFFFF),
-        reason: 'the selected animal\'s name',
-      );
-    });
+        _expectInk(
+          frame,
+          background,
+          _nameAbove(tester, _tokenOf(sky, waving.name)),
+          const Color.fromRGBO(255, 206, 140, 0.9),
+          reason: 'a close flyby\'s name',
+        );
+        _expectInk(
+          frame,
+          background,
+          _nameAbove(tester, _tokenOf(sky, tapped.name)),
+          const Color(0xFFFFFFFF),
+          reason: 'the selected animal\'s name',
+        );
+      },
+    );
 
-    testWidgets('the animal and its wave are drawn opaque, whatever glyph arrives',
-        (WidgetTester tester) async {
-      // A colour emoji carries its own bitmap and ignores the fill, so this
-      // colour is only ever seen on a **monochrome fallback glyph** — which is
-      // precisely why it must be pinned rather than left to whatever a
-      // [TextStyle] happens to default to. `flutter_test` renders exactly that
-      // fallback, so this test sees the case a phone without the emoji font
-      // would. Faded would break `specs/02-live-radar.md:28`.
-      final Asteroid waving = _rock(name: '2020 AA', ld: 5, hazardous: true);
-      await pumpRadar(
-        tester,
-        sky: <Asteroid>[waving],
-        layers: const RadarLayers(planets: false, rings: false, moon: false),
-      );
-      final RadarPixels frame = await rasteriseRadar(tester);
+    testWidgets(
+      'the animal and its wave are drawn opaque, whatever glyph arrives',
+      (WidgetTester tester) async {
+        // A colour emoji carries its own bitmap and ignores the fill, so this
+        // colour is only ever seen on a **monochrome fallback glyph** — which is
+        // precisely why it must be pinned rather than left to whatever a
+        // [TextStyle] happens to default to. `flutter_test` renders exactly that
+        // fallback, so this test sees the case a phone without the emoji font
+        // would. Faded would break `specs/02-live-radar.md:28`.
+        final Asteroid waving = _rock(name: '2020 AA', ld: 5, hazardous: true);
+        await pumpRadar(
+          tester,
+          sky: <Asteroid>[waving],
+          layers: const RadarLayers(planets: false, rings: false, moon: false),
+        );
+        final RadarPixels frame = await rasteriseRadar(tester);
 
-      final ({Offset at, double chip}) token = _tokenOf(<Asteroid>[waving], waving.name);
-      // The two glyphs on the token, found by size: the animal is drawn at
-      // `emojiSize` and the wave at 55% of it (`_waveScale`).
-      final List<({Offset at, double width})> glyphs = <({Offset at, double width})>[
-        for (final ({Offset at, double width}) label in radarParagraphs(tester))
-          if ((label.at - token.at).distance < token.chip * 2) label,
-      ];
-      expect(glyphs, hasLength(2), reason: 'the animal and its wave');
+        final ({Offset at, double chip}) token = _tokenOf(<Asteroid>[
+          waving,
+        ], waving.name);
+        // The two glyphs on the token, found by size: the animal is drawn at
+        // `emojiSize` and the wave at 55% of it (`_waveScale`).
+        final List<({Offset at, double width})> glyphs =
+            <({Offset at, double width})>[
+              for (final ({Offset at, double width}) label in radarParagraphs(
+                tester,
+              ))
+                if ((label.at - token.at).distance < token.chip * 2) label,
+            ];
+        expect(glyphs, hasLength(2), reason: 'the animal and its wave');
 
-      for (final ({Offset at, double width}) glyph in glyphs) {
-        _expectOpaqueWhiteGlyph(frame, glyph);
-      }
-    });
+        for (final ({Offset at, double width}) glyph in glyphs) {
+          _expectOpaqueWhiteGlyph(frame, glyph);
+        }
+      },
+    );
   });
 }
 
@@ -531,7 +556,8 @@ void _expectOpaqueWhiteGlyph(
   expect(
     ink,
     isNotEmpty,
-    reason: 'the glyph at ${glyph.at} is drawn in something other than white — '
+    reason:
+        'the glyph at ${glyph.at} is drawn in something other than white — '
         'a faded animal is what `specs/02-live-radar.md:28` forbids',
   );
 }
@@ -605,4 +631,3 @@ Asteroid _rock({
   jpl: 'https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html',
   date: 'sample',
 );
-

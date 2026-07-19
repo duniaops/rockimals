@@ -61,17 +61,14 @@ void main() {
       expect(store.littleKidsMode, isFalse);
     });
 
-    test(
-      'calm motion starts null, meaning "no choice yet — ask the OS"',
-      () {
-        // Not `false`. Spec 08 defaults this to MediaQuery.disableAnimations on
-        // first run and to the child's choice thereafter, which is three states
-        // in a bool's clothing. If this ever returns false on a fresh install,
-        // the OS accessibility flag becomes unreadable from here and a child who
-        // needs calm motion never gets it by default.
-        expect(store.reducedMotion, isNull);
-      },
-    );
+    test('calm motion starts null, meaning "no choice yet — ask the OS"', () {
+      // Not `false`. Spec 08 defaults this to MediaQuery.disableAnimations on
+      // first run and to the child's choice thereafter, which is three states
+      // in a bool's clothing. If this ever returns false on a fresh install,
+      // the OS accessibility flag becomes unreadable from here and a child who
+      // needs calm motion never gets it by default.
+      expect(store.reducedMotion, isNull);
+    });
 
     test('the child has never played, and the store says so', () {
       expect(store.lastPlayedDate, isNull);
@@ -159,13 +156,16 @@ void main() {
       expect((await restart()).soundOn, isFalse);
     });
 
-    test('calm motion turned explicitly off stays off, and stays a choice', () async {
-      await store.setReducedMotion(false);
+    test(
+      'calm motion turned explicitly off stays off, and stays a choice',
+      () async {
+        await store.setReducedMotion(false);
 
-      // False, not null: the child said no. If this reads null, the next launch
-      // asks the OS instead and can silently overrule them.
-      expect((await restart()).reducedMotion, isFalse);
-    });
+        // False, not null: the child said no. If this reads null, the next launch
+        // asks the OS instead and can silently overrule them.
+        expect((await restart()).reducedMotion, isFalse);
+      },
+    );
 
     test('a zero score is stored, not treated as unset', () async {
       await store.setPoints(0);
@@ -290,7 +290,10 @@ void main() {
     test('survives a restart', () async {
       await store.setCachedFeed('{"window":"2026-07-15 → 2026-07-17"}');
 
-      expect((await restart()).cachedFeed, '{"window":"2026-07-15 → 2026-07-17"}');
+      expect(
+        (await restart()).cachedFeed,
+        '{"window":"2026-07-15 → 2026-07-17"}',
+      );
     });
 
     test('is overwritten whole, never merged', () async {
@@ -303,10 +306,13 @@ void main() {
       expect((await restart()).cachedFeed, 'second');
     });
 
-    test('a wrongly-typed entry reads as absent rather than throwing', () async {
-      await Hive.box<Object>(Store.boxName).put('aw_feedcache', 42);
+    test(
+      'a wrongly-typed entry reads as absent rather than throwing',
+      () async {
+        await Hive.box<Object>(Store.boxName).put('aw_feedcache', 42);
 
-      expect(store.cachedFeed, isNull);
-    });
+        expect(store.cachedFeed, isNull);
+      },
+    );
   });
 }

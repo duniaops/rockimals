@@ -53,7 +53,10 @@ void main() {
 
     final DecoratedBox box = tester.widget<DecoratedBox>(
       find
-          .descendant(of: find.byType(Obar), matching: find.byType(DecoratedBox))
+          .descendant(
+            of: find.byType(Obar),
+            matching: find.byType(DecoratedBox),
+          )
           .first,
     );
     final BoxDecoration decoration = box.decoration as BoxDecoration;
@@ -140,7 +143,10 @@ void main() {
     final BoxDecoration decoration = pill.decoration as BoxDecoration;
 
     expect(decoration.color, Palette.card);
-    expect(decoration.borderRadius, const BorderRadius.all(Radius.circular(11)));
+    expect(
+      decoration.borderRadius,
+      const BorderRadius.all(Radius.circular(11)),
+    );
     expect(
       decoration.border,
       const Border.fromBorderSide(BorderSide(color: Palette.line)),
@@ -213,9 +219,7 @@ void main() {
     // [Navigator.maybePop], not `pop` — the bar is a plain widget and nothing
     // stops a future screen from mounting it as a root. `pop` would tear the
     // last route out from under the app.
-    await tester.pumpWidget(
-      const MaterialApp(home: Obar(title: 'Root')),
-    );
+    await tester.pumpWidget(const MaterialApp(home: Obar(title: 'Root')));
 
     await tester.tap(find.bySemanticsLabel('Back'));
     await tester.pumpAndSettle();

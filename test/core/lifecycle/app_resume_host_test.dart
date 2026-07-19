@@ -34,10 +34,7 @@ void main() {
   Future<int Function()> mount(WidgetTester tester) async {
     int calls = 0;
     await tester.pumpWidget(
-      AppResumeHost(
-        onResume: () => calls++,
-        child: const SizedBox.shrink(),
-      ),
+      AppResumeHost(onResume: () => calls++, child: const SizedBox.shrink()),
     );
     return () => calls;
   }

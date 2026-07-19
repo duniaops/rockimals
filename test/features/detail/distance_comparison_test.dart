@@ -16,24 +16,28 @@ import 'package:rockimals/features/detail/distance_comparison.dart';
 /// end of the distance range it sits at.
 void main() {
   group('DistanceTrack — positions stay on the track (index.html:565-566)', () {
-    test('a hair-close 0.07-LD flyby lands just inside Earth, not pinned to it',
-        () {
-      // span = max(1.25, 0.07) = 1.25 — the floor keeps the pebble off the left
-      // edge. moon = 1/1.25 = 0.8; ast = 0.07/1.25 = 0.056.
-      final DistanceTrack t = DistanceTrack.forMissLunar(0.07);
-      expect(t.moonFraction, closeTo(0.8, 1e-9));
-      expect(t.asteroidFraction, closeTo(0.056, 1e-9));
-      expect(t.asteroidFraction, inInclusiveRange(0, 1));
-    });
+    test(
+      'a hair-close 0.07-LD flyby lands just inside Earth, not pinned to it',
+      () {
+        // span = max(1.25, 0.07) = 1.25 — the floor keeps the pebble off the left
+        // edge. moon = 1/1.25 = 0.8; ast = 0.07/1.25 = 0.056.
+        final DistanceTrack t = DistanceTrack.forMissLunar(0.07);
+        expect(t.moonFraction, closeTo(0.8, 1e-9));
+        expect(t.asteroidFraction, closeTo(0.056, 1e-9));
+        expect(t.asteroidFraction, inInclusiveRange(0, 1));
+      },
+    );
 
-    test('a distant 50-LD rock is clamped to the far end, not off the right',
-        () {
-      // span = 50; ast = min(1, 50/50) = 1.0 exactly; moon = 1/50 = 0.02.
-      final DistanceTrack t = DistanceTrack.forMissLunar(50);
-      expect(t.asteroidFraction, 1.0);
-      expect(t.moonFraction, closeTo(0.02, 1e-9));
-      expect(t.asteroidFraction, inInclusiveRange(0, 1));
-    });
+    test(
+      'a distant 50-LD rock is clamped to the far end, not off the right',
+      () {
+        // span = 50; ast = min(1, 50/50) = 1.0 exactly; moon = 1/50 = 0.02.
+        final DistanceTrack t = DistanceTrack.forMissLunar(50);
+        expect(t.asteroidFraction, 1.0);
+        expect(t.moonFraction, closeTo(0.02, 1e-9));
+        expect(t.asteroidFraction, inInclusiveRange(0, 1));
+      },
+    );
 
     test('at exactly 1 LD the asteroid sits on the Moon (both at 0.8)', () {
       // span = max(1.25, 1) = 1.25, so moon and ast both = 1/1.25 = 0.8: the rock
@@ -51,13 +55,15 @@ void main() {
   group('DistanceComparison panel', () {
     // 2020 SW — 0.07 Moons, a hair-close flyby: the asteroid dot lands near the
     // left, well inside the track.
-    final Asteroid near =
-        kFallbackAsteroids.firstWhere((Asteroid a) => a.name == '2020 SW');
+    final Asteroid near = kFallbackAsteroids.firstWhere(
+      (Asteroid a) => a.name == '2020 SW',
+    );
 
     // 433 Eros — 52 Moons, the farthest of the sample sky: the dot clamps to the
     // track's right edge.
-    final Asteroid far =
-        kFallbackAsteroids.firstWhere((Asteroid a) => a.name == '433 Eros');
+    final Asteroid far = kFallbackAsteroids.firstWhere(
+      (Asteroid a) => a.name == '433 Eros',
+    );
 
     Future<void> pump(WidgetTester tester, Asteroid rock) {
       return tester.pumpWidget(
@@ -78,16 +84,19 @@ void main() {
     /// span — the on-screen form of the Done-when "renders on-track". A 0.5px
     /// slack absorbs the marker-size rounding, nothing more.
     void expectAsteroidOnTrack(WidgetTester tester) {
-      final Rect track =
-          tester.getRect(find.byKey(const ValueKey<String>('dist-track')));
-      final Rect ast =
-          tester.getRect(find.byKey(const ValueKey<String>('dist-asteroid')));
+      final Rect track = tester.getRect(
+        find.byKey(const ValueKey<String>('dist-track')),
+      );
+      final Rect ast = tester.getRect(
+        find.byKey(const ValueKey<String>('dist-asteroid')),
+      );
       expect(ast.center.dx, greaterThanOrEqualTo(track.left - 0.5));
       expect(ast.center.dx, lessThanOrEqualTo(track.right + 0.5));
     }
 
-    testWidgets('a hair-close flyby renders on-track with its distance tick',
-        (tester) async {
+    testWidgets('a hair-close flyby renders on-track with its distance tick', (
+      tester,
+    ) async {
       await pump(tester, near);
 
       // The header reads through the AnimalSystem's `moonCompare`, shown uppercase
@@ -109,18 +118,21 @@ void main() {
       expectAsteroidOnTrack(tester);
     });
 
-    testWidgets('a distant rock clamps to the far edge but stays on-track',
-        (tester) async {
+    testWidgets('a distant rock clamps to the far edge but stays on-track', (
+      tester,
+    ) async {
       await pump(tester, far);
 
       // 52 Moons → the ☄️ tick reads "52× Moon" and the dot clamps to the right.
       expect(find.text('☄️ ${distLabel(far.missLunar)}'), findsOneWidget);
       expect(distLabel(far.missLunar), '52× Moon');
 
-      final Rect track =
-          tester.getRect(find.byKey(const ValueKey<String>('dist-track')));
-      final Rect ast =
-          tester.getRect(find.byKey(const ValueKey<String>('dist-asteroid')));
+      final Rect track = tester.getRect(
+        find.byKey(const ValueKey<String>('dist-track')),
+      );
+      final Rect ast = tester.getRect(
+        find.byKey(const ValueKey<String>('dist-asteroid')),
+      );
       // asteroidFraction is exactly 1.0 here, so the dot centres on the track's
       // right edge — on-track, at the far end.
       expect(ast.center.dx, closeTo(track.right, 0.5));
@@ -128,8 +140,9 @@ void main() {
       expectAsteroidOnTrack(tester);
     });
 
-    testWidgets('the header speaks its natural-case label, not the caps',
-        (tester) async {
+    testWidgets('the header speaks its natural-case label, not the caps', (
+      tester,
+    ) async {
       final SemanticsHandle handle = tester.ensureSemantics();
       await pump(tester, near);
 
@@ -144,8 +157,9 @@ void main() {
       handle.dispose();
     });
 
-    testWidgets('the decorative dots are summarised, not read as emoji',
-        (tester) async {
+    testWidgets('the decorative dots are summarised, not read as emoji', (
+      tester,
+    ) async {
       final SemanticsHandle handle = tester.ensureSemantics();
       await pump(tester, near);
 

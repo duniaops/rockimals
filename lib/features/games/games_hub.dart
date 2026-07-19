@@ -147,7 +147,9 @@ class GamesHub extends ConsumerWidget {
   /// [_destinationFor] is the one seam each game item edits.
   void _launch(BuildContext context, _GameId id) {
     Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(builder: (BuildContext context) => _destinationFor(id)),
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) => _destinationFor(id),
+      ),
     );
   }
 
@@ -310,7 +312,9 @@ class _GameCardTile extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: const BorderRadius.all(Radius.circular(16)),
             // `.gfeat` borders in accent, a plain card in `--line`.
-            side: BorderSide(color: card.featured ? Palette.accent : Palette.line),
+            side: BorderSide(
+              color: card.featured ? Palette.accent : Palette.line,
+            ),
           ),
           child: Ink(
             decoration: card.featured

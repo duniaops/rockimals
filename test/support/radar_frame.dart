@@ -102,11 +102,12 @@ void recordRadar(
   WidgetTester tester,
   void Function(Symbol method, List<dynamic> arguments) onCall,
 ) {
-  final Matcher collector = (paints
-    ..something((Symbol method, List<dynamic> arguments) {
-      onCall(method, arguments);
-      return false;
-    })) as Matcher;
+  final Matcher collector =
+      (paints..something((Symbol method, List<dynamic> arguments) {
+            onCall(method, arguments);
+            return false;
+          }))
+          as Matcher;
   collector.matches(radarPainterOf(tester), <dynamic, dynamic>{});
 }
 
@@ -118,7 +119,9 @@ void recordRadar(
 /// before trusting any colour asserted here — if it did not, every ring in a
 /// frame would read back as the last colour set and these tests would quietly
 /// agree with themselves.
-List<({Offset at, double radius, Paint paint})> radarCircles(WidgetTester tester) {
+List<({Offset at, double radius, Paint paint})> radarCircles(
+  WidgetTester tester,
+) {
   final List<({Offset at, double radius, Paint paint})> circles =
       <({Offset at, double radius, Paint paint})>[];
   recordRadar(tester, (Symbol method, List<dynamic> arguments) {
@@ -154,7 +157,8 @@ List<({Path path, Paint paint})> radarPaths(WidgetTester tester) {
 /// itself (canvas's `textAlign="center"`), so recovering the centre needs the
 /// width.
 List<({Offset at, double width})> radarParagraphs(WidgetTester tester) {
-  final List<({Offset at, double width})> offsets = <({Offset at, double width})>[];
+  final List<({Offset at, double width})> offsets =
+      <({Offset at, double width})>[];
   recordRadar(tester, (Symbol method, List<dynamic> arguments) {
     if (method == #drawParagraph) {
       offsets.add((
@@ -236,11 +240,13 @@ class _Ticking extends StatefulWidget {
   State<_Ticking> createState() => _TickingState();
 }
 
-class _TickingState extends State<_Ticking> with SingleTickerProviderStateMixin {
+class _TickingState extends State<_Ticking>
+    with SingleTickerProviderStateMixin {
   final ValueNotifier<Duration> _clock = ValueNotifier<Duration>(Duration.zero);
   late final RadarOrbits _orbits = RadarOrbits.seed(widget.asteroids);
 
-  late final PlanetBackdrop _backdrop = widget.backdrop ?? PlanetBackdrop.seed();
+  late final PlanetBackdrop _backdrop =
+      widget.backdrop ?? PlanetBackdrop.seed();
 
   /// The app's own wiring (`radar_view.dart`): one step per frame, measured once.
   final FrameClock _frame = FrameClock();

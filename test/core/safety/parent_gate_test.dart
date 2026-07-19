@@ -43,7 +43,10 @@ void main() {
       // notation a small child learns to recognise; the words are the reading
       // step that makes this a gate rather than a sum on a flashcard.
       expect(fixed.prompt, 'What is three plus nine?');
-      expect(const ParentGateChallenge(7, 4).prompt, 'What is seven plus four?');
+      expect(
+        const ParentGateChallenge(7, 4).prompt,
+        'What is seven plus four?',
+      );
     });
 
     test('random draws addends in 3..9 and always crosses ten', () {
@@ -152,7 +155,9 @@ void main() {
       return launched;
     }
 
-    final Uri safe = Uri.parse('https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html');
+    final Uri safe = Uri.parse(
+      'https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html',
+    );
 
     testWidgets('a tap raises the gate and launches nothing yet', (
       tester,
@@ -198,8 +203,10 @@ void main() {
       // Encouraging, never a scold (`CLAUDE.md:63`).
       expect(find.text('Not quite — ask a grown-up to help!'), findsOneWidget);
       // Cleared, so the next try starts empty rather than from the last guess.
-      expect(tester.widget<TextField>(find.byType(TextField)).controller?.text,
-          isEmpty);
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller?.text,
+        isEmpty,
+      );
     });
 
     testWidgets('the gate closes after kParentGateTries wrong answers', (
@@ -240,10 +247,7 @@ void main() {
         await tester.tap(find.text('go'));
         await tester.pumpAndSettle();
         prompts.add(
-          tester
-              .widgetList<Text>(find.textContaining('What is '))
-              .first
-              .data!,
+          tester.widgetList<Text>(find.textContaining('What is ')).first.data!,
         );
         await tester.tap(find.text('Cancel'));
         await tester.pumpAndSettle();
@@ -284,8 +288,10 @@ void main() {
       // Order matters, not just the outcome: checking the URL *after* the gate
       // would ask a grown-up to do arithmetic for a link that was never going
       // to open, and would teach them the gate is broken.
-      final List<Uri> launched =
-          await pumpLink(tester, Uri.parse('https://example.com/'));
+      final List<Uri> launched = await pumpLink(
+        tester,
+        Uri.parse('https://example.com/'),
+      );
 
       await tester.tap(find.text('go'));
       await tester.pumpAndSettle();
@@ -297,8 +303,10 @@ void main() {
     testWidgets('a passed gate cannot rescue an unsafe URL', (tester) async {
       // The belt-and-braces case: even a grown-up cannot send this app to a
       // non-NASA host, because the refusal is not a permission the gate grants.
-      final List<Uri> launched =
-          await pumpLink(tester, Uri.parse('market://details?id=x'));
+      final List<Uri> launched = await pumpLink(
+        tester,
+        Uri.parse('market://details?id=x'),
+      );
 
       await tester.tap(find.text('go'));
       await tester.pumpAndSettle();
@@ -326,8 +334,8 @@ void main() {
           .where((File f) => f.path.endsWith('.dart'))
           .where(
             (File f) => f.readAsStringSync().contains(
-                  "import 'package:url_launcher/url_launcher.dart'",
-                ),
+              "import 'package:url_launcher/url_launcher.dart'",
+            ),
           )
           .map((File f) => f.path)
           .toList();
@@ -341,8 +349,9 @@ void main() {
       // exported a launch that skipped the gate, so `launchExternal` must
       // appear outside its own declaration only as `openExternalLink`'s
       // default argument.
-      final String source =
-          File('lib/core/safety/parent_gate.dart').readAsStringSync();
+      final String source = File(
+        'lib/core/safety/parent_gate.dart',
+      ).readAsStringSync();
       final List<String> callSites = source
           .split('\n')
           .where((String line) => !line.trimLeft().startsWith('///'))

@@ -38,7 +38,9 @@ class FlybyBadge extends StatelessWidget {
         decoration: BoxDecoration(
           color: close ? _closeBadgeFill : _safeBadgeFill,
           borderRadius: const BorderRadius.all(Radius.circular(12)),
-          border: Border.all(color: close ? _closeBadgeBorder : _safeBadgeBorder),
+          border: Border.all(
+            color: close ? _closeBadgeBorder : _safeBadgeBorder,
+          ),
         ),
         child: ExcludeSemantics(
           child: Text(

@@ -23,10 +23,14 @@ void main() {
     test('is the prototype\'s six, in the prototype\'s own order', () {
       // The order is not cosmetic: it is paint order (`index.html:808`), so it
       // decides who is in front of whom where two planets drift past each other.
-      expect(
-        PlanetBackdrop.seed().planets.map((Planet p) => p.name),
-        <String>['Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Neptune'],
-      );
+      expect(PlanetBackdrop.seed().planets.map((Planet p) => p.name), <String>[
+        'Mercury',
+        'Venus',
+        'Mars',
+        'Jupiter',
+        'Saturn',
+        'Neptune',
+      ]);
     });
 
     test('gives the near planets the faster drift', () {
@@ -34,11 +38,16 @@ void main() {
       // not orbital speed: nothing here is to scale, but the near things sweeping
       // past the far ones is what gives a flat backdrop any depth at all. A
       // shared drift would make the six read as one sheet sliding by.
-      final List<double> drifts =
-          PlanetBackdrop.seed().planets.map((Planet p) => p.drift).toList();
+      final List<double> drifts = PlanetBackdrop.seed().planets
+          .map((Planet p) => p.drift)
+          .toList();
 
       expect(drifts, <double>[3.0, 2.4, 2.0, 2.6, 2.2, 1.7]);
-      expect(drifts.first, greaterThan(drifts.last), reason: 'Mercury outruns Neptune');
+      expect(
+        drifts.first,
+        greaterThan(drifts.last),
+        reason: 'Mercury outruns Neptune',
+      );
     });
 
     test('gives every planet a bob period of its own', () {
@@ -46,8 +55,9 @@ void main() {
       // (`index.html:790-795`). Shared periods would have the whole backdrop
       // breathing in unison like one object; these drift in and out of phase for
       // hours without repeating.
-      final List<double> bobs =
-          PlanetBackdrop.seed().planets.map((Planet p) => p.bob).toList();
+      final List<double> bobs = PlanetBackdrop.seed().planets
+          .map((Planet p) => p.bob)
+          .toList();
 
       expect(bobs, <double>[2600, 3000, 3400, 4200, 4600, 5200]);
       expect(bobs.toSet(), hasLength(6));
@@ -61,22 +71,26 @@ void main() {
       // from the prototype rather than recomputed here.
       final PlanetBackdrop backdrop = PlanetBackdrop.seed();
 
-      for (final (String name, Offset at, double radius) expected in <(String, Offset, double)>[
-        ('Mercury', const Offset(335.4, 350), 6),
-        ('Venus', const Offset(54.6, 420), 10),
-        ('Mars', const Offset(218.4, 371), 9),
-        ('Jupiter', const Offset(312, 511), 21),
-        ('Saturn', const Offset(105.3, 567), 16),
-        ('Neptune', const Offset(366.6, 455), 12),
-      ]) {
+      for (final (String name, Offset at, double radius) expected
+          in <(String, Offset, double)>[
+            ('Mercury', const Offset(335.4, 350), 6),
+            ('Venus', const Offset(54.6, 420), 10),
+            ('Mars', const Offset(218.4, 371), 9),
+            ('Jupiter', const Offset(312, 511), 21),
+            ('Saturn', const Offset(105.3, 567), 16),
+            ('Neptune', const Offset(366.6, 455), 12),
+          ]) {
         final Planet planet = _named(backdrop, expected.$1);
         _expectOffset(
           backdrop.positionOf(planet, geometry: _geometry, zoom: 1, ts: 0),
           expected.$2,
           reason: expected.$1,
         );
-        expect(backdrop.radiusOf(planet, zoom: 1), closeTo(expected.$3, 1e-9),
-            reason: expected.$1);
+        expect(
+          backdrop.radiusOf(planet, zoom: 1),
+          closeTo(expected.$3, 1e-9),
+          reason: expected.$1,
+        );
       }
     });
 
@@ -108,7 +122,12 @@ void main() {
       // Unplaced, a frame still draws every planet somewhere sensible —
       // `p.x != null ? p.x : W * p.xf` (`index.html:809`).
       _expectOffset(
-        backdrop.positionOf(_named(backdrop, 'Mercury'), geometry: _geometry, zoom: 1, ts: 0),
+        backdrop.positionOf(
+          _named(backdrop, 'Mercury'),
+          geometry: _geometry,
+          zoom: 1,
+          ts: 0,
+        ),
         const Offset(335.4, 350),
       );
 
@@ -119,7 +138,8 @@ void main() {
     test('does not re-place a planet that has already drifted', () {
       // The `??` is a placement, not a reset. If it fired every frame the
       // backdrop would be pinned to its start and nothing would ever move.
-      final PlanetBackdrop backdrop = PlanetBackdrop.seed()..advance(1, width: 390);
+      final PlanetBackdrop backdrop = PlanetBackdrop.seed()
+        ..advance(1, width: 390);
       final double afterOneSecond = _named(backdrop, 'Mercury').x!;
 
       backdrop.advance(1, width: 390);
@@ -145,8 +165,11 @@ void main() {
         ('Saturn', 78.9),
         ('Neptune', 346.2),
       ]) {
-        expect(_named(backdrop, expected.$1).x, closeTo(expected.$2, 1e-6),
-            reason: expected.$1);
+        expect(
+          _named(backdrop, expected.$1).x,
+          closeTo(expected.$2, 1e-6),
+          reason: expected.$1,
+        );
       }
     });
 
@@ -173,9 +196,13 @@ void main() {
       for (int i = 0; i < 10; i++) {
         stepped.advance(0.1, width: 390);
       }
-      final PlanetBackdrop leapt = PlanetBackdrop.seed()..advance(1, width: 390);
+      final PlanetBackdrop leapt = PlanetBackdrop.seed()
+        ..advance(1, width: 390);
 
-      expect(_named(stepped, 'Jupiter').x, closeTo(_named(leapt, 'Jupiter').x!, 1e-9));
+      expect(
+        _named(stepped, 'Jupiter').x,
+        closeTo(_named(leapt, 'Jupiter').x!, 1e-9),
+      );
     });
 
     test('is not touched by the zoom', () {
@@ -208,7 +235,11 @@ void main() {
       for (int i = 0; i < 675; i++) {
         backdrop.advance(1 / 60, width: 390);
       }
-      expect(mercury.x, closeTo(-69.6, 1e-6), reason: 'still off screen, not yet wrapped');
+      expect(
+        mercury.x,
+        closeTo(-69.6, 1e-6),
+        reason: 'still off screen, not yet wrapped',
+      );
 
       backdrop.advance(1 / 60, width: 390);
       expect(mercury.x, 460, reason: 'W + 70, on the far side');
@@ -228,7 +259,11 @@ void main() {
       // A big step: 10px past the edge in one frame.
       backdrop.advance(11 / 36, width: 390);
 
-      expect(mercury.x, 460, reason: 'exactly W + 70 — the 10px of overshoot is gone');
+      expect(
+        mercury.x,
+        460,
+        reason: 'exactly W + 70 — the 10px of overshoot is gone',
+      );
     });
 
     test('wraps at the edge and not before it', () {
@@ -239,7 +274,11 @@ void main() {
       final Planet mercury = _named(backdrop, 'Mercury')..x = -70 + 36 / 60;
 
       backdrop.advance(1 / 60, width: 390);
-      expect(mercury.x, closeTo(-70, 1e-9), reason: 'at -70 exactly, still not wrapped');
+      expect(
+        mercury.x,
+        closeTo(-70, 1e-9),
+        reason: 'at -70 exactly, still not wrapped',
+      );
 
       backdrop.advance(1 / 60, width: 390);
       expect(mercury.x, 460);
@@ -267,10 +306,20 @@ void main() {
       final Planet mercury = _named(backdrop, 'Mercury');
 
       final double top = backdrop
-          .positionOf(mercury, geometry: _geometry, zoom: 1, ts: 2600 * math.pi / 2)
+          .positionOf(
+            mercury,
+            geometry: _geometry,
+            zoom: 1,
+            ts: 2600 * math.pi / 2,
+          )
           .dy;
       final double bottom = backdrop
-          .positionOf(mercury, geometry: _geometry, zoom: 1, ts: 2600 * 3 * math.pi / 2)
+          .positionOf(
+            mercury,
+            geometry: _geometry,
+            zoom: 1,
+            ts: 2600 * 3 * math.pi / 2,
+          )
           .dy;
 
       expect(top, closeTo(350 + 5, 1e-6));
@@ -299,8 +348,18 @@ void main() {
       final Planet venus = _named(backdrop, 'Venus');
 
       expect(
-        backdrop.positionOf(venus, geometry: _geometry, zoom: 1, ts: 3000 * math.pi / 2).dx,
-        closeTo(backdrop.positionOf(venus, geometry: _geometry, zoom: 1, ts: 0).dx, 1e-9),
+        backdrop
+            .positionOf(
+              venus,
+              geometry: _geometry,
+              zoom: 1,
+              ts: 3000 * math.pi / 2,
+            )
+            .dx,
+        closeTo(
+          backdrop.positionOf(venus, geometry: _geometry, zoom: 1, ts: 0).dx,
+          1e-9,
+        ),
       );
     });
 
@@ -316,12 +375,25 @@ void main() {
       final Planet mars = _named(backdrop, 'Mars');
 
       // No `advance` at all — the sky is stopped dead.
-      final Offset still = backdrop.positionOf(mars, geometry: _geometry, zoom: 1, ts: 0);
-      final Offset later =
-          backdrop.positionOf(mars, geometry: _geometry, zoom: 1, ts: 3400 * math.pi / 2);
+      final Offset still = backdrop.positionOf(
+        mars,
+        geometry: _geometry,
+        zoom: 1,
+        ts: 0,
+      );
+      final Offset later = backdrop.positionOf(
+        mars,
+        geometry: _geometry,
+        zoom: 1,
+        ts: 3400 * math.pi / 2,
+      );
 
       expect(later.dy, isNot(closeTo(still.dy, 1)));
-      expect(later.dx, closeTo(still.dx, 1e-9), reason: 'still not going anywhere');
+      expect(
+        later.dx,
+        closeTo(still.dx, 1e-9),
+        reason: 'still not going anywhere',
+      );
     });
 
     test('is not scaled by the zoom', () {
@@ -332,10 +404,16 @@ void main() {
       final PlanetBackdrop backdrop = PlanetBackdrop.seed();
       final Planet mercury = _named(backdrop, 'Mercury');
 
-      final double restY =
-          backdrop.positionOf(mercury, geometry: _geometry, zoom: 4, ts: 0).dy;
+      final double restY = backdrop
+          .positionOf(mercury, geometry: _geometry, zoom: 4, ts: 0)
+          .dy;
       final double topY = backdrop
-          .positionOf(mercury, geometry: _geometry, zoom: 4, ts: 2600 * math.pi / 2)
+          .positionOf(
+            mercury,
+            geometry: _geometry,
+            zoom: 4,
+            ts: 2600 * math.pi / 2,
+          )
           .dy;
 
       expect(topY - restY, closeTo(5, 1e-6), reason: 'five pixels at any zoom');
@@ -352,7 +430,14 @@ void main() {
       // Captured from the prototype at `zoom = 2, ts = 1000`: Mercury at
       // 475.8, and the Sun flung right off the left edge to -163.8.
       expect(
-        backdrop.positionOf(_named(backdrop, 'Mercury'), geometry: _geometry, zoom: 2, ts: 1000).dx,
+        backdrop
+            .positionOf(
+              _named(backdrop, 'Mercury'),
+              geometry: _geometry,
+              zoom: 2,
+              ts: 1000,
+            )
+            .dx,
         closeTo(475.8, 1e-6),
       );
       expect(
@@ -377,7 +462,12 @@ void main() {
       ]) {
         expect(
           backdrop
-              .positionOf(_named(backdrop, expected.$1), geometry: _geometry, zoom: 2, ts: 1000)
+              .positionOf(
+                _named(backdrop, expected.$1),
+                geometry: _geometry,
+                zoom: 2,
+                ts: 1000,
+              )
               .dy,
           closeTo(expected.$2, 1e-9),
           reason: expected.$1,

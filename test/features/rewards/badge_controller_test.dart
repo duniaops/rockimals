@@ -144,15 +144,18 @@ void main() {
       expect(engine.played, <SoundCue>[SoundCue.cheer]);
     });
 
-    test('marks both earned immediately, before either is celebrated', () async {
-      // Persistence happens on the check, not on the dismissal
-      // (`index.html:988-989`), so an app killed with the popup up still has
-      // both badges next launch.
-      await earnTwo();
+    test(
+      'marks both earned immediately, before either is celebrated',
+      () async {
+        // Persistence happens on the check, not on the dismissal
+        // (`index.html:988-989`), so an app killed with the popup up still has
+        // both badges next launch.
+        await earnTwo();
 
-      expect(read().earned, <String>{'mouse', 'fire'});
-      expect(store.badges, containsAll(<String>['mouse', 'fire']));
-    });
+        expect(read().earned, <String>{'mouse', 'fire'});
+        expect(store.badges, containsAll(<String>['mouse', 'fire']));
+      },
+    );
 
     test('the second arrives after the gap, with its own cheer', () async {
       await earnTwo();
@@ -179,7 +182,11 @@ void main() {
 
       expect(read().celebrating, isNull);
       expect(read().queue, isEmpty);
-      expect(engine.played, hasLength(2), reason: 'no cheer for an empty queue');
+      expect(
+        engine.played,
+        hasLength(2),
+        reason: 'no cheer for an empty queue',
+      );
     });
 
     test('a badge earned while one is on screen joins the queue', () async {
