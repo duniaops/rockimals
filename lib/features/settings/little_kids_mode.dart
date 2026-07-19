@@ -67,6 +67,29 @@ final NotifierProvider<LittleKidsModeNotifier, bool> littleKidsModeProvider =
       name: 'littleKidsMode',
     );
 
+/// How much larger 🧸 Little Kids mode draws the app's shared controls
+/// (`specs/06-title-polish-safety.md:26`, "bigger controls").
+///
+/// **Why 1.25 and not more.** It moves the tap-target floor — `kMinTapTarget` in
+/// `core/a11y/tap_target.dart` — from 48dp to 60dp. 48 is where the guidelines land for
+/// an adult thumb — Material's `kMinInteractiveDimension`, against Apple's 44pt
+/// — and `tap_target.dart` already records that the hands here are smaller and
+/// less accurate than the ones those figures were measured against. So the
+/// useful step is one that clears the adult floor by a visible margin without
+/// redrawing the app: 1.25 makes every control a quarter larger, which reads as
+/// bigger side by side, and is small enough that no screen reflows even at 1.5×
+/// text (`tap_target_audit_test.dart` runs the whole app at both).
+///
+/// **Whether 1.25 is *right* is still a device question, and this is the honest
+/// half.** A widget test can prove the controls grew, that nothing overflows,
+/// and that the floor moved; it cannot tell us that a four-year-old hits them
+/// more often. That needs the HUMAN-GATED toolchain item and a real child. The
+/// plan item chose to ship the conservative number rather than keep the whole
+/// affordance behind that gate, on the grounds that a quarter larger is
+/// unambiguously better than nothing and safe to revise upward later — this
+/// constant is the one place a revision has to touch.
+const double kLittleKidsControlScale = 1.25;
+
 /// What Little Kids mode *means* to the rest of the app — one question per
 /// affordance `specs/06-title-polish-safety.md:26` names.
 ///
@@ -147,12 +170,11 @@ class LittleKidsExperience implements LittleKidsMode {
   @override
   bool get readsAloud => false;
 
-  /// Still standard. "Bigger controls" is a *number*, and choosing it needs a
-  /// real screen to look at: every tap target in the app is already asserted
-  /// ≥48dp, so the gain here is real but the multiplier is not something a
-  /// widget test can tell us is right.
+  /// **The second one to ship.** [kLittleKidsControlScale] holds the number and
+  /// the argument for it; `core/a11y/control_scale.dart` carries it to the
+  /// widgets and says what it is allowed to touch.
   @override
-  double get controlScale => 1;
+  double get controlScale => kLittleKidsControlScale;
 
   /// **The one that ships.** The Play hub offers Power Duel and Closer or
   /// Farther only; `games_hub.dart` holds which two and, more usefully, the rule

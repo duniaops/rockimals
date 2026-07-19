@@ -108,15 +108,16 @@ class SettingsScreen extends ConsumerWidget {
                     // promising nothing would have been meaningless. The first
                     // affordance has now shipped, so the promise is replaced by
                     // a description in the present tense.
-                    // **Read-aloud and bigger buttons are deliberately not
-                    // mentioned.** They are still standard answers
-                    // (`LittleKidsExperience` says why per member), and a hint
-                    // that listed them would put this row back to advertising
-                    // features a grown-up cannot get — the thing the "coming
-                    // soon" wording was carefully avoiding. Naming the two games
-                    // instead lets them predict the change before they flip it.
+                    // **Read-aloud is still deliberately not mentioned.** It is
+                    // still a standard answer (`LittleKidsExperience` says why
+                    // per member), and a hint that listed it would put this row
+                    // back to advertising a feature a grown-up cannot get — the
+                    // thing the "coming soon" wording was carefully avoiding.
+                    // Bigger buttons has since shipped, so it is named. The
+                    // standing rule: this string lists what the switch does
+                    // today, and it grows one clause per affordance that lands.
                     hint:
-                        'Keeps the Play screen to the two simplest games: '
+                        'Bigger buttons, and only the two simplest games: '
                         'Power Duel and Closer or Farther.',
                     value: ref.watch(littleKidsModeProvider),
                     // `choose(next)` rather than the 🔊 row's `toggle()`: this

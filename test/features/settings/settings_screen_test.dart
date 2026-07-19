@@ -603,15 +603,18 @@ void main() {
       // the hint *had* to end "coming soon", and the words were asserted present
       // so that shipping the behaviour would fail here and force the copy to be
       // rewritten. It did. Now the switch does something, so the assertion turns
-      // over: no promise of a feature a grown-up cannot get. Read-aloud and
-      // bigger buttons are still standard answers, so the hint must not name
-      // them either — this catches a well-meant re-listing of all three.
+      // over: no promise of a feature a grown-up cannot get.
+      //
+      // **It turns over once per affordance, and this is the second turn.**
+      // Bigger buttons has shipped, so the words that were asserted *absent*
+      // here are now asserted present. Read-aloud has not, so it keeps the
+      // absent half — this still catches a well-meant re-listing of all three.
       await _openSettings(tester);
 
       expect(find.textContaining('coming soon'), findsNothing);
       expect(find.textContaining('Read-aloud'), findsNothing);
-      expect(find.textContaining('bigger buttons'), findsNothing);
-      // What it says instead: the thing that actually happens.
+      // What it says instead: the two things that actually happen.
+      expect(find.textContaining('Bigger buttons'), findsOneWidget);
       expect(find.textContaining('two simplest games'), findsOneWidget);
     });
 
@@ -682,7 +685,7 @@ void main() {
 
       expect(
         find.bySemanticsLabel(
-          'Little Kids mode. Keeps the Play screen to the two simplest games: '
+          'Little Kids mode. Bigger buttons, and only the two simplest games: '
           'Power Duel and Closer or Farther.',
         ),
         findsOneWidget,

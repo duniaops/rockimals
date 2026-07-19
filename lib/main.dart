@@ -6,12 +6,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // you mostly need in a test under `misc.dart`, alongside `ProviderException`.
 import 'package:flutter_riverpod/misc.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:rockimals/core/a11y/control_scale.dart';
 import 'package:rockimals/core/lifecycle/app_resume_host.dart';
 import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/core/streak/day_streak.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/rewards/badge_popup.dart';
+import 'package:rockimals/features/settings/little_kids_mode.dart';
 import 'package:rockimals/features/title/title_screen.dart';
 
 Future<void> main() async {
@@ -94,6 +96,21 @@ class RockimalsApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // **🧸 Little Kids mode's bigger controls, injected once at the root.** The
+    // shared chrome that obeys this — `TapTarget`, `ActionButton`, `AnimalCard`
+    // — lives in `core/`, so it reads the number off an inherited widget rather
+    // than watching this feature's provider; `control_scale.dart` argues that
+    // direction. This line is the other end of it, and the only place in the app
+    // where the setting and the widgets that honour it are connected.
+    //
+    // `watch` rather than `read`: flipping the switch must resize the controls
+    // on the spot, the same bar the Calm motion and Sound rows are held to
+    // (`specs/08-settings-about.md:75`). Rebuilding the whole [MaterialApp] is
+    // the cost, and it is paid only on a settings toggle.
+    final double controlScale = ref
+        .watch(littleKidsExperienceProvider)
+        .controlScale;
+
     return AppResumeHost(
       // The day the child is having, re-asked each time they come back to the
       // app. `bootstrap()` above answers it once per *process*, which is not the
@@ -165,8 +182,13 @@ class RockimalsApp extends ConsumerWidget {
         // Flutter app with that reach: a badge is nearly always earned mid-game,
         // and a popup mounted inside a tab would celebrate underneath the game
         // the child is looking at. See `badge_popup.dart`.
-        builder: (BuildContext context, Widget? child) =>
-            BadgePopupHost(child: child ?? const SizedBox.shrink()),
+        // `ControlScale` outside the popup host so it reaches the whole
+        // navigator — the detail screen is a pushed route, and its two
+        // `ActionButton`s are among the controls this is for.
+        builder: (BuildContext context, Widget? child) => ControlScale(
+          scale: controlScale,
+          child: BadgePopupHost(child: child ?? const SizedBox.shrink()),
+        ),
         // **The title, and then the gate behind it** (`title.html`,
         // `specs/06-title-polish-safety.md:16`). This used to be [LoadingGate]
         // directly, for a reason that still holds — the shell is only built once

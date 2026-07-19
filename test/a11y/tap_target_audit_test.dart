@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rockimals/core/a11y/control_scale.dart';
 import 'package:rockimals/core/audio/sound_engine.dart';
 import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/data/models/asteroid_feed.dart';
@@ -11,6 +12,7 @@ import 'package:rockimals/features/games/closer_game.dart';
 import 'package:rockimals/features/games/duel_game.dart';
 import 'package:rockimals/features/games/games_hub.dart';
 import 'package:rockimals/features/games/match_game.dart';
+import 'package:rockimals/features/settings/little_kids_mode.dart';
 import 'package:rockimals/features/settings/settings_screen.dart';
 import 'package:rockimals/features/shell/app_shell.dart';
 import 'package:rockimals/features/title/title_screen.dart';
@@ -117,6 +119,101 @@ void main() {
     }
   });
 
+  group('🧸 Little Kids mode only ever makes targets bigger', () {
+    // **The bigger-controls item's "still passes the audit at 1.5× text"
+    // criterion**, and it is asking two questions at once.
+    //
+    // The first is nearly free: the multiplier raises `kMinTapTarget`'s floor,
+    // so no target can shrink and the ≥48dp bar cannot start failing. Running
+    // the audit anyway is cheap insurance against a future affordance that
+    // scales something *down* to make room.
+    //
+    // The second is the one worth the wall-clock: **overflow**. Growing padding
+    // and avatars inside fixed-height chrome is exactly how a screen starts
+    // reporting a RenderFlex overflow, and 1.5× text on top of 1.25× controls is
+    // the tightest the app is ever asked to be. An overflow throws a
+    // [FlutterError] that fails the test outright, so simply mounting each
+    // screen here is the assertion — `expectEveryTapTargetIsBigEnough` is the
+    // second one.
+    const double worst = 1.5;
+
+    testWidgets('on all four shell tabs at $worst× text', (tester) async {
+      await _pump(
+        tester,
+        const AppShell(),
+        scale: worst,
+        controlScale: kLittleKidsControlScale,
+      );
+      // The Sky and Watchlist tabs are the reason this case is not redundant
+      // with the ones above: `AnimalCard` is the shared row the affordance
+      // grows, and those two tabs are the only places it renders.
+      expectEveryTapTargetIsBigEnough(tester, reason: 'Radar tab, little kids');
+
+      for (final String tab in <String>['Sky', 'Watchlist', 'Profile']) {
+        await tester.tap(find.text(tab));
+        await tester.pump(const Duration(milliseconds: 100));
+        expectEveryTapTargetIsBigEnough(
+          tester,
+          reason: '$tab tab, little kids',
+        );
+      }
+    });
+
+    testWidgets('on the detail screen at $worst× text', (tester) async {
+      // Two `ActionButton`s side by side in a flex row — the one place in the
+      // app where a wider button has a neighbour to collide with.
+      await _pump(
+        tester,
+        const DetailScreen(asteroid: _rock),
+        scale: worst,
+        controlScale: kLittleKidsControlScale,
+      );
+      expectEveryTapTargetIsBigEnough(tester, reason: 'Detail, little kids');
+    });
+
+    testWidgets('on the Play hub and settings at $worst× text', (tester) async {
+      await _pump(
+        tester,
+        const GamesHub(),
+        scale: worst,
+        controlScale: kLittleKidsControlScale,
+      );
+      expectEveryTapTargetIsBigEnough(tester, reason: 'Play hub, little kids');
+
+      await _pump(
+        tester,
+        const SettingsScreen(),
+        scale: worst,
+        controlScale: kLittleKidsControlScale,
+      );
+      expectEveryTapTargetIsBigEnough(tester, reason: 'Settings, little kids');
+    });
+
+    testWidgets('in all four games at $worst× text', (tester) async {
+      // The games stack full-width `ActionButton`s and are where a child taps
+      // most, so they get the same coverage here as in the audit above.
+      final Map<String, Widget> games = <String, Widget>{
+        'Challenge': const ChallengeGame(),
+        'Duel': const DuelGame(),
+        'Closer': const CloserGame(),
+        'Match': const MatchGame(),
+      };
+
+      for (final MapEntry<String, Widget> game in games.entries) {
+        await _pump(
+          tester,
+          game.value,
+          scale: worst,
+          controlScale: kLittleKidsControlScale,
+        );
+        expectEveryTapTargetIsBigEnough(
+          tester,
+          reason: '${game.key}, little kids',
+        );
+      }
+    });
+  });
+
   testWidgets('the audit can actually fail', (tester) async {
     // A tree-walking assertion that silently matches nothing is the most
     // expensive kind of green test: it would have passed on every screen above
@@ -160,6 +257,7 @@ Future<void> _pump(
   WidgetTester tester,
   Widget home, {
   required double scale,
+  double controlScale = 1,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
@@ -176,12 +274,18 @@ Future<void> _pump(
         soundEngineProvider.overrideWithValue(RecordingSoundEngine()),
       ],
       child: MaterialApp(
-        builder: (BuildContext context, Widget? child) =>
-            MediaQuery.withClampedTextScaling(
-              minScaleFactor: scale,
-              maxScaleFactor: scale,
-              child: child!,
-            ),
+        // [ControlScale] is injected here rather than left to come from
+        // `littleKidsExperienceProvider`, because these screens are mounted
+        // directly rather than under `RockimalsApp` — which is where the real
+        // wiring lives, and is `app_test.dart`'s question, not this file's.
+        builder: (BuildContext context, Widget? child) => ControlScale(
+          scale: controlScale,
+          child: MediaQuery.withClampedTextScaling(
+            minScaleFactor: scale,
+            maxScaleFactor: scale,
+            child: child!,
+          ),
+        ),
         home: home,
       ),
     ),

@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
+import 'package:rockimals/core/a11y/control_scale.dart';
 import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/data/asteroid_repository.dart';
@@ -18,6 +19,7 @@ import 'package:rockimals/data/neows_client.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/loading/loading_screen.dart';
 import 'package:rockimals/features/radar/radar_view.dart';
+import 'package:rockimals/features/settings/little_kids_mode.dart';
 import 'package:rockimals/features/shell/app_shell.dart';
 import 'package:rockimals/features/title/title_screen.dart';
 import 'package:rockimals/main.dart';
@@ -258,6 +260,61 @@ void main() {
         tester.element(find.byType(RockimalsApp)),
       );
       expect(container.read(dayStreakProvider), 7);
+    });
+
+    // Nested inside `bootstrap` rather than beside it, and not for tidiness:
+    // these two mount the real tree through [_bootstrap], so they need this
+    // group's `setUp` to stand a fake `path_provider` in front of Hive and its
+    // `tearDown` to delete the box afterwards. Sitting one level out, the pair
+    // passed or failed on **test ordering** — `PathProviderPlatform.instance` is
+    // a process-wide static that nothing resets, so whether they worked depended
+    // on a `bootstrap` test having run first and left the fake installed.
+    group('🧸 Little Kids mode reaches the controls that honour it', () {
+      // **This is the test that makes `ControlScale`'s forgiving default safe.**
+      // `ControlScale.of` answers 1 when nobody provided a value, which is what
+      // lets every other widget test mount a screen without wiring this feature —
+      // and the price of that choice is that production forgetting to provide it
+      // fails *nothing*: the switch would flip, the store would persist, the Play
+      // hub would narrow, and the controls would silently stay standard.
+      //
+      // So it is asserted here, against the real tree, rather than anywhere the
+      // scale is injected by hand. `control_scale_test.dart` owns the mechanism
+      // and `little_kids_mode_test.dart` owns the number; this owns the wire
+      // between the two, and it is the only place that can.
+
+      /// The multiplier actually in force below `RockimalsApp`'s builder, read
+      /// from the title screen because that is where a launch holding on a
+      /// pending feed stops (see `_bootstrap`).
+      double publishedScale(WidgetTester tester) =>
+          ControlScale.of(tester.element(find.byType(TitleScreen)));
+
+      testWidgets('the toggle on publishes the little-kids multiplier', (
+        tester,
+      ) async {
+        await _seedStore(tester, (Store store) async {
+          await store.setLittleKidsMode(true);
+        });
+
+        await tester.pumpWidget(await _bootstrap(tester));
+
+        expect(publishedScale(tester), kLittleKidsControlScale);
+      });
+
+      testWidgets('the toggle off publishes the standard 1', (tester) async {
+        // The other half of "unchanged with it off", and not redundant with the
+        // default: this proves the app publishes a `ControlScale` that *answers*
+        // 1, rather than passing because it published nothing at all.
+        await tester.pumpWidget(await _bootstrap(tester));
+
+        expect(publishedScale(tester), 1);
+        expect(
+          find.byType(ControlScale),
+          findsOneWidget,
+          reason:
+              'the standard experience must still go through the carrier, or '
+              'this test passes on a missing wire',
+        );
+      });
     });
   });
 

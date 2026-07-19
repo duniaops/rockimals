@@ -7,8 +7,9 @@
 /// asserted that turning the switch on changed nothing — deliberately, so that
 /// it would fail on the day someone implemented an affordance and forgot to come
 /// back. It did exactly that. What replaces it is the same idea one affordance
-/// smaller: `simplestGamesOnly` now flips, and `readsAloud`/`controlScale` are
-/// pinned to their off answers so that *they* are the next thing to fail loudly.
+/// smaller each time an affordance lands: `simplestGamesOnly` and
+/// `controlScale` now flip, and `readsAloud` is pinned to its off answer so that
+/// *it* is the next thing to fail loudly.
 ///
 /// The *surface* — that the row exists, says the right words, is big enough, and
 /// reaches the store — is `settings_screen_test.dart`'s question and is not
@@ -88,15 +89,15 @@ void main() {
       expect(mode.simplestGamesOnly, isFalse);
     });
 
-    test('the toggle ON changes the games, and only the games', () {
-      // **The successor to v1's "nothing happens", and it is written the same
-      // way and for the same reason.** Each affordance is compared against its
-      // own toggle-*off* answer rather than a hardcoded constant, so the two
-      // that have not shipped stay pinned to the standard experience and the day
-      // one of them starts answering differently is the day this fails and
-      // someone is made to look. `simplestGamesOnly` is the one that has shipped
-      // and is asserted to differ — a body that quietly stopped honouring it
-      // would otherwise pass a test named for the opposite.
+    test('the toggle ON changes the games and the controls, and nothing '
+        'else', () {
+      // **The successor to v1's "nothing happens", one affordance smaller
+      // again.** Each is compared against its own toggle-*off* answer rather
+      // than a hardcoded constant, so the one that has not shipped stays pinned
+      // to the standard experience and the day it starts answering differently
+      // is the day this fails and someone is made to look. The two that have
+      // shipped are asserted to differ — a body that quietly stopped honouring
+      // either would otherwise pass a test named for the opposite.
       final ProviderContainer off = _container(MemoryStore());
       final ProviderContainer on = _container(
         MemoryStore(littleKidsMode: true),
@@ -109,6 +110,17 @@ void main() {
       expect(
         enabled.simplestGamesOnly,
         isNot(standard.simplestGamesOnly),
+        reason: 'the affordance the previous item shipped',
+      );
+
+      // **Asserted as an inequality, not against 1.25.** What this file owns is
+      // that the toggle *moves* the multiplier; the number itself is
+      // `kLittleKidsControlScale`'s own business and is pinned once, below, so
+      // that revising it upward after a device session touches one assertion
+      // rather than every test that mentions a size.
+      expect(
+        enabled.controlScale,
+        greaterThan(standard.controlScale),
         reason: 'the affordance this item shipped',
       );
 
@@ -117,10 +129,23 @@ void main() {
         standard.readsAloud,
         reason: 'not shipped — TTS is a plugin this project has not taken on',
       );
+    });
+
+    test('the control multiplier is a real increase, and a modest one', () {
+      // The one place the number is pinned. Both bounds are the argument
+      // `kLittleKidsControlScale` makes: below 1 it would *shrink* controls, and
+      // past 1.5 the 48dp floor clears 72dp — which is a redraw of the app
+      // rather than a bigger version of it, and would reflow screens the
+      // tap-target audit mounts at 1.5× text. A future device session is
+      // expected to move this within the range, not out of it.
+      expect(kLittleKidsControlScale, greaterThan(1));
+      expect(kLittleKidsControlScale, lessThanOrEqualTo(1.5));
       expect(
-        enabled.controlScale,
-        standard.controlScale,
-        reason: 'not shipped — the multiplier needs a real screen to choose',
+        const LittleKidsExperience().controlScale,
+        kLittleKidsControlScale,
+        reason:
+            'the experience must answer with the named constant, so there '
+            'is exactly one place to revise',
       );
     });
 
