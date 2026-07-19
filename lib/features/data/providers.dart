@@ -39,19 +39,49 @@ final Provider<Store> storeProvider = Provider<Store>(
   name: 'store',
 );
 
-/// The data layer's composition root, and the seam every test reaches for.
+/// Where the sky comes from, below the policy that interprets it.
 ///
 /// This is the only place the app names a concrete [NeoWsClient] or assembles
-/// the stack around it: `AsteroidRepository → CachingFeedSource → NeoWsClient →
-/// Dio[retry]`. That order is load-bearing at both joints — the cache sits
-/// outside the client so a hit costs no retries and no request, and inside the
+/// the stack around it: `CachingFeedSource → NeoWsClient → Dio[retry]`. That
+/// order is load-bearing — the cache sits outside the client so a hit costs no
+/// retries and no request, and (via [asteroidRepositoryProvider]) inside the
 /// repository so it only ever stores what NASA really said rather than the
 /// sample set the repository substitutes (plan decision 13).
 ///
-/// **It reads [storeProvider], so this now throws until the store is wired.**
-/// That is the intended direction of the dependency: the cache's whole value is
-/// on the disk, and a repository built without one would be the no-cache app
-/// silently, on a path nobody would think to test.
+/// **It reads [storeProvider], so this throws until the store is wired.** That
+/// is the intended direction of the dependency: the cache's whole value is on
+/// the disk, and a source built without one would be the no-cache app silently,
+/// on a path nobody would think to test.
+///
+/// **Split out from [asteroidRepositoryProvider] so a test can watch what the
+/// repository asks for.** Overriding the repository wholesale replaces the very
+/// arithmetic under test — the window it builds from the clock — so a suite that
+/// wants to drive a *real* load on a chosen day has to stand in one layer lower
+/// than that. This is that layer, and it is the seam
+/// `refresh_sky_window_test.dart` uses.
+final Provider<AsteroidFeedSource> asteroidFeedSourceProvider =
+    Provider<AsteroidFeedSource>(
+      (Ref ref) => CachingFeedSource(NeoWsClient(), ref.watch(storeProvider)),
+      name: 'asteroidFeedSource',
+    );
+
+/// The data layer's composition root, and the seam every test reaches for.
+///
+/// **It reads [dayClockProvider], which is the app's one answer to "what day is
+/// it".** Before that, the repository defaulted to its own `DateTime.now` for
+/// the window it asks NASA for, while [skyDayProvider] decided *whether* to
+/// re-ask from the clock provider — two clocks answering "what day is the sky
+/// for", only one of them overridable. They agreed in production and could not
+/// be made to disagree in a test, so the resume refresh could only ever be
+/// driven with the real repository stubbed out.
+///
+/// **The UTC/local split this does *not* collapse.** One clock is now the
+/// *source* of the instant; what each reader does with it stays different on
+/// purpose. [AsteroidRepository] converts to UTC because the feed's date keys
+/// are NASA's (`_formatFeedDate`), and [SkyDay] takes the **local** calendar day
+/// because "has this child crossed midnight" is a question about their bedtime,
+/// not Greenwich's. Unifying the source must not unify those; a UTC stamp would
+/// roll the sky over mid-afternoon on a UTC+13 phone.
 ///
 /// Deliberately not `autoDispose`: one load per process is the design
 /// ([asteroidFeedProvider]), so a repository that could be thrown away and
@@ -59,7 +89,8 @@ final Provider<Store> storeProvider = Provider<Store>(
 final Provider<AsteroidRepository> asteroidRepositoryProvider =
     Provider<AsteroidRepository>(
       (Ref ref) => AsteroidRepository(
-        CachingFeedSource(NeoWsClient(), ref.watch(storeProvider)),
+        ref.watch(asteroidFeedSourceProvider),
+        now: ref.watch(dayClockProvider),
       ),
       name: 'asteroidRepository',
     );
@@ -198,7 +229,7 @@ final Provider<int> dayStreakProvider = Provider<int>(
   name: 'dayStreak',
 );
 
-/// What "today" is, for every day-streak write.
+/// What "today" is — for every day-streak write, and for the sky itself.
 ///
 /// Its own provider for one reason: without it, the only way to test that
 /// engaging on a *new day* moves the flame is to hand-build the writer with a
@@ -212,6 +243,19 @@ final Provider<int> dayStreakProvider = Provider<int>(
 /// caller then, so the name was accurate; a resume from the background is a
 /// second one, and a clock named after one of its two consumers is how the
 /// other ends up with a clock of its own that drifts.
+///
+/// **That drift is not hypothetical — it happened, on the fourth caller.**
+/// [asteroidRepositoryProvider] used to let [AsteroidRepository] default to its
+/// own `DateTime.now` for the window it requests, so the app had one clock
+/// deciding whether to re-ask for the sky and another deciding which sky to ask
+/// for. It now reads this too. The rule that generalises: **a date this app acts
+/// on comes from here**, and a `DateTime.now` anywhere in the feed or streak
+/// path is a bug in waiting rather than a shortcut.
+///
+/// What it is *not* is a stopwatch. `CachingFeedSource`'s own `now` measures how
+/// old an entry is against a TTL (`age < _ttl`) — an elapsed duration, not a
+/// calendar date — so it is deliberately still its own, and freezing it to a
+/// fixed day would make every cached entry eternally fresh.
 final Provider<DateTime Function()> dayClockProvider =
     Provider<DateTime Function()>((Ref ref) => DateTime.now, name: 'dayClock');
 
