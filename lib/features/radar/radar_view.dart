@@ -1196,10 +1196,26 @@ class _SelectedAnimalCard extends ConsumerWidget {
             // `.ra` — the actions (`index.html:723`). Meet is personalised with
             // the animal's first name; Follow shows whether it is already in the
             // watchlist.
-            Row(
+            //
+            // **A [Wrap] and not a [Row], because two pills do not always
+            // fit.** `.ra` is `display:flex;gap:8px` (`index.html:183`) with
+            // nothing to shrink the buttons, which is fine in a 390×844 frame
+            // at the browser's default font and is the shape this was ported
+            // as. At 1.5× text the two labels want 428dp of the card's 340,
+            // and where CSS would have spilled quietly a [Row] throws. Wrapping
+            // is the affordance the prototype never needed rather than a
+            // deviation from one it has.
+            //
+            // Wrapping rather than shrinking: [Expanded] would fit them by
+            // ellipsising, and "✓ Followi…" on the button whose whole job is to
+            // say whether you are following is worse than a second line. At the
+            // default text size both pills fit with the 8dp gap, so this lays
+            // out identically to the [Row] it replaces.
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: <Widget>[
                 _HudButton(label: 'Meet ${c.first}', onTap: onMeet),
-                const SizedBox(width: 8),
                 _HudButton(
                   label: following ? '✓ Following' : '⭐ Follow',
                   ghost: true,
