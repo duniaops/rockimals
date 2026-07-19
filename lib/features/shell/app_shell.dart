@@ -150,6 +150,41 @@ class _NavTab {
 /// whether the shared thing is the colour or the coincidence.
 const Color _navSurface = Color(0xF00A1426);
 
+/// `height:70px` with the page's global `box-sizing:border-box`
+/// (`index.html:12`), so the 1px rule is inside the 70, not added to it.
+///
+/// **A floor now, not a fixed height** — see [_NavBar] for why.
+const double _navMinHeight = 70;
+
+/// The bottom bar itself.
+///
+/// **Its height is a floor of [_navMinHeight], not a fixed 70dp, and that is
+/// the fix for a real overflow.** The prototype is a fixed 390×844 browser
+/// frame at the browser's default font, so 70dp always held there. On a phone
+/// with the system font turned up it does not: at 390dp each of the four tabs
+/// gets ~97dp, which is narrow enough for a 1.5×-scaled label to wrap to two
+/// lines, and the fixed box then overflowed by 9px on *every* tab in every
+/// state. It never failed in tests because both a11y audits ran on the
+/// binding's default 800×600 surface, where a tab gets 200dp and the label
+/// stays on one line.
+///
+/// Growing was chosen over the two ways of not growing. Ellipsising the label
+/// ("Watchli…") and shrinking the text both make the four words a child
+/// navigates by *harder* to read — at exactly the setting a grown-up turned on
+/// because someone needed them easier to read, which turns an accessibility
+/// feature into an accessibility bug. A bar that grows with its text is also
+/// what both platforms' own tab bars do. At the default text size the content
+/// measures ~35dp, so the floor is what applies and the bar is 70dp to the
+/// pixel — the prototype's number is untouched everywhere the prototype's
+/// assumptions hold.
+///
+/// [IntrinsicHeight] is what lets the buttons keep filling the bar: it sizes
+/// the row to the tallest label (asking each [Expanded] child for its height at
+/// the ~97dp it will actually get, so a wrapped label is measured wrapped), and
+/// `stretch` then hands every button the full height. Without it the buttons
+/// would size to their own content and the hittable region would shrink from
+/// the bar's height to the glyphs'. The extra layout pass is four static
+/// buttons of chrome, not the radar's render loop.
 class _NavBar extends StatelessWidget {
   const _NavBar({required this.index, required this.onSelect});
 
@@ -166,26 +201,26 @@ class _NavBar extends StatelessWidget {
       // was never asked.
       child: SafeArea(
         top: false,
-        child: SizedBox(
-          // `height:70px` with the page's global `box-sizing:border-box`
-          // (`index.html:12`), so the 1px rule is inside the 70, not added to
-          // it.
-          height: 70,
-          child: DecoratedBox(
-            decoration: const BoxDecoration(
-              border: Border(top: BorderSide(color: Palette.line2)),
-            ),
-            child: Row(
-              children: <Widget>[
-                for (int i = 0; i < _tabs.length; i++)
-                  Expanded(
-                    child: _NavButton(
-                      tab: _tabs[i],
-                      selected: i == index,
-                      onTap: () => onSelect(i),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: _navMinHeight),
+          child: IntrinsicHeight(
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                border: Border(top: BorderSide(color: Palette.line2)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  for (int i = 0; i < _tabs.length; i++)
+                    Expanded(
+                      child: _NavButton(
+                        tab: _tabs[i],
+                        selected: i == index,
+                        onTap: () => onSelect(i),
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -197,12 +232,16 @@ class _NavBar extends StatelessWidget {
 /// One tab in the bottom bar.
 ///
 /// **Deliberately not scaled by 🧸 Little Kids mode.** It is `Expanded` inside
-/// the bar's fixed 70dp row, so it already measures ~97×70 — past the 60dp floor
-/// the multiplier would raise it to, which makes `ControlScale` a no-op here
-/// arithmetically rather than a judgement call. The judgement is what it would
-/// cost to apply anyway: 70 is `index.html:12`'s height, and growing a bar the
-/// whole app is laid out above reflows every screen rather than enlarging a
-/// button. Pinned in `test/a11y/one_off_controls_test.dart`.
+/// the bar's row and stretched to its full height, so it already measures
+/// ~97×70 at the default text size and only grows from there — past the 60dp
+/// floor the multiplier would raise it to, which makes `ControlScale` a no-op
+/// here arithmetically rather than a judgement call. The judgement is what it
+/// would cost to apply anyway: [_navMinHeight] is `index.html:12`'s height, and
+/// growing a bar the whole app is laid out above reflows every screen rather
+/// than enlarging a button. Pinned in `test/a11y/one_off_controls_test.dart`.
+///
+/// The label is allowed to wrap rather than ellipsise, which is what makes the
+/// bar grow; [_NavBar] argues that choice.
 class _NavButton extends StatelessWidget {
   const _NavButton({
     required this.tab,
