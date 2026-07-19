@@ -45,6 +45,35 @@ void main() {
     );
   });
 
+  testWidgets('is exactly the surface other callers read', (
+    WidgetTester tester,
+  ) async {
+    // The assertions above pin the three values; this one ties them to the
+    // *name* the other caller imports. `games_hub.dart`'s plain `.gcard` cannot
+    // be a [Panel] — it is tappable, so it paints through [Ink] — so it reads
+    // [kPanelSurface] directly, and `games_hub_test.dart` asserts the card
+    // equals that token. This test is the other half of that pair: without it,
+    // both files could agree on a token that no longer matches what the panel
+    // actually renders.
+    //
+    // **Deliberately `equals` and not `same`, which does not mean what it looks
+    // like it means here.** Dart canonicalises `const` objects, so two
+    // identical `const BoxDecoration` literals in different files *are* the
+    // same instance — a re-typed copy would pass an identity check. Identity
+    // cannot detect duplication in this language; only drift is detectable, and
+    // equality is what detects it.
+    await pumpPanel(tester, const Panel(child: Text('body')));
+
+    final DecoratedBox box = tester.widget<DecoratedBox>(
+      find.descendant(
+        of: find.byType(Panel),
+        matching: find.byType(DecoratedBox),
+      ),
+    );
+
+    expect(box.decoration, kPanelSurface);
+  });
+
   testWidgets('pads its child by 14px on all four sides', (
     WidgetTester tester,
   ) async {

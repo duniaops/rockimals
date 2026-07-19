@@ -29,11 +29,43 @@ import 'package:rockimals/core/theme/palette.dart';
 ///
 /// Near-misses that are **not** this widget, so a future reader does not fold
 /// them in: `.tile` and `.stat` (radius 14, padding 12), `.acard` (radius 16 but
-/// padding 12), and the games' `.dcard`/`.chcard` (radius 16, but asymmetric
-/// padding and a border colour that changes with the answer). The one real
-/// fourth copy is the non-featured branch of `games_hub.dart`'s `.gcard`, which
-/// paints all four values identically but through [Material]/[InkWell] because
-/// it is tappable and has a gradient sibling branch; it has its own plan item.
+/// padding 12), the games' `.dcard`/`.chcard` (radius 16, but asymmetric padding
+/// and a border colour that changes with the answer), and the radar's `.chip`
+/// (radius 16, but `5px 10px` padding and a fill that follows its toggle). Each
+/// of those shares a *number* with `.panel` by coincidence of the prototype, not
+/// because it is the same surface — which is why they read their own literals
+/// and not the tokens below.
+///
+/// The one genuine fourth copy was the non-featured branch of
+/// `games_hub.dart`'s `.gcard`. It cannot *be* a [Panel] — it is tappable, so it
+/// paints through [Material]/[Ink]/[InkWell], and its `featured` sibling branch
+/// swaps the fill for a gradient and the border for the accent. It reads
+/// [kPanelSurface] instead.
+/// `.panel`'s `border-radius:16px` (`index.html:105`).
+///
+/// Split out from [kPanelSurface] because a tappable panel needs the radius
+/// twice over — once in the decoration it paints, and again on the [InkWell]
+/// that has to clip its splash to the same corners. Two literals that must agree
+/// is exactly the drift worth naming.
+const BorderRadius kPanelRadius = BorderRadius.all(Radius.circular(16));
+
+/// `.panel`'s `padding:14px` (`index.html:105`).
+const EdgeInsets kPanelPadding = EdgeInsets.all(14);
+
+/// `.panel`'s fill, border, and corners as one decoration (`index.html:105`).
+///
+/// [Panel] paints it through a [DecoratedBox]; `games_hub.dart`'s non-featured
+/// `.gcard` paints the same object through an [Ink] so it can take a splash.
+/// Sharing the decoration rather than the four values is what makes those two
+/// surfaces the same fact rather than two facts that currently agree — and it is
+/// the only form both callers can take, since [Material]'s own `shape`/`color`
+/// pair cannot be handed a [BoxDecoration].
+const BoxDecoration kPanelSurface = BoxDecoration(
+  color: Palette.card,
+  borderRadius: kPanelRadius,
+  border: Border.fromBorderSide(BorderSide(color: Palette.line)),
+);
+
 class Panel extends StatelessWidget {
   const Panel({super.key, required this.child});
 
@@ -45,14 +77,8 @@ class Panel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      // `.panel` — `background:var(--card);border:1px solid var(--line);
-      // border-radius:16px;padding:14px` (`index.html:105`).
-      decoration: const BoxDecoration(
-        color: Palette.card,
-        borderRadius: BorderRadius.all(Radius.circular(16)),
-        border: Border.fromBorderSide(BorderSide(color: Palette.line)),
-      ),
-      child: Padding(padding: const EdgeInsets.all(14), child: child),
+      decoration: kPanelSurface,
+      child: Padding(padding: kPanelPadding, child: child),
     );
   }
 }
