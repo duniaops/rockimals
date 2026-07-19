@@ -171,10 +171,21 @@ List<({Offset at, double width})> radarParagraphs(WidgetTester tester) {
 }
 
 /// The rendered frame, read back from the engine — a real rasterisation through
-/// `flutter_tester`, the same painting pipeline a phone runs. `toImage` must go
-/// through [WidgetTester.runAsync] because a `testWidgets` body runs in a
-/// fake-async zone where a future waiting on the real engine never completes.
-Future<RadarPixels> rasteriseRadar(WidgetTester tester) async {
+/// `flutter_tester`, the same painting pipeline a phone runs.
+Future<RadarPixels> rasteriseRadar(WidgetTester tester) =>
+    rasteriseBoundary(tester);
+
+/// The first [RepaintBoundary] in the tree, rasterised.
+///
+/// [rasteriseRadar] is this with a name that says which boundary it means; the
+/// planet painters mount their own single body rather than a whole field
+/// (`planet_painters_test.dart`, `planet_colours_test.dart`), so they want the
+/// same read-back under a name that is not a lie about what is in the tree.
+///
+/// `toImage` must go through [WidgetTester.runAsync] because a `testWidgets`
+/// body runs in a fake-async zone where a future waiting on the real engine
+/// never completes.
+Future<RadarPixels> rasteriseBoundary(WidgetTester tester) async {
   final RenderRepaintBoundary boundary = tester.renderObject(
     find.byType(RepaintBoundary).first,
   );
@@ -190,11 +201,22 @@ Future<RadarPixels> imagePixels(WidgetTester tester, ui.Image image) async {
   return RadarPixels(data, image.width);
 }
 
+/// A rasterised frame, read one pixel at a time.
+///
+/// **The one home for decoding an RGBA buffer back into [Color]s.** Three suites
+/// had grown their own byte-for-byte copy of the arithmetic below; a copy that
+/// dropped the `* 4` or swapped a channel would not fail, it would report a
+/// wrong colour convincingly, and the suite reading it would pin that.
 class RadarPixels {
   const RadarPixels(this._rgba, this._width);
 
   final ByteData _rgba;
   final int _width;
+
+  /// The same read keyed by a point, for suites whose probes are already
+  /// [Offset]s — the planet painters compute theirs from the geometry rather
+  /// than writing coordinate pairs out.
+  Color atPoint(Offset p) => at(p.dx, p.dy);
 
   Color at(double x, double y) {
     final int i = ((y.round() * _width) + x.round()) * 4;

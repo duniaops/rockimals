@@ -1,12 +1,12 @@
 import 'dart:math' as math;
-import 'dart:typed_data';
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rockimals/features/radar/planet_backdrop.dart';
 import 'package:rockimals/features/radar/planet_painters.dart';
+
+import '../../support/radar_frame.dart';
 
 /// What the decorative backdrop's six bodies actually put on the screen.
 ///
@@ -159,9 +159,9 @@ void main() {
 
       // Two points mirrored through the centre, so the only thing that can
       // separate them is which way the light falls.
-      final _Pixels pixels = await _pixels(tester);
-      final Color lit = pixels.at(const Offset(95, 95));
-      final Color shadowed = pixels.at(const Offset(112, 112));
+      final RadarPixels pixels = await _pixels(tester);
+      final Color lit = pixels.atPoint(const Offset(95, 95));
+      final Color shadowed = pixels.atPoint(const Offset(112, 112));
 
       expect(_luma(lit), greaterThan(_luma(shadowed) * 1.5));
     });
@@ -321,7 +321,7 @@ void main() {
       // the white core sits at (94, 94) and the disc is visibly lit from the
       // upper left, like everything else on this screen.
       await _paint(tester, paintSun);
-      final _Pixels px = await _pixels(tester);
+      final RadarPixels px = await _pixels(tester);
 
       // The core: inside the 4px focal circle at (94, 94), so it is flat
       // `#fff7db` and nothing else.
@@ -329,7 +329,7 @@ void main() {
 
       // The rim, just inside the 20px disc on the far side from the core: the
       // ramp has run all the way to `#f2731d`.
-      final Color rim = px.at(const Offset(112, 112));
+      final Color rim = px.atPoint(const Offset(112, 112));
       expect(rim.r, greaterThan(rim.g), reason: 'orange');
       expect(rim.g, greaterThan(rim.b));
       expect(
@@ -341,8 +341,8 @@ void main() {
       // And the core really is off-centre: the exact middle of the disc is
       // already past the white and into the body colour.
       expect(
-        _luma(px.at(const Offset(94, 94))),
-        greaterThan(_luma(px.at(_at))),
+        _luma(px.atPoint(const Offset(94, 94))),
+        greaterThan(_luma(px.atPoint(_at))),
       );
     });
   });
@@ -391,12 +391,12 @@ void main() {
       // Sampling outside the rect would prove nothing at all, since there is no
       // band there to clip.
       await _paint(tester, paintJupiter);
-      final _Pixels pixels = await _pixels(tester);
+      final RadarPixels pixels = await _pixels(tester);
 
-      expect(_luma(pixels.at(const Offset(100, 87.6))), greaterThan(60));
+      expect(_luma(pixels.atPoint(const Offset(100, 87.6))), greaterThan(60));
       // Past the rim: the glow's faint tail and nothing else. Unclipped, the
       // band would land here at roughly twice this brightness.
-      expect(_luma(pixels.at(const Offset(118, 87.6))), lessThan(25));
+      expect(_luma(pixels.atPoint(const Offset(118, 87.6))), lessThan(25));
       expect(
         _calls(tester).where((_Call c) => c.method == #clipPath),
         hasLength(1),
@@ -408,9 +408,9 @@ void main() {
       // 0.54r out at its furthest, so it is the one marking on this planet the
       // clip could not touch.
       await _paint(tester, paintJupiter);
-      final _Pixels pixels = await _pixels(tester);
+      final RadarPixels pixels = await _pixels(tester);
 
-      final Color spot = pixels.at(const Offset(105.6, 104.4));
+      final Color spot = pixels.atPoint(const Offset(105.6, 104.4));
       expect(spot.r * 255, greaterThan(spot.b * 255 * 1.5));
     });
   });
@@ -423,7 +423,7 @@ void main() {
       // bare sphere, so each is asserted to *change* its pixel rather than
       // merely to be brighter or darker than some number the test made up.
       await _paint(tester, paintMars);
-      final _Pixels marked = await _pixels(tester);
+      final RadarPixels marked = await _pixels(tester);
 
       await _paint(tester, (
         Canvas c,
@@ -433,13 +433,19 @@ void main() {
       }) {
         paintSphere(c, at, r, lit: _marsLit, mid: _marsMid, dark: _marsDark);
       });
-      final _Pixels bare = await _pixels(tester);
+      final RadarPixels bare = await _pixels(tester);
 
       const Offset cap = Offset(104, 85);
       const Offset plain = Offset(94, 104);
 
-      expect(_luma(marked.at(cap)), greaterThan(_luma(bare.at(cap)) + 100));
-      expect(_luma(marked.at(plain)), lessThan(_luma(bare.at(plain)) - 10));
+      expect(
+        _luma(marked.atPoint(cap)),
+        greaterThan(_luma(bare.atPoint(cap)) + 100),
+      );
+      expect(
+        _luma(marked.atPoint(plain)),
+        lessThan(_luma(bare.atPoint(plain)) - 10),
+      );
     });
 
     testWidgets('has a clip that can never fire, at any radius', (
@@ -517,7 +523,7 @@ void main() {
       // back arc appears painted across Saturn's face, breaking the first
       // expectation while leaving every other pixel alone.
       await _paint(tester, paintSaturn);
-      final _Pixels ringed = await _pixels(tester);
+      final RadarPixels ringed = await _pixels(tester);
 
       await _paint(tester, (
         Canvas c,
@@ -534,22 +540,22 @@ void main() {
           dark: _saturnDark,
         );
       });
-      final _Pixels bare = await _pixels(tester);
+      final RadarPixels bare = await _pixels(tester);
 
       // t = 3π/2 — the top of the ellipse, 12px from centre, deep inside a 20px
       // planet. The back arc runs through here and must not show.
       final Offset behind = _onRing(3 * math.pi / 2);
       expect((behind - _at).distance, lessThan(_r));
-      expect(ringed.at(behind), bare.at(behind));
+      expect(ringed.atPoint(behind), bare.atPoint(behind));
 
       // t = π/2 — its mirror, the same 12px in, where the *front* arc crosses
       // the globe and very much must show.
       final Offset across = _onRing(math.pi / 2);
       expect((across - _at).distance, lessThan(_r));
-      expect(ringed.at(across), isNot(bare.at(across)));
+      expect(ringed.atPoint(across), isNot(bare.atPoint(across)));
       expect(
-        _luma(ringed.at(across)),
-        greaterThan(_luma(bare.at(across)) + 40),
+        _luma(ringed.atPoint(across)),
+        greaterThan(_luma(bare.atPoint(across)) + 40),
       );
 
       // t = π + 0.4 — the back arc again, out past the rim with nothing to hide
@@ -694,12 +700,12 @@ double _luma(Color c) =>
     0.2126 * c.r * 255 + 0.7152 * c.g * 255 + 0.0722 * c.b * 255;
 
 void _expectPixel(
-  _Pixels pixels,
+  RadarPixels pixels,
   Offset at,
   Color expected, {
   double tolerance = 2,
 }) {
-  final Color actual = pixels.at(at);
+  final Color actual = pixels.atPoint(at);
   expect(actual.a, closeTo(expected.a, 0.01), reason: 'alpha at $at');
   for (final (String channel, double got, double want)
       in <(String, double, double)>[
@@ -753,35 +759,10 @@ List<_Call> _calls(WidgetTester tester) {
   return calls;
 }
 
-/// The rendered frame, read back from the engine — a real rasterisation through
-/// `flutter_tester`, the same painting pipeline a phone runs. `toImage` must go
-/// through [WidgetTester.runAsync] because a `testWidgets` body runs in a
-/// fake-async zone where a future waiting on the real engine never completes.
-Future<_Pixels> _pixels(WidgetTester tester) async {
-  final RenderRepaintBoundary boundary = tester.renderObject(
-    find.byType(RepaintBoundary).first,
-  );
-  final ui.Image image = (await tester.runAsync<ui.Image>(boundary.toImage))!;
-  final ByteData data = (await tester.runAsync<ByteData?>(image.toByteData))!;
-  return _Pixels(data, image.width);
-}
-
-class _Pixels {
-  const _Pixels(this._rgba, this._width);
-
-  final ByteData _rgba;
-  final int _width;
-
-  Color at(Offset p) {
-    final int i = ((p.dy.round() * _width) + p.dx.round()) * 4;
-    return Color.fromARGB(
-      _rgba.getUint8(i + 3),
-      _rgba.getUint8(i),
-      _rgba.getUint8(i + 1),
-      _rgba.getUint8(i + 2),
-    );
-  }
-}
+/// The rendered frame, read back from the engine — shared with the radar's own
+/// suites rather than decoded here, so there is one copy of the arithmetic that
+/// turns an RGBA buffer back into [Color]s.
+Future<RadarPixels> _pixels(WidgetTester tester) => rasteriseBoundary(tester);
 
 class _Planet extends CustomPainter {
   const _Planet(this.draw, {required this.showLabels});
