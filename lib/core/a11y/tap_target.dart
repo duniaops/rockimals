@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'package:rockimals/core/a11y/control_scale.dart';
 
 /// The minimum size of anything a child is asked to hit, in logical pixels.
 ///
@@ -60,10 +61,20 @@ class TapTarget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // **🧸 Little Kids mode raises the floor, it does not replace it**
+    // (`ControlScale`, `features/settings/little_kids_mode.dart`). The
+    // multiplier is 1 for everyone else, so this line is a no-op on the standard
+    // experience and `kMinTapTarget` remains the number the audit enforces.
+    // Multiplying the *minimum* rather than the painted child is what makes this
+    // affordance nearly free here: every one of the thirteen sites that already
+    // wrap themselves in a [TapTarget] gets a bigger region to hit without
+    // knowing this setting exists, and none of them get redrawn.
+    final double minimum = kMinTapTarget * ControlScale.of(context);
+
     return ConstrainedBox(
       constraints: BoxConstraints(
-        minHeight: kMinTapTarget,
-        minWidth: expandWidth ? kMinTapTarget : 0,
+        minHeight: minimum,
+        minWidth: expandWidth ? minimum : 0,
       ),
       // **Both factors stay 1 on every path, including `expandWidth`.** A
       // [Center] with a null factor fills the space it is given rather than

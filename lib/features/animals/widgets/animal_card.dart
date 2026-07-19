@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rockimals/core/a11y/control_scale.dart';
 import 'package:rockimals/core/animals/animal_system.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/data/models/asteroid.dart';
@@ -63,6 +64,7 @@ class AnimalCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final Critter c = critter(asteroid);
     final FlybyTag tag = flybyTag(asteroid);
+    final double scale = ControlScale.of(context);
 
     // `${sizeLabel(a.diaMax)} · ${distLabel(a.missLunar)} · ${a.velKps.toFixed(0)}
     // km/s` (`index.html:465`). Every field reads through the AnimalSystem's
@@ -99,15 +101,24 @@ class AnimalCard extends StatelessWidget {
             borderRadius: const BorderRadius.all(Radius.circular(16)),
             onTap: onTap,
             child: Padding(
-              // `padding:12px` (`index.html:65`).
-              padding: const EdgeInsets.all(12),
+              // `padding:12px` (`index.html:65`), times 🧸 Little Kids mode's
+              // multiplier — 1 for everyone else, so this is the prototype's
+              // number on the standard experience.
+              //
+              // **This card is the shared *row* the affordance names**, and it
+              // is here for a different reason from the buttons: its [InkWell]
+              // already covers the whole card, so it was never near the 48dp
+              // floor and gains nothing from a bigger hit region. What a small
+              // child gains is a bigger, less crowded thing to look at and land
+              // on in a scrolling list, which is padding and the avatar.
+              padding: EdgeInsets.all(12 * scale),
               child: Row(
                 // `align-items:center` (`index.html:65`) — the avatar sits
                 // centred against the info column however tall it grows.
                 children: <Widget>[
                   _AnimalAvatar(emoji: c.animal.emoji),
                   // `gap:12px` (`index.html:65`).
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12 * scale),
                   // `.info{flex:1;min-width:0}` (`index.html:68`) — takes the
                   // rest of the row and lets the name ellipsise rather than
                   // pushing the card wider.
@@ -174,10 +185,19 @@ class _AnimalAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // `width:44px;height:44px` (`index.html:67`), times 🧸 Little Kids mode's
+    // multiplier.
+    //
+    // **The orb grows and the emoji inside it does not**, which is
+    // [ControlScale]'s "geometry, not type" rule and happens to cut the right
+    // way twice: the glyph is a [Text] and so already grows with the OS font
+    // setting, and at 1.5× text a 24dp emoji is a tight fit in a 44dp orb
+    // today. Scaling the orb alone gives it room rather than taking more.
+    final double side = 44 * ControlScale.of(context);
+
     return Container(
-      // `width:44px;height:44px` (`index.html:67`).
-      width: 44,
-      height: 44,
+      width: side,
+      height: side,
       alignment: Alignment.center,
       decoration: const BoxDecoration(
         shape: BoxShape.circle,

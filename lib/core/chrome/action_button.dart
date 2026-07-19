@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rockimals/core/a11y/control_scale.dart';
 import 'package:rockimals/core/a11y/tap_target.dart';
 import 'package:rockimals/core/theme/palette.dart';
 
@@ -96,8 +97,15 @@ class ActionButton extends StatelessWidget {
             // bar.
             child: TapTarget(
               child: Padding(
-                // `padding:14px` (`index.html:52`).
-                padding: const EdgeInsets.all(14),
+                // `padding:14px` (`index.html:52`), times 🧸 Little Kids mode's
+                // multiplier — 1 for everyone else, so the prototype's number is
+                // what the standard experience still paints.
+                //
+                // **Padding and not `fontSize`**, which is [ControlScale]'s
+                // general rule and matters most here: this is the app's one
+                // full-width button, and its label is already free to grow with
+                // the OS text setting. Scaling both would compound the two.
+                padding: EdgeInsets.all(14 * ControlScale.of(context)),
                 child: ExcludeSemantics(
                   child: Text(
                     label,

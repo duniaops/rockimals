@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rockimals/core/a11y/control_scale.dart';
 import 'package:rockimals/core/animals/animal_system.dart';
 import 'package:rockimals/data/fallback_asteroids.dart';
 import 'package:rockimals/data/models/asteroid.dart';
@@ -38,18 +39,22 @@ void main() {
     VoidCallback? onTap,
     Widget? footer,
     String? footerLabel,
+    double controlScale = 1,
   }) {
     return tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: Center(
-            child: SizedBox(
-              width: 360,
-              child: AnimalCard(
-                asteroid: rock,
-                onTap: onTap ?? () {},
-                footer: footer,
-                footerLabel: footerLabel,
+      ControlScale(
+        scale: controlScale,
+        child: MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 360,
+                child: AnimalCard(
+                  asteroid: rock,
+                  onTap: onTap ?? () {},
+                  footer: footer,
+                  footerLabel: footerLabel,
+                ),
               ),
             ),
           ),
@@ -170,5 +175,73 @@ void main() {
     );
 
     handle.dispose();
+  });
+
+  group('🧸 Little Kids mode draws the row bigger', () {
+    // **The card is the shared *row* the bigger-controls affordance names**, and
+    // it is here for a different reason from the buttons: its [InkWell] already
+    // covers the whole card, so it was never near the 48dp floor and gains
+    // nothing from a bigger hit region. What it gains is a bigger, less crowded
+    // thing to look at and land on in a list — padding and the avatar orb.
+    //
+    // These are written as *inequalities against the same card at scale 1*
+    // rather than against measured pixel values, so they keep asking the right
+    // question if the prototype's 12dp padding or 44dp orb are ever re-ported.
+
+    testWidgets('the row grows taller', (WidgetTester tester) async {
+      await mount(tester, closeRock);
+      final double standard = tester.getSize(find.byType(AnimalCard)).height;
+
+      await mount(tester, closeRock, controlScale: 2);
+
+      expect(
+        tester.getSize(find.byType(AnimalCard)).height,
+        greaterThan(standard),
+      );
+    });
+
+    testWidgets('the avatar orb grows with it', (WidgetTester tester) async {
+      // Asserted separately from the row height because they scale through
+      // different code — the row through its [Padding], the orb through its own
+      // [Container] — so a change that dropped one would otherwise hide behind
+      // the other still growing.
+      Finder orb() => find.ancestor(
+        of: find.text(critter(closeRock).animal.emoji),
+        matching: find.byType(Container),
+      );
+
+      await mount(tester, closeRock);
+      final Size standard = tester.getSize(orb().first);
+
+      await mount(tester, closeRock, controlScale: 2);
+
+      expect(
+        tester.getSize(orb().first),
+        Size(standard.width * 2, standard.height * 2),
+      );
+    });
+
+    testWidgets('and the name is left to the OS text setting', (
+      WidgetTester tester,
+    ) async {
+      // [ControlScale]'s orthogonality rule at this call site: type size belongs
+      // to `MediaQuery.textScaler`, so a card that multiplied `fontSize` here
+      // would compound the two settings for the family most likely to have both
+      // turned up.
+      // **Height, not the whole [Size].** The name is a single ellipsised line,
+      // so its height is font-driven and its *width* is not: bigger padding and
+      // a bigger orb leave the `Expanded` less room, which narrows the text box
+      // without touching the type. Asserting the full size failed on that, which
+      // would have been a real-looking regression report for correct behaviour.
+      double nameHeight() =>
+          tester.getSize(find.text(critter(closeRock).name)).height;
+
+      await mount(tester, closeRock);
+      final double standard = nameHeight();
+
+      await mount(tester, closeRock, controlScale: 2);
+
+      expect(nameHeight(), standard);
+    });
   });
 }
