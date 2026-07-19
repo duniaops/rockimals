@@ -89,6 +89,46 @@ const List<Animal> kAnimals = <Animal>[
 ///
 /// Order is load-bearing: [critter] indexes this list by `hash % length`, so
 /// reordering it, or adding a 25th name, renames every animal in the sky.
+///
+/// **Two rocks may share an animal name, and that is accepted rather than
+/// overlooked.** Decided 2026-07-19; the numbers are pinned by
+/// `test/core/animals/name_collisions_test.dart` so this paragraph can fail.
+///
+/// A name is one of these 24 paired with a species, and the species is forced
+/// by size — so two rocks in the same size band draw from 24 names, not from
+/// 192. Measured over 155,520 real-format designations, two same-band rocks
+/// share a name **4.18%** of the time against an ideal 4.17%: the pool is
+/// *small*, not broken, so a better hash is not the fix.
+///
+/// From those two measured facts the rest is arithmetic rather than
+/// measurement, and is flagged as such because it assumes a feed's
+/// designations are unrelated to one another — true of a NeoWs window, which
+/// draws rocks discovered decades apart, but not provable without live feed
+/// data. A band of k rocks carries about `C(k, 2) / 24` duplicate pairs — 1.9
+/// at k=10, 7.9 at k=20 — and above k=24 the pigeonhole makes a duplicate
+/// certain, which *is* asserted. `specs/07-sky-tab.md:57` calls 60+ animals a
+/// busy day, and real near-Earth sizes cluster into a few rungs, so on a live
+/// feed duplicates are the steady state and not an unlucky day. The bundled
+/// sky shows the same thing in miniature, and is the one collision anyone has
+/// actually observed: `2010 WC9` and `2019 OK` are both 130 m, so both are
+/// Bears, and both hash to `Bruno`.
+///
+/// Accepted for three reasons. **Nothing identifies a rock by its animal
+/// name** — follows are keyed on the real designation, and `Store.follows`
+/// already documents that the name is derived and the pool may change, so a
+/// homonym points at nothing and renames break nothing. **Widening cannot
+/// reach zero**: holding a busy band of 30 to even half an expected duplicate
+/// needs `C(30, 2) / 0.5` ≈ 870 names, which is not a list anyone writes, and
+/// every intermediate size buys a rename of every animal in the sky for a
+/// collision that still happens. And **the 24 are the prototype's copy**
+/// (`index.html:430`), which `CLAUDE.md:44` says to port rather than reinvent.
+/// Two animals in a zoo sharing a name is also just what zoos are like.
+///
+/// The one place it is *not* fine is a screen showing two names at once —
+/// Power Duel, Closer or Farther and Today's Challenge all can, and two
+/// identical labels make their question unanswerable. That is a bug in the
+/// **deal**, not in this pool, and it is fixed there: see the open plan item
+/// "Reject a deal whose animals share a name".
 const List<String> kNamePool = <String>[
   'Milo',
   'Bella',
