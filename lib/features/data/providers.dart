@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rockimals/core/storage/store.dart';
+import 'package:rockimals/core/streak/day_streak.dart';
 import 'package:rockimals/data/asteroid_repository.dart';
 import 'package:rockimals/data/feed_cache.dart';
 import 'package:rockimals/data/models/asteroid.dart';
@@ -193,6 +194,50 @@ final Provider<int> dayStreakProvider = Provider<int>(
   (Ref ref) => ref.watch(storeProvider).dayStreak,
   name: 'dayStreak',
 );
+
+/// What "today" is, for every day-streak write.
+///
+/// Its own provider for one reason: without it, the only way to test that
+/// engaging on a *new day* moves the flame is to hand-build the writer with a
+/// fake clock — which tests everything except the wiring, and the wiring is
+/// where the staleness bug lived. Overriding this instead lets a test drive the
+/// real `gameActionsProvider` or [recordEngagementProvider], callbacks and all,
+/// on any day it likes.
+///
+/// It lives here, next to [dayStreakProvider], rather than in the games feature
+/// where it started life as `gameClockProvider`. Starting a game was the only
+/// caller then, so the name was accurate; a resume from the background is a
+/// second one, and a clock named after one of its two consumers is how the
+/// other ends up with a clock of its own that drifts.
+final Provider<DateTime Function()> dayClockProvider =
+    Provider<DateTime Function()>((Ref ref) => DateTime.now, name: 'dayClock');
+
+/// Record today as a day the child engaged with Rockimals, and repaint the home
+/// flame if — and only if — that moved it.
+///
+/// **The third caller of [DayStreak.record], and the one that covers an
+/// ordinary phone habit the other two cannot.** `bootstrap()` records the day at
+/// cold launch and `GameActions.markPlayed` records it when a game begins.
+/// Neither fires for a child who leaves the radar open, locks the phone, and
+/// comes back the next morning: the process never died, so there is no launch,
+/// and they have not started a game. Until this, that child saw yesterday's
+/// flame until they force-quit the app.
+///
+/// A function behind a [Provider] rather than a method on some notifier,
+/// matching `gameActionsProvider`: the store stays the single source of truth
+/// and the flame stays a memoised read of it, invalidated on a write. See
+/// [DayStreak.recordAndNotify] for why the "only on a move" guard is not
+/// written out here.
+final Provider<Future<void> Function()> recordEngagementProvider =
+    Provider<Future<void> Function()>((Ref ref) {
+      final Store store = ref.watch(storeProvider);
+      final DateTime Function() now = ref.watch(dayClockProvider);
+      return () async => DayStreak.recordAndNotify(
+        store,
+        now(),
+        () => ref.invalidate(dayStreakProvider),
+      );
+    }, name: 'recordEngagement');
 
 /// The animals a child follows, live — the persisted set of designations
 /// (plan decision 4), read as `state` and changed through [toggle].

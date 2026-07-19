@@ -174,4 +174,68 @@ void main() {
       expect((await restart()).dayStreak, 1);
     });
   });
+
+  /// The "only if it moved" guard, which used to be written out at each call
+  /// site. It is one rule and it has three callers — a cold launch, a game
+  /// begun, and a return from the background — so it lives in one place, and
+  /// this is where that place is pinned.
+  group('recordAndNotify', () {
+    late Directory tempDir;
+    late Store store;
+    late List<int> announced;
+
+    setUp(() async {
+      tempDir = await Directory.systemTemp.createTemp('rockimals_notify_test');
+      Hive.init(tempDir.path);
+      store = await Store.open();
+      announced = <int>[];
+    });
+
+    tearDown(() async {
+      await Hive.deleteFromDisk();
+      await Hive.close();
+      if (tempDir.existsSync()) await tempDir.delete(recursive: true);
+    });
+
+    Future<int> recordOn(DateTime day) => DayStreak.recordAndNotify(
+      store,
+      day,
+      () => announced.add(store.dayStreak),
+    );
+
+    test('announces a first engagement', () async {
+      expect(await recordOn(DateTime(2026, 7, 17)), 1);
+      expect(announced, <int>[1]);
+    });
+
+    test('announces a new day', () async {
+      await recordOn(DateTime(2026, 7, 17));
+      expect(await recordOn(DateTime(2026, 7, 18)), 2);
+      expect(announced, <int>[1, 2]);
+    });
+
+    test('and says nothing at all on a second engagement the same day',
+        () async {
+      // The case that carries the guard's whole weight, and the common one:
+      // most engagements land on a day already counted. Announcing them would
+      // repaint the home flame for a number that did not change.
+      await recordOn(DateTime(2026, 7, 17));
+      announced.clear();
+
+      expect(await recordOn(DateTime(2026, 7, 17, 22)), 1);
+      expect(announced, isEmpty);
+    });
+
+    test('announces a reset after a gap, which is a move downwards', () async {
+      // A move is a *change*, not an increase. A child returning after a week
+      // drops from 9 to 1, and the flame has to be told — a guard written as
+      // `after > before` would leave the old number on screen.
+      await recordOn(DateTime(2026, 7, 10));
+      await store.setDayStreak(9);
+      announced.clear();
+
+      expect(await recordOn(DateTime(2026, 7, 17)), 1);
+      expect(announced, <int>[1]);
+    });
+  });
 }

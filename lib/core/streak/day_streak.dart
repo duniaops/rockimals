@@ -58,6 +58,31 @@ abstract final class DayStreak {
     return updated;
   }
 
+  /// [record], plus the one thing every caller of it has to do next: run
+  /// [onMoved] **only if the streak actually changed**, and return the streak.
+  ///
+  /// The guard is here rather than at each call site because it is a rule, not
+  /// a detail — [record] is idempotent per day, so on an ordinary day the great
+  /// majority of calls write nothing, and a caller that announced every call
+  /// would repaint the flame on each of them. There are three callers now (cold
+  /// launch, a game begun, and a resume from the background), all reaching for
+  /// the same before/after comparison; the second one to write it by hand is
+  /// the point at which the third gets it subtly wrong.
+  ///
+  /// [onMoved] is deliberately a plain callback rather than anything Riverpod:
+  /// this file is `core/` and knows about a [Store] and a calendar, not about
+  /// which provider happens to memoise the count today.
+  static Future<int> recordAndNotify(
+    Store store,
+    DateTime today,
+    void Function() onMoved,
+  ) async {
+    final int before = store.dayStreak;
+    final int after = await record(store, today);
+    if (after != before) onMoved();
+    return after;
+  }
+
   /// The `yyyy-mm-dd` key for a **local** calendar day — the same shape and the
   /// same timezone the store keeps `lastPlayedDate` in
   /// ([Store.lastPlayedDate]). Local, not UTC: this must agree with the child's

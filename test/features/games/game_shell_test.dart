@@ -440,7 +440,7 @@ void main() {
       final ProviderContainer container = ProviderContainer(
         overrides: <Override>[
           storeProvider.overrideWithValue(store),
-          gameClockProvider.overrideWithValue(() => DateTime(2026, 7, 19)),
+          dayClockProvider.overrideWithValue(() => DateTime(2026, 7, 19)),
         ],
       );
       addTearDown(container.dispose);

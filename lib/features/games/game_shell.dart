@@ -153,11 +153,10 @@ class GameActions {
     // Lift Off (`played > 0`) — the first badge a child can earn, and the only
     // one that fires before they have answered anything.
     _onProgressChanged();
-    final int before = _store.dayStreak;
-    final int after = await DayStreak.record(_store, _now());
     // Only on a real move: a same-day replay must not repaint the flame, for the
-    // reason `awardPoints` short-circuits a zero award.
-    if (after != before) _onDayStreakChanged();
+    // reason `awardPoints` short-circuits a zero award. That guard lives in
+    // `DayStreak.recordAndNotify` because all three callers of `record` need it.
+    await DayStreak.recordAndNotify(_store, _now(), _onDayStreakChanged);
   }
 
   /// The child's lifetime points total (`points`, `index.html:955`) — read, not
@@ -272,16 +271,6 @@ class GameActions {
   }
 }
 
-/// What "today" is, for the day-streak write [GameActions.markPlayed] makes.
-///
-/// Its own provider for one reason: without it, the only way to test that
-/// playing on a *new day* moves the flame is to hand-build a [GameActions] with
-/// a fake clock — which tests everything except the wiring, and the wiring is
-/// where the staleness bug lived. Overriding this instead lets a test drive the
-/// real [gameActionsProvider], callbacks and all, on any day it likes.
-final Provider<DateTime Function()> gameClockProvider =
-    Provider<DateTime Function()>((Ref ref) => DateTime.now, name: 'gameClock');
-
 /// The games' store writes. See [GameActions].
 final Provider<GameActions> gameActionsProvider = Provider<GameActions>(
   (Ref ref) => GameActions(
@@ -301,7 +290,10 @@ final Provider<GameActions> gameActionsProvider = Provider<GameActions>(
     // than a `watch` of the provider: this must not rebuild `GameActions` — and
     // therefore hand every game a new one mid-run — each time a badge is earned.
     () => ref.read(badgesProvider.notifier).check(),
-    now: ref.watch(gameClockProvider),
+    // `dayClockProvider`, not a clock of the games' own: a resume from
+    // the background writes the same streak on the same day, and two
+    // clocks for one calendar is one of them being wrong.
+    now: ref.watch(dayClockProvider),
   ),
   name: 'gameActions',
 );
