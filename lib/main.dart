@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // `Override` is not exported from the package root — Riverpod 3 parks the types
 // you mostly need in a test under `misc.dart`, alongside `ProviderException`.
 import 'package:flutter_riverpod/misc.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:rockimals/core/lifecycle/app_resume_host.dart';
 import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/core/streak/day_streak.dart';
 import 'package:rockimals/core/theme/palette.dart';
@@ -62,67 +65,85 @@ Future<Widget> bootstrap({
   );
 }
 
-class RockimalsApp extends StatelessWidget {
+class RockimalsApp extends ConsumerWidget {
   const RockimalsApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Rockimals',
-      theme: ThemeData(
-        // `flutter create` seeded this with `#5B7CFA`, a blue that appears
-        // nowhere in the prototype. The seed is now `--accent`, and the reason
-        // is what `--accent` *is*: the prototype's single interactive colour
-        // (19 uses — every selected chip, every primary button, the play
-        // control, the spinner's lit quarter). "Where the app says this does
-        // something" is exactly what Material derives from a seed, so the two
-        // agree about what they are for.
-        colorScheme:
-            ColorScheme.fromSeed(
-              seedColor: Palette.accent,
-              brightness: Brightness.dark,
-            ).copyWith(
-              // **The seed alone would be a lie, which is why these two are
-              // pinned.** `fromSeed` does not hand back the colour it is given:
-              // it runs the seed through a tonal palette and returns a
-              // harmonised neighbour, so seeding with `--accent` and calling the
-              // result the brand orange would ship an orange that is *not*
-              // `#E8571F`. Pinning `primary` makes the claim true, and
-              // `app_test.dart` asserts the inequality so this cannot be tidied
-              // away as redundant.
-              primary: Palette.accent,
-              // And the prototype already answers the question `onPrimary` asks
-              // — `.rchip.on` and `.rplay` both put `#1a0d05` on the orange
-              // rather than the white or black Material would compute.
-              onPrimary: Palette.onAccent,
-            ),
-        // `body{background:#070f1f}` (`index.html:15`). Not cosmetic
-        // housekeeping: three of the four tabs are bare bodies with no surface
-        // of their own, so until this line the colour behind them was a tonal
-        // value generated from a seed nobody chose.
-        scaffoldBackgroundColor: Palette.pageBackground,
-      ),
-      // **The celebration popup, above the `Navigator` rather than on a
-      // screen.** `.badgePop` is `z-index:60` — over the game overlay, the
-      // detail screen, and the loading gate (`index.html:233-234,165,247`),
-      // i.e. over everything. `MaterialApp.builder` is the one place in a
-      // Flutter app with that reach: a badge is nearly always earned mid-game,
-      // and a popup mounted inside a tab would celebrate underneath the game
-      // the child is looking at. See `badge_popup.dart`.
-      builder: (BuildContext context, Widget? child) =>
-          BadgePopupHost(child: child ?? const SizedBox.shrink()),
-      // **The title, and then the gate behind it** (`title.html`,
-      // `specs/06-title-polish-safety.md:16`). This used to be [LoadingGate]
-      // directly, for a reason that still holds — the shell is only built once
-      // there is a sky to put in it (`index.html:271`) — and the gate is still
-      // the only thing that decides that. What changed is that the gate is now
-      // reached by a tap rather than by a cold launch.
+  Widget build(BuildContext context, WidgetRef ref) {
+    return AppResumeHost(
+      // The day the child is having, re-asked each time they come back to the
+      // app. `bootstrap()` above answers it once per *process*, which is not the
+      // same question: a phone locked with the radar open and unlocked the next
+      // morning never cold-launches, so without this the home flame stays on
+      // yesterday's count until the child force-quits or starts a game.
       //
-      // The load itself did *not* move back a step with it: [TitleScreen] starts
-      // the feed when it mounts, so the request is in flight while a child is
-      // still looking at Rusty. See its own docs — that is the whole reason a
-      // splash in front of a network gate is not a delay.
-      home: const TitleScreen(),
+      // `read` inside the callback rather than a `watch` up here, for two
+      // reasons: this must not rebuild the whole app when the streak moves, and
+      // `recordEngagementProvider` reads the store — which a widget test may
+      // legitimately not have wired, and which it should only be made to answer
+      // for if a resume actually happens.
+      //
+      // Unawaited because a lifecycle callback is synchronous. The write is a
+      // Hive put of two small fields and nothing paints off its completion; the
+      // flame repaints through the provider invalidation inside.
+      onResume: () => unawaited(ref.read(recordEngagementProvider)()),
+      child: MaterialApp(
+        title: 'Rockimals',
+        theme: ThemeData(
+          // `flutter create` seeded this with `#5B7CFA`, a blue that appears
+          // nowhere in the prototype. The seed is now `--accent`, and the reason
+          // is what `--accent` *is*: the prototype's single interactive colour
+          // (19 uses — every selected chip, every primary button, the play
+          // control, the spinner's lit quarter). "Where the app says this does
+          // something" is exactly what Material derives from a seed, so the two
+          // agree about what they are for.
+          colorScheme:
+              ColorScheme.fromSeed(
+                seedColor: Palette.accent,
+                brightness: Brightness.dark,
+              ).copyWith(
+                // **The seed alone would be a lie, which is why these two are
+                // pinned.** `fromSeed` does not hand back the colour it is given:
+                // it runs the seed through a tonal palette and returns a
+                // harmonised neighbour, so seeding with `--accent` and calling the
+                // result the brand orange would ship an orange that is *not*
+                // `#E8571F`. Pinning `primary` makes the claim true, and
+                // `app_test.dart` asserts the inequality so this cannot be tidied
+                // away as redundant.
+                primary: Palette.accent,
+                // And the prototype already answers the question `onPrimary` asks
+                // — `.rchip.on` and `.rplay` both put `#1a0d05` on the orange
+                // rather than the white or black Material would compute.
+                onPrimary: Palette.onAccent,
+              ),
+          // `body{background:#070f1f}` (`index.html:15`). Not cosmetic
+          // housekeeping: three of the four tabs are bare bodies with no surface
+          // of their own, so until this line the colour behind them was a tonal
+          // value generated from a seed nobody chose.
+          scaffoldBackgroundColor: Palette.pageBackground,
+        ),
+        // **The celebration popup, above the `Navigator` rather than on a
+        // screen.** `.badgePop` is `z-index:60` — over the game overlay, the
+        // detail screen, and the loading gate (`index.html:233-234,165,247`),
+        // i.e. over everything. `MaterialApp.builder` is the one place in a
+        // Flutter app with that reach: a badge is nearly always earned mid-game,
+        // and a popup mounted inside a tab would celebrate underneath the game
+        // the child is looking at. See `badge_popup.dart`.
+        builder: (BuildContext context, Widget? child) =>
+            BadgePopupHost(child: child ?? const SizedBox.shrink()),
+        // **The title, and then the gate behind it** (`title.html`,
+        // `specs/06-title-polish-safety.md:16`). This used to be [LoadingGate]
+        // directly, for a reason that still holds — the shell is only built once
+        // there is a sky to put in it (`index.html:271`) — and the gate is still
+        // the only thing that decides that. What changed is that the gate is now
+        // reached by a tap rather than by a cold launch.
+        //
+        // The load itself did *not* move back a step with it: [TitleScreen] starts
+        // the feed when it mounts, so the request is in flight while a child is
+        // still looking at Rusty. See its own docs — that is the whole reason a
+        // splash in front of a network gate is not a delay.
+        home: const TitleScreen(),
+      ),
     );
   }
 }
