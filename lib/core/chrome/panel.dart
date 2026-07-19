@@ -36,6 +36,14 @@ import 'package:rockimals/core/theme/palette.dart';
 /// because it is the same surface — which is why they read their own literals
 /// and not the tokens below.
 ///
+/// **That list is load-bearing, not commentary.**
+/// `test/core/chrome/panel_surface_guard_test.dart` parses `lib/` and fails
+/// when any widget outside this file paints all four values at once, and every
+/// near-miss above is pinned there as a fixture that must keep passing. Adding
+/// a near-miss here without adding it there leaves the guard free to start
+/// firing on it; adding one there without adding it here leaves the next reader
+/// re-deriving why it is not a copy.
+///
 /// The one genuine fourth copy was the non-featured branch of
 /// `games_hub.dart`'s `.gcard`. It cannot *be* a [Panel] — it is tappable, so it
 /// paints through [Material]/[Ink]/[InkWell], and its `featured` sibling branch
