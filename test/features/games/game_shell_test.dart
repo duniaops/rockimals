@@ -631,6 +631,112 @@ void main() {
       expect(find.text('7'), findsOneWidget);
       expect(find.text('BEST'), findsOneWidget);
     });
+
+    testWidgets('the lives indicator shows and speaks the remaining lives', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        const MaterialApp(home: Scaffold(body: GameLivesIndicator(lives: 2))),
+      );
+
+      expect(find.text('LIVES'), findsOneWidget);
+      expect(find.text('2/3'), findsOneWidget);
+      expect(find.bySemanticsLabel('2 of 3 lives remaining'), findsOneWidget);
+    });
+
+    testWidgets('feedback Next advances once and cancels its fallback', (
+      WidgetTester tester,
+    ) async {
+      int advances = 0;
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: GameShell(
+              title: '🎮 Test Game',
+              body: const Text('Round'),
+              feedback: const GameFeedback(
+                correct: true,
+                headline: 'Great flying!',
+                explanation: 'Nova wins — she passed closer.',
+              ),
+              onNext: () => advances++,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Great flying!'), findsOneWidget);
+      expect(find.text('Nova wins — she passed closer.'), findsOneWidget);
+      await tester.tap(find.text('Next'));
+      await tester.pump();
+      expect(advances, 1);
+
+      await tester.pump(kGameFeedbackAutoAdvanceDelay);
+      expect(advances, 1, reason: 'Next must cancel the inactivity fallback');
+    });
+
+    testWidgets('feedback auto-advances after six seconds of inactivity', (
+      WidgetTester tester,
+    ) async {
+      int advances = 0;
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: GameShell(
+              title: '🎮 Test Game',
+              body: const Text('Round'),
+              feedback: const GameFeedback(
+                correct: false,
+                headline: 'So close!',
+                explanation: 'Nova wins — she is bigger.',
+              ),
+              onNext: () => advances++,
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump(const Duration(milliseconds: 5999));
+      expect(advances, 0);
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(advances, 1);
+    });
+
+    testWidgets('dismissing feedback cancels its pending fallback', (
+      WidgetTester tester,
+    ) async {
+      int advances = 0;
+      bool feedbackVisible = true;
+      StateSetter? setFeedbackVisible;
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: StatefulBuilder(
+              builder: (BuildContext context, StateSetter setState) {
+                setFeedbackVisible = setState;
+                return GameShell(
+                  title: '🎮 Test Game',
+                  body: const Text('Round'),
+                  feedback: feedbackVisible
+                      ? const GameFeedback(
+                          correct: true,
+                          headline: 'Great flying!',
+                          explanation: 'Nova wins — she passed closer.',
+                        )
+                      : null,
+                  onNext: feedbackVisible ? () => advances++ : null,
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      setFeedbackVisible!(() => feedbackVisible = false);
+      await tester.pump();
+      await tester.pump(kGameFeedbackAutoAdvanceDelay);
+      expect(advances, 0);
+    });
   });
 }
 

@@ -98,6 +98,13 @@ void main() {
       await _tap(tester, strongName);
 
       expect(find.text('✓ Correct!  +10 ⭐'), findsOneWidget);
+      expect(find.text('Next'), findsOneWidget);
+      expect(
+        find.textContaining(
+          '$strongName wins — bigger, passed closer, and flew faster.',
+        ),
+        findsOneWidget,
+      );
       expect(_scoreValue(tester, 'STREAK'), '1');
       expect(actions.awarded, <int>[10]);
       // Both cards show what decided it, so a child can see *why*
@@ -140,24 +147,36 @@ void main() {
       await _drain(tester);
     });
 
-    testWidgets('deals the next pair after 950ms, still on the same play', (
+    testWidgets('Next deals the next pair, still on the same play', (
       WidgetTester tester,
     ) async {
       final _RecordingActions actions = _RecordingActions();
       await _mount(tester, sky: sky, actions: actions);
 
       await _tap(tester, strongName);
-      // Just short of the delay: still showing the answer.
-      await tester.pump(const Duration(milliseconds: 949));
-      expect(find.text('✓ Correct!  +10 ⭐'), findsOneWidget);
+      await _tap(tester, 'Next');
 
-      await tester.pump(const Duration(milliseconds: 1));
       // A fresh round: the banner is clear and the powers are hidden again.
       expect(find.text('✓ Correct!  +10 ⭐'), findsNothing);
       expect(find.textContaining('power ⭐'), findsNothing);
       // The streak survives the round boundary; the run is one play.
       expect(_scoreValue(tester, 'STREAK'), '1');
       expect(actions.played, 1);
+    });
+
+    testWidgets('six seconds of inactivity deals the next pair', (
+      WidgetTester tester,
+    ) async {
+      await _mount(tester, sky: sky);
+
+      await _tap(tester, strongName);
+      await tester.pump(const Duration(milliseconds: 5999));
+      expect(find.text('✓ Correct!  +10 ⭐'), findsOneWidget);
+
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(find.text('✓ Correct!  +10 ⭐'), findsNothing);
+      expect(find.textContaining('power ⭐'), findsNothing);
+      expect(_scoreValue(tester, 'STREAK'), '1');
     });
 
     testWidgets('a second tap during the reveal is ignored', (
@@ -193,27 +212,57 @@ void main() {
   });
 
   group('a wrong answer', () {
-    testWidgets('is encouraging, awards nothing, and ends the run after '
-        '1250ms', (WidgetTester tester) async {
+    testWidgets('is encouraging, teaches the rule, and spends one life', (
+      WidgetTester tester,
+    ) async {
       final _RecordingActions actions = _RecordingActions();
       await _mount(tester, sky: sky, actions: actions);
 
       await _tap(tester, weakName);
 
       // Never harsh (`CLAUDE.md:70`).
-      expect(find.text('✗ So close! Try the next one 💪'), findsOneWidget);
+      expect(find.text('So close — 2 lives left'), findsOneWidget);
+      expect(
+        find.textContaining(
+          '$strongName wins — bigger, passed closer, and flew faster.',
+        ),
+        findsOneWidget,
+      );
       expect(actions.awarded, isEmpty);
       // The board stays up long enough to see which animal was stronger.
       expect(find.text('power ⭐ ${powerStars(strong)}'), findsOneWidget);
+      expect(find.text('2/3'), findsOneWidget);
+      expect(_scoreValue(tester, 'STREAK'), '0');
 
-      await tester.pump(const Duration(milliseconds: 1249));
+      await _tap(tester, 'Next');
       expect(find.text('GAME OVER'), findsNothing);
-
-      await tester.pump(const Duration(milliseconds: 1));
-      expect(find.text('GAME OVER'), findsOneWidget);
-      expect(find.text('Play again'), findsOneWidget);
-      expect(find.text('Back to games'), findsOneWidget);
+      expect(find.text(strongName), findsOneWidget);
     });
+
+    testWidgets(
+      'survives two mistakes and ends only after the third feedback',
+      (WidgetTester tester) async {
+        await _mount(tester, sky: sky);
+
+        await _tap(tester, weakName);
+        await _tap(tester, 'Next');
+        await _tap(tester, weakName);
+        expect(find.text('So close — 1 life left'), findsOneWidget);
+        expect(find.text('1/3'), findsOneWidget);
+        await _tap(tester, 'Next');
+        expect(find.text('GAME OVER'), findsNothing);
+
+        await _tap(tester, weakName);
+        expect(find.text('So close — 0 lives left'), findsOneWidget);
+        expect(find.text('0/3'), findsOneWidget);
+        expect(find.text('GAME OVER'), findsNothing);
+
+        await _tap(tester, 'Next');
+        expect(find.text('GAME OVER'), findsOneWidget);
+        expect(find.text('Play again'), findsOneWidget);
+        expect(find.text('Back to games'), findsOneWidget);
+      },
+    );
 
     testWidgets('the end screen reports the run, the best, and the points', (
       WidgetTester tester,
@@ -223,11 +272,13 @@ void main() {
 
       // One right answer, then a wrong one.
       await _tap(tester, strongName);
-      await tester.pump(kDuelAdvanceDelay);
-      await _tap(tester, weakName);
-      await tester.pump(kDuelGameOverDelay);
+      await _tap(tester, 'Next');
+      for (int life = 0; life < 3; life++) {
+        await _tap(tester, weakName);
+        await _tap(tester, 'Next');
+      }
 
-      expect(find.text('1'), findsOneWidget);
+      expect(find.text('0'), findsOneWidget);
       // `"best streak "+bestDuel+" · ⭐ "+points+" points"`
       // (`index.html:1055`).
       expect(find.text('best streak 1 · ⭐ 10 points'), findsOneWidget);
@@ -252,9 +303,11 @@ void main() {
       await _mount(tester, sky: sky, actions: actions);
 
       await _tap(tester, strongName);
-      await tester.pump(kDuelAdvanceDelay);
-      await _tap(tester, weakName);
-      await tester.pump(kDuelGameOverDelay);
+      await _tap(tester, 'Next');
+      for (int life = 0; life < 3; life++) {
+        await _tap(tester, weakName);
+        await _tap(tester, 'Next');
+      }
 
       await _tap(tester, 'Play again');
 
@@ -340,7 +393,7 @@ void main() {
       await _mount(tester, sky: sky);
 
       await _tap(tester, strongName);
-      await tester.pump(kDuelAdvanceDelay);
+      await _tap(tester, 'Next');
 
       expect(_cardReaction(tester, strongName), isNull);
       expect(_cardReaction(tester, weakName), isNull);
@@ -353,14 +406,16 @@ void main() {
 /// the game leaves a real timer running and settling would advance the clock
 /// through it and past the state under test.
 Future<void> _tap(WidgetTester tester, String label) async {
-  await tester.tap(find.text(label));
+  final Finder target = find.text(label);
+  await tester.ensureVisible(target);
+  await tester.tap(target);
   await tester.pump();
 }
 
 /// Let the round's pending timer fire, so a test that ends mid-reveal does not
 /// leave one behind for the framework to complain about.
 Future<void> _drain(WidgetTester tester) =>
-    tester.pump(kDuelGameOverDelay + kDuelAdvanceDelay);
+    tester.pump(kGameFeedbackAutoAdvanceDelay);
 
 /// The big number in the score-bar cell captioned [label].
 String _scoreValue(WidgetTester tester, String label) {

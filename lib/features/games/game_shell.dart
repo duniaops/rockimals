@@ -26,6 +26,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rockimals/core/audio/sound_cues.dart';
 import 'package:rockimals/core/chrome/action_button.dart';
 import 'package:rockimals/core/chrome/obar.dart';
+import 'package:rockimals/core/chrome/panel.dart';
 import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/core/streak/day_streak.dart';
 import 'package:rockimals/core/theme/palette.dart';
@@ -367,8 +368,100 @@ gameReactionProvider = NotifierProvider<GameReactionNotifier, GameReaction?>(
 /// A `ref.listen` rather than a `ref.watch` because a reaction is an *event*, not
 /// a value to render; see [GameReaction] on why a fresh instance per answer is
 /// what makes two correct answers in a row two audible cheers.
-class GameShell extends ConsumerWidget {
-  const GameShell({required this.title, required this.body, super.key});
+/// The maximum wait before a revealed answer moves on by itself. The button is
+/// the primary path; this is only a gentle escape hatch if a child is called
+/// away mid-round.
+const Duration kGameFeedbackAutoAdvanceDelay = Duration(seconds: 6);
+
+/// The explanation a game gives after an answer. Games own the facts that made
+/// an answer correct; the shell owns the consistent, player-paced presentation.
+@immutable
+class GameFeedback {
+  const GameFeedback({
+    required this.correct,
+    required this.headline,
+    required this.explanation,
+  });
+
+  final bool correct;
+  final String headline;
+  final String explanation;
+}
+
+/// Three visible chances make a mistake a teaching moment rather than a dead
+/// end. Future games may use fewer than three, but their indicator still comes
+/// from this one shared component.
+class GameLivesIndicator extends StatelessWidget {
+  const GameLivesIndicator({
+    required this.lives,
+    this.totalLives = 3,
+    super.key,
+  }) : assert(totalLives > 0),
+       assert(lives >= 0 && lives <= totalLives);
+
+  final int lives;
+  final int totalLives;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: '$lives of $totalLives lives remaining',
+      child: ExcludeSemantics(
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              const Text(
+                'LIVES',
+                style: TextStyle(
+                  color: Palette.muted,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                List<String>.generate(
+                  totalLives,
+                  (int index) => index < lives ? '♥' : '♡',
+                ).join(' '),
+                style: const TextStyle(
+                  color: Palette.accent2,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  height: 1,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '$lives/$totalLives',
+                style: const TextStyle(
+                  color: Palette.ink,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The common game surface with a back button, score bar content, optional
+/// lives, and the shared answer feedback flow.
+class GameShell extends ConsumerStatefulWidget {
+  const GameShell({
+    required this.title,
+    required this.body,
+    this.lives,
+    this.feedback,
+    this.onNext,
+    super.key,
+  }) : assert(feedback == null || onNext != null);
 
   /// The bar title, emoji included (`⚔️ Power Duel`, `index.html:1035`).
   final String title;
@@ -376,8 +469,64 @@ class GameShell extends ConsumerWidget {
   /// The game's current screen — a round or the end panel.
   final Widget body;
 
+  /// Remaining chances for the current run. Null means this game does not use
+  /// lives (or is already showing its end panel).
+  final int? lives;
+
+  /// The explanation shown once a child has committed to an answer.
+  final GameFeedback? feedback;
+
+  /// Advances after [feedback]. The explicit Next button is primary; the shell
+  /// invokes this after [kGameFeedbackAutoAdvanceDelay] as an inactivity
+  /// fallback.
+  final VoidCallback? onNext;
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<GameShell> createState() => _GameShellState();
+}
+
+class _GameShellState extends ConsumerState<GameShell> {
+  Timer? _feedbackTimer;
+  bool _advanced = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleFeedbackAdvance();
+  }
+
+  @override
+  void didUpdateWidget(covariant GameShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(widget.feedback, oldWidget.feedback) ||
+        widget.onNext != oldWidget.onNext) {
+      _scheduleFeedbackAdvance();
+    }
+  }
+
+  @override
+  void dispose() {
+    _feedbackTimer?.cancel();
+    super.dispose();
+  }
+
+  void _scheduleFeedbackAdvance() {
+    _feedbackTimer?.cancel();
+    _advanced = false;
+    final VoidCallback? onNext = widget.onNext;
+    if (widget.feedback == null || onNext == null) return;
+    _feedbackTimer = Timer(kGameFeedbackAutoAdvanceDelay, _advance);
+  }
+
+  void _advance() {
+    if (_advanced || !mounted) return;
+    _advanced = true;
+    _feedbackTimer?.cancel();
+    widget.onNext?.call();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     ref.listen<GameReaction?>(gameReactionProvider, (
       GameReaction? _,
       GameReaction? next,
@@ -401,14 +550,68 @@ class GameShell extends ConsumerWidget {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          Obar(title: title),
+          Obar(title: widget.title),
           Expanded(
             child: SingleChildScrollView(
               // `.obody{padding:16px 16px 30px}` (`index.html:95`).
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 30),
-              child: body,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  if (widget.lives case final int lives)
+                    GameLivesIndicator(lives: lives),
+                  widget.body,
+                  if (widget.feedback
+                      case final GameFeedback feedback) ...<Widget>[
+                    const SizedBox(height: 12),
+                    GameFeedbackPanel(feedback: feedback, onNext: _advance),
+                  ],
+                ],
+              ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The shell's common feedback presentation. [GameShell] controls its timer and
+/// composes this widget so future games cannot drift in copy, panel styling, or
+/// Next-button accessibility.
+class GameFeedbackPanel extends StatelessWidget {
+  const GameFeedbackPanel({
+    required this.feedback,
+    required this.onNext,
+    super.key,
+  });
+
+  final GameFeedback feedback;
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    return Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Text(
+            feedback.headline,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: feedback.correct ? Palette.good : Palette.accent2,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            feedback.explanation,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Palette.ink, height: 1.35),
+          ),
+          const SizedBox(height: 14),
+          ActionButton(label: 'Next', onTap: onNext),
         ],
       ),
     );

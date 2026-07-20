@@ -2,9 +2,10 @@
 /// `duelRound` (`index.html:1034-1057`).
 ///
 /// Two space animals side by side; tap the one with more power. Right answers
-/// keep the streak alive and deal another pair; one wrong answer ends the run.
-/// The deal and the winner test live next door in `duel_pairing.dart`; this file
-/// is the screen.
+/// keep the streak alive and mistakes spend one of three lives. Every answer
+/// waits for the shared Next action (with its six-second inactivity fallback)
+/// before dealing again. The deal and the winner test live next door in
+/// `duel_pairing.dart`; this file is the screen.
 library;
 
 import 'dart:async';
@@ -20,16 +21,7 @@ import 'package:rockimals/features/games/duel_pairing.dart';
 import 'package:rockimals/features/games/game_shell.dart';
 import 'package:rockimals/features/rewards/reaction.dart';
 
-/// How long the "✓ Correct!" banner sits before the next pair is dealt
-/// (`setTimeout(duelRound,950)`, `index.html:1054`).
-const Duration kDuelAdvanceDelay = Duration(milliseconds: 950);
-
-/// How long the encouraging wrong-answer banner sits before the end screen
-/// (`setTimeout(…,1250)`, `index.html:1055`) — a touch longer than a win, so the
-/// child gets to see which animal really was stronger before the run closes.
-const Duration kDuelGameOverDelay = Duration(milliseconds: 1250);
-
-/// Power Duel: an endless streak game that ends on the first wrong answer.
+/// Power Duel: an endless streak game with three lives.
 ///
 /// **Unlike Today's Challenge, this one does finish through [GameOverPanel]** —
 /// it is a run with a length, so the shared end screen is exactly right (the
@@ -61,11 +53,11 @@ class _DuelGameState extends ConsumerState<DuelGame> {
   /// set, the pair is revealed and both cards are inert.
   bool? _pickedA;
 
+  /// Recoverable mistakes remaining in this run (Games v2 design rule 4).
+  int _lives = 3;
+
   /// Set when the run is over; the end screen replaces the board.
   bool _over = false;
-
-  /// The pending advance-or-end timer, cancelled if the screen goes away first.
-  Timer? _timer;
 
   @override
   void initState() {
@@ -78,12 +70,6 @@ class _DuelGameState extends ConsumerState<DuelGame> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) unawaited(ref.read(gameActionsProvider).markPlayed());
     });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
   }
 
   /// The whole sky, not today's list — the prototype duels across the full
@@ -101,10 +87,10 @@ class _DuelGameState extends ConsumerState<DuelGame> {
   /// A fresh run — "Play again" is `startDuel` again (`index.html:1030`): the
   /// streak resets to zero and another play is counted.
   void _restart() {
-    _timer?.cancel();
     unawaited(ref.read(gameActionsProvider).markPlayed());
     setState(() {
       _streak = 0;
+      _lives = 3;
       _over = false;
       _pickedA = null;
       _pair = _deal();
@@ -119,6 +105,17 @@ class _DuelGameState extends ConsumerState<DuelGame> {
       _pickedA = null;
       _pair = _deal();
     });
+  }
+
+  /// Dismiss the shared feedback. A third mistake ends the run only after the
+  /// child has had time to read why; every earlier answer deals another pair.
+  void _finishFeedback() {
+    if (_pickedA == null || _over) return;
+    if (_lives == 0) {
+      setState(() => _over = true);
+    } else {
+      _nextRound();
+    }
   }
 
   void _pick({required bool isA}) {
@@ -143,11 +140,11 @@ class _DuelGameState extends ConsumerState<DuelGame> {
         _streak = streak;
         _pickedA = isA;
       });
-      _timer = Timer(kDuelAdvanceDelay, _nextRound);
     } else {
-      setState(() => _pickedA = isA);
-      _timer = Timer(kDuelGameOverDelay, () {
-        if (mounted) setState(() => _over = true);
+      setState(() {
+        _pickedA = isA;
+        _streak = 0;
+        _lives--;
       });
     }
   }
@@ -157,6 +154,17 @@ class _DuelGameState extends ConsumerState<DuelGame> {
     return GameShell(
       // The overlay title `startDuel` sets (`index.html:1035`).
       title: '⚔️ Power Duel',
+      lives: _over ? null : _lives,
+      feedback: _over || _pickedA == null
+          ? null
+          : GameFeedback(
+              correct: _pickedA == _pair.winnerIsA,
+              headline: _pickedA == _pair.winnerIsA
+                  ? '✓ Correct!  +10 ⭐'
+                  : 'So close — $_lives ${_lives == 1 ? 'life' : 'lives'} left',
+              explanation: _duelExplanation(),
+            ),
+      onNext: _over || _pickedA == null ? null : _finishFeedback,
       body: _over ? _endPanel() : _board(),
     );
   }
@@ -229,24 +237,29 @@ class _DuelGameState extends ConsumerState<DuelGame> {
             ),
           ),
         ),
-        _DuelBanner(
-          text: !revealed
-              ? ''
-              : win
-              // Two spaces after the tick, as the prototype has it
-              // (`index.html:1054`).
-              ? '✓ Correct!  +10 ⭐'
-              // Never a telling-off (`CLAUDE.md:70`): a wrong answer ends the
-              // run with a "so close" and a flexed arm.
-              : '✗ So close! Try the next one 💪',
-          color: !revealed
-              ? Palette.ink
-              : win
-              ? Palette.good
-              : Palette.bad,
-        ),
       ],
     );
+  }
+
+  /// Explain the real measurements that favour this round's winner. Power is
+  /// a weighted combination, so every favourable term is named rather than
+  /// reducing the lesson to the already-visible star total.
+  String _duelExplanation() {
+    final Asteroid winner = _pair.winner;
+    final Asteroid loser = identical(winner, _pair.a) ? _pair.b : _pair.a;
+    final List<String> reasons = <String>[
+      if (winner.diaMax > loser.diaMax) 'bigger',
+      if (winner.missLunar < loser.missLunar) 'passed closer',
+      if (winner.velKps > loser.velKps) 'flew faster',
+    ];
+    final String rule = switch (reasons) {
+      <String>[] => 'had the stronger mix of size, closeness, and speed',
+      <String>[final String only] => only,
+      <String>[final String first, final String second] => '$first and $second',
+      _ => '${reasons[0]}, ${reasons[1]}, and ${reasons[2]}',
+    };
+    return '${critter(winner).name} wins — $rule. '
+        'Power = bigger + closer + faster ⭐.';
   }
 }
 
@@ -437,39 +450,6 @@ class _DuelAvatar extends StatelessWidget {
         border: Border.fromBorderSide(BorderSide(color: Palette.line)),
       ),
       child: Text(emoji, style: const TextStyle(fontSize: 30, height: 1)),
-    );
-  }
-}
-
-/// The line under the board (`.banner`, `index.html:159-161,1043`). Empty but
-/// still 22px tall while the round is open, so revealing an answer does not
-/// shift the cards up the screen (`min-height:22px`).
-class _DuelBanner extends StatelessWidget {
-  const _DuelBanner({required this.text, required this.color});
-
-  final String text;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      // `.banner{margin:12px 0}`.
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: SizedBox(
-        height: 22,
-        child: Center(
-          child: Text(
-            text,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: color,
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              height: 1,
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

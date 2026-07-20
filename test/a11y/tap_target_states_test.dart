@@ -42,6 +42,7 @@ import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/games/challenge_game.dart';
 import 'package:rockimals/features/games/closer_game.dart';
 import 'package:rockimals/features/games/duel_game.dart';
+import 'package:rockimals/features/games/game_shell.dart';
 import 'package:rockimals/features/games/match_game.dart';
 import 'package:rockimals/features/radar/radar_focus.dart';
 import 'package:rockimals/features/rewards/badge_controller.dart';
@@ -250,15 +251,17 @@ void main() {
         // means knowing which two the deal produced — and it is drawn from an
         // unseeded `Random`. So the pair is read back off the board rather than
         // predicted, and `power()` decides from there.
-        final List<Asteroid> pair = _dealt(tester);
-        expect(
-          pair,
-          hasLength(2),
-          reason: 'the duel board did not show two distinct animals',
-        );
-        pair.sort((Asteroid a, Asteroid b) => power(a).compareTo(power(b)));
-        await _tap(tester, critter(pair.first).name);
-        await tester.pump(kDuelGameOverDelay);
+        for (int life = 3; life > 0; life--) {
+          final List<Asteroid> pair = _dealt(tester);
+          expect(
+            pair,
+            hasLength(2),
+            reason: 'the duel board did not show two distinct animals',
+          );
+          pair.sort((Asteroid a, Asteroid b) => power(a).compareTo(power(b)));
+          await _tap(tester, critter(pair.first).name);
+          await _tap(tester, 'Next');
+        }
 
         expect(
           find.text('Play again'),
@@ -376,7 +379,7 @@ final List<_Game> _games = <_Game>[
     // of a plain wrong answer — and the state under audit is the same either
     // way.
     revealMarker: _text(RegExp('Correct!|So close')),
-    drain: kDuelAdvanceDelay + kDuelGameOverDelay,
+    drain: kGameFeedbackAutoAdvanceDelay,
   ),
   _Game(
     name: 'Closer',
