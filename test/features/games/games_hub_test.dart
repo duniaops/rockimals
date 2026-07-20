@@ -390,12 +390,16 @@ void main() {
         // Defaults to on (`Store.soundOn`).
         expect(find.text('🔊'), findsOneWidget);
         expect(find.text('🔇'), findsNothing);
+        expect(find.text('Sound on'), findsOneWidget);
+        expect(find.text('Sound off'), findsNothing);
 
         await tester.tap(find.text('🔊'));
         await tester.pump();
 
         expect(find.text('🔇'), findsOneWidget);
         expect(find.text('🔊'), findsNothing);
+        expect(find.text('Sound off'), findsOneWidget);
+        expect(find.text('Sound on'), findsNothing);
       });
 
       testWidgets('starts muted when the stored value is off', (tester) async {
@@ -403,6 +407,7 @@ void main() {
 
         expect(find.text('🔇'), findsOneWidget);
         expect(find.text('🔊'), findsNothing);
+        expect(find.text('Sound off'), findsOneWidget);
       });
     });
 

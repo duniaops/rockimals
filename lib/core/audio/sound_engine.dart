@@ -97,6 +97,17 @@ class ToneSoundEngine implements SoundEngine {
 
   @override
   Future<void> play(SoundCue cue) async {
+    // `audioplayers`' web platform handoff can stay pending even though the
+    // browser has no native player to initialise. That turned every game cue
+    // into a two-second timeout report. Web keeps the persisted sound setting
+    // and its visible toggle, but does not attempt a native-only handoff.
+    //
+    // Keep this before synthesis too: rendering an inaudible WAV on every tap
+    // is needless work, and this leaves iOS/Android behaviour exactly below.
+    if (kIsWeb) {
+      return;
+    }
+
     final Uint8List bytes = _rendered.putIfAbsent(
       cue,
       () => encodeWav(notesFor(cue)),

@@ -82,6 +82,10 @@ class GamesHub extends ConsumerWidget {
     final bool simplestOnly = ref
         .watch(littleKidsExperienceProvider)
         .simplestGamesOnly;
+    // At a larger text scale the two cards cannot share the narrow header
+    // without compressing the points card. Stack them rather than shrinking or
+    // clipping the sound control's visible words.
+    final bool stackedHeader = MediaQuery.textScalerOf(context).scale(12) > 12;
 
     return Scaffold(
       backgroundColor: Palette.pageBackground,
@@ -101,23 +105,39 @@ class GamesHub extends ConsumerWidget {
                 children: <Widget>[
                   // The points card + sound toggle row (`index.html:1009-1013`);
                   // `margin-bottom:14`.
-                  Row(
-                    children: <Widget>[
-                      Expanded(child: _PointsCard(points: stats.points)),
-                      const SizedBox(width: 10),
-                      _SoundButton(
-                        on: soundOn,
-                        // The confirmation jingle `if(soundOn)playHappy()`
-                        // (`index.html:1020`) used to be spelled out here,
-                        // because this button was once the only place the toggle
-                        // could be flipped. Settings is now a second flip point,
-                        // so the rule lives in [SoundOnNotifier.toggle] and both
-                        // surfaces inherit it — see the note there.
-                        onTap: () =>
-                            ref.read(soundOnProvider.notifier).toggle(),
-                      ),
-                    ],
-                  ),
+                  stackedHeader
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: <Widget>[
+                            _PointsCard(points: stats.points),
+                            const SizedBox(height: 10),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: _SoundButton(
+                                on: soundOn,
+                                onTap: () =>
+                                    ref.read(soundOnProvider.notifier).toggle(),
+                              ),
+                            ),
+                          ],
+                        )
+                      : Row(
+                          children: <Widget>[
+                            Expanded(child: _PointsCard(points: stats.points)),
+                            const SizedBox(width: 10),
+                            _SoundButton(
+                              on: soundOn,
+                              // The confirmation jingle `if(soundOn)playHappy()`
+                              // (`index.html:1020`) used to be spelled out here,
+                              // because this button was once the only place the toggle
+                              // could be flipped. Settings is now a second flip point,
+                              // so the rule lives in [SoundOnNotifier.toggle] and both
+                              // surfaces inherit it — see the note there.
+                              onTap: () =>
+                                  ref.read(soundOnProvider.notifier).toggle(),
+                            ),
+                          ],
+                        ),
                   const SizedBox(height: 14),
                   // `.h-sub` (`index.html:1014`); `margin-bottom:12`.
                   const Padding(
@@ -323,9 +343,9 @@ class _PointsCard extends StatelessWidget {
 
 /// The sound on/off button (`.sndBtn` / `#sndToggle`, `index.html:1012,1020`).
 ///
-/// The emoji alone is opaque to a screen reader, so a [Semantics] `toggled`
-/// carries the state and a plain label carries the name — the radar chips'
-/// precedent.
+/// The emoji is a quick visual cue, not the control's only meaning. A visible
+/// state label helps children who do not recognise the glyph, while [Semantics]
+/// carries the same toggle state for assistive technology.
 class _SoundButton extends StatelessWidget {
   const _SoundButton({required this.on, required this.onTap});
 
@@ -356,9 +376,23 @@ class _SoundButton extends StatelessWidget {
               // `padding:8px 12px` (`index.html:244`).
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: ExcludeSemantics(
-                child: Text(
-                  on ? '🔊' : '🔇',
-                  style: const TextStyle(fontSize: 15, color: Palette.ink),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text(
+                      on ? '🔊' : '🔇',
+                      style: const TextStyle(fontSize: 15, color: Palette.ink),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      on ? 'Sound on' : 'Sound off',
+                      style: const TextStyle(
+                        color: Palette.ink,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
