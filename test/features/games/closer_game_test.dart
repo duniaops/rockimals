@@ -20,7 +20,7 @@ import '../../support/stub_settings.dart';
 
 /// Closer or Farther end to end (`specs/04`, game 3). The deal and the
 /// comparison are pinned in `closer_pairing_test.dart`; this suite is the screen
-/// — answering, the chain, the two delays, and the store seams.
+/// — answering, the shared feedback flow, recoverable lives, and store seams.
 ///
 /// **The sky is exactly two animals, as in the duel suite — but this game's two
 /// roles are not interchangeable, so every test asks the board which is which.**
@@ -66,6 +66,7 @@ void main() {
       expect(find.text('⬇ Closer'), findsOneWidget);
       expect(find.text('⬆ Farther'), findsOneWidget);
       expect(_scoreValue(tester, 'STREAK'), '0');
+      expect(find.text('3/3'), findsOneWidget);
       // `markPlayed()` before the first round (`index.html:1061`).
       expect(actions.played, 1);
 
@@ -110,12 +111,15 @@ void main() {
       final Asteroid challenger = _otherThan(_anchorOf(sky), sky);
       await _tap(tester, _correctLabel(sky));
 
-      // The reveal names the distance *before* the verdict — the answer is a
-      // real fact about a real rock, not a score (`index.html:1078`).
+      // Shared feedback names the distance rule before the child moves on.
       expect(
-        find.text(_revealText(sky, win: true), findRichText: true),
+        find.textContaining(
+          '${critter(challenger).name} flies '
+          '${distLabel(challenger.missLunar)} from Earth',
+        ),
         findsOneWidget,
       );
+      expect(find.text('Next'), findsOneWidget);
       expect(_scoreValue(tester, 'STREAK'), '1');
       expect(actions.awarded, <int>[10]);
       expect(
@@ -181,7 +185,7 @@ void main() {
       await _drain(tester);
     });
 
-    testWidgets('promotes the challenger to anchor after 1250ms — the chain '
+    testWidgets('promotes the challenger to anchor after Next — the chain '
         'advances', (WidgetTester tester) async {
       final _RecordingActions actions = _RecordingActions();
       await _mount(tester, sky: sky, actions: actions);
@@ -190,14 +194,8 @@ void main() {
       final Asteroid challenger = _otherThan(firstAnchor, sky);
 
       await _tap(tester, _correctLabel(sky));
-      // Just short of the delay: still reading the reveal.
-      await tester.pump(const Duration(milliseconds: 1249));
-      expect(
-        find.text(_revealText(sky, win: true), findRichText: true),
-        findsOneWidget,
-      );
-
-      await tester.pump(const Duration(milliseconds: 1));
+      expect(find.text('Next'), findsOneWidget);
+      await _tap(tester, 'Next');
       // `closerAnchor=ch` (`index.html:1079`) — the animal just guessed about is
       // now the one on the card, so each answer is measured against what the
       // child has just learned.
@@ -206,8 +204,8 @@ void main() {
         find.text('flies ${distLabel(challenger.missLunar)} from Earth'),
         findsOneWidget,
       );
-      // The banner is clear again, the streak survives, and it is one play.
-      expect(find.textContaining('flies', findRichText: true), findsOneWidget);
+      // Feedback is dismissed, the streak survives, and it is one play.
+      expect(find.text('Next'), findsNothing);
       expect(_scoreValue(tester, 'STREAK'), '1');
       expect(actions.played, 1);
     });
@@ -225,7 +223,6 @@ void main() {
       );
 
       await _tap(tester, _correctLabel(sky));
-      final String reveal = _revealText(sky, win: true);
       // The prototype disables both buttons on the first tap
       // (`index.html:1074`), so an excited double-tap cannot bank two answers —
       // nor end the run by hitting the wrong one next.
@@ -233,17 +230,12 @@ void main() {
 
       expect(actions.awarded, <int>[10]);
       expect(_scoreValue(tester, 'STREAK'), '1');
-      // **The points and the streak alone cannot catch this** — a wrong answer
-      // scores nothing and does not touch the streak, so both are identical
-      // whether or not the second tap landed. What changes is everything else:
-      // the board would flip to the losing reveal, fire a sad cue, and start a
-      // game-over timer. So the assertions are about those.
-      expect(find.text(reveal, findRichText: true), findsOneWidget);
+      // The shared feedback remains for the original answer; the second tap
+      // cannot replace it with a losing result.
+      expect(find.text('✓ Correct!  +10 ⭐'), findsOneWidget);
       expect(reactions, <bool>[true], reason: 'one cheer, no sad follow-up');
 
-      // Long enough for a game-over timer to have fired; instead the round's own
-      // advance carries the run on.
-      await tester.pump(kCloserGameOverDelay);
+      await tester.pump(kGameFeedbackAutoAdvanceDelay);
       expect(find.text('GAME OVER'), findsNothing);
 
       await _drain(tester);
@@ -263,28 +255,24 @@ void main() {
   });
 
   group('a wrong answer', () {
-    testWidgets('is encouraging, awards nothing, and ends the run after '
-        '1350ms', (WidgetTester tester) async {
+    testWidgets('is encouraging, explains the distance rule, and keeps two '
+        'lives after one mistake', (WidgetTester tester) async {
       final _RecordingActions actions = _RecordingActions();
       await _mount(tester, sky: sky, actions: actions);
 
       await _tap(tester, _wrongLabel(sky));
 
-      // Never harsh (`CLAUDE.md:70`), and it still teaches: the true distance
-      // and direction are stated whichever way the child guessed.
+      // Never harsh (`CLAUDE.md:70`), and it states the true distance and
+      // direction whichever way the child guessed.
       expect(
-        find.text(_revealText(sky, win: false), findRichText: true),
+        find.textContaining('Choose the animal nearer Earth for closer.'),
         findsOneWidget,
       );
       expect(actions.awarded, isEmpty);
-
-      await tester.pump(const Duration(milliseconds: 1349));
       expect(find.text('GAME OVER'), findsNothing);
-
-      await tester.pump(const Duration(milliseconds: 1));
-      expect(find.text('GAME OVER'), findsOneWidget);
-      expect(find.text('Play again'), findsOneWidget);
-      expect(find.text('Back to games'), findsOneWidget);
+      expect(find.text('2/3'), findsOneWidget);
+      await _tap(tester, 'Next');
+      expect(find.text('Next'), findsNothing);
     });
 
     testWidgets('the end screen reports the run, the best, and the points', (
@@ -293,13 +281,16 @@ void main() {
       final _RecordingActions actions = _RecordingActions();
       await _mount(tester, sky: sky, actions: actions);
 
-      // One right answer, then a wrong one.
+      // One right answer, then three mistakes. The streak resets after each
+      // miss but the best and lifetime points remain.
       await _tap(tester, _correctLabel(sky));
-      await tester.pump(kCloserAdvanceDelay);
-      await _tap(tester, _wrongLabel(sky));
-      await tester.pump(kCloserGameOverDelay);
+      await _tap(tester, 'Next');
+      for (int life = 3; life > 0; life--) {
+        await _tap(tester, _wrongLabel(sky));
+        await _tap(tester, 'Next');
+      }
 
-      expect(find.text('1'), findsOneWidget);
+      expect(find.text('0'), findsOneWidget);
       // `"best streak "+bestCloser+" · ⭐ "+points+" points"`
       // (`index.html:1080`).
       expect(find.text('best streak 1 · ⭐ 10 points'), findsOneWidget);
@@ -324,9 +315,11 @@ void main() {
       await _mount(tester, sky: sky, actions: actions);
 
       await _tap(tester, _correctLabel(sky));
-      await tester.pump(kCloserAdvanceDelay);
-      await _tap(tester, _wrongLabel(sky));
-      await tester.pump(kCloserGameOverDelay);
+      await _tap(tester, 'Next');
+      for (int life = 3; life > 0; life--) {
+        await _tap(tester, _wrongLabel(sky));
+        await _tap(tester, 'Next');
+      }
 
       await _tap(tester, 'Play again');
 
@@ -414,7 +407,7 @@ void main() {
       await _mount(tester, sky: sky);
 
       await _tap(tester, _correctLabel(sky));
-      await tester.pump(kCloserAdvanceDelay);
+      await _tap(tester, 'Next');
 
       expect(_soloReaction(tester), isNull);
       await _drain(tester);
@@ -444,31 +437,17 @@ String _correctLabel(List<Asteroid> sky) {
 String _wrongLabel(List<Asteroid> sky) =>
     _correctLabel(sky) == '⬇ Closer' ? '⬆ Farther' : '⬇ Closer';
 
-/// The reveal sentence for the round currently on screen (`index.html:1078`).
-String _revealText(List<Asteroid> sky, {required bool win}) {
-  final Asteroid anchor = _anchorOf(sky);
-  final Asteroid challenger = _otherThan(anchor, sky);
-  final Critter c = critter(challenger);
-  final String direction = challenger.missLunar < anchor.missLunar
-      ? 'closer'
-      : 'farther';
-  final String outcome = win ? '✓ +10 ⭐' : '✗ good try!';
-  return '${c.animal.emoji} ${c.name} flies '
-      '${distLabel(challenger.missLunar)} — $direction. $outcome';
-}
-
-/// Tap something and rebuild — a single `pump`, never `pumpAndSettle`, because
-/// the game leaves a real timer running and settling would advance the clock
-/// through it and past the state under test.
+/// Tap something and rebuild without letting the shell's feedback fallback
+/// advance past the state under test.
 Future<void> _tap(WidgetTester tester, String label) async {
   await tester.tap(find.text(label));
   await tester.pump();
 }
 
-/// Let the round's pending timer fire, so a test that ends mid-reveal does not
-/// leave one behind for the framework to complain about.
+/// Let the shell's feedback fallback fire for tests that intentionally leave
+/// a revealed answer on screen.
 Future<void> _drain(WidgetTester tester) =>
-    tester.pump(kCloserGameOverDelay + kCloserAdvanceDelay);
+    tester.pump(kGameFeedbackAutoAdvanceDelay);
 
 /// The big number in the score-bar cell captioned [label].
 String _scoreValue(WidgetTester tester, String label) {

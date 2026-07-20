@@ -24,14 +24,6 @@ import 'package:rockimals/features/games/game_shell.dart';
 import 'package:rockimals/features/games/match_round.dart';
 import 'package:rockimals/features/rewards/reaction.dart';
 
-/// How long the reveal sits before the next round is dealt
-/// (`setTimeout(sizeRound,1400)`, `index.html:1116`).
-///
-/// The longest pause of the four games, and it earns it: the reveal turns the
-/// "❓" into the real animal *and* names the species, so this is the beat where
-/// the child actually learns the size→animal link the game exists to teach.
-const Duration kMatchAdvanceDelay = Duration(milliseconds: 1400);
-
 /// Animal Match: an eight-round quiz that always plays to the end.
 ///
 /// Takes **no injected [Random]** — the suite plays by species name, reading the
@@ -67,9 +59,6 @@ class _MatchGameState extends ConsumerState<MatchGame> {
   /// Set when all eight rounds are done; the end screen replaces the board.
   bool _over = false;
 
-  /// The pending advance-or-end timer, cancelled if the screen goes away first.
-  Timer? _timer;
-
   @override
   void initState() {
     super.initState();
@@ -81,12 +70,6 @@ class _MatchGameState extends ConsumerState<MatchGame> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) unawaited(ref.read(gameActionsProvider).markPlayed());
     });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
   }
 
   /// The whole sky, not today's list — `rand(asteroids)` (`index.html:1095`),
@@ -101,7 +84,6 @@ class _MatchGameState extends ConsumerState<MatchGame> {
   /// round counter and score reset, a new rock is dealt, and another play is
   /// counted.
   void _restart() {
-    _timer?.cancel();
     unawaited(ref.read(gameActionsProvider).markPlayed());
     setState(() {
       _question = 1;
@@ -112,8 +94,8 @@ class _MatchGameState extends ConsumerState<MatchGame> {
     });
   }
 
-  /// What the 1400ms timer does: deal the next question, or — once eight have
-  /// been answered — bank the run and show the end screen.
+  /// Deal the next question after the shared feedback is dismissed, or — once
+  /// eight have been answered — bank the run and show the end screen.
   ///
   /// **The run's two persisted records are written here, not at the last
   /// answer**, exactly where `sizeRound`'s guard puts them
@@ -167,7 +149,6 @@ class _MatchGameState extends ConsumerState<MatchGame> {
       _picked = option;
       if (win) _score += 1;
     });
-    _timer = Timer(kMatchAdvanceDelay, _advance);
   }
 
   @override
@@ -175,6 +156,16 @@ class _MatchGameState extends ConsumerState<MatchGame> {
     return GameShell(
       // The overlay title `startSize` sets (`index.html:1088`).
       title: '🐾 Animal Match',
+      feedback: _over || _picked == null
+          ? null
+          : GameFeedback(
+              correct: _round.isCorrect(_picked!),
+              headline: _round.isCorrect(_picked!)
+                  ? '✓ Correct!  +10 ⭐'
+                  : 'Good try — the answer is ${_round.answer.species}!',
+              explanation: _matchExplanation(),
+            ),
+      onNext: _over || _picked == null ? null : _advance,
       body: _over ? _endPanel() : _board(),
     );
   }
@@ -227,9 +218,17 @@ class _MatchGameState extends ConsumerState<MatchGame> {
             wrong: revealed && identical(option, picked) && !win,
             onTap: revealed ? null : () => _pick(option),
           ),
-        _MatchBanner(answer: revealed ? _round.answer : null, win: win),
       ],
     );
+  }
+
+  /// The measurement is the lesson: an animal is chosen by its real width on
+  /// the size ladder, not by a decorative guess.
+  String _matchExplanation() {
+    final Animal answer = _round.answer;
+    final String width = '${_round.rock.diaMax.round()} m';
+    return 'This space rock is $width wide, which fits the '
+        '${answer.species} part of the Mouse-to-Whale size ladder.';
   }
 }
 
@@ -435,89 +434,4 @@ class _OptionButton extends StatelessWidget {
       ),
     );
   }
-}
-
-/// The reveal (`#szB`, `index.html:1115`): *Yes! 🐘 It's an **Elephant**! +10 ⭐*
-/// or *It's 🐘 an **Elephant** — you'll get the next one!*
-///
-/// **Both halves name the animal**, which is the point: a wrong answer is not a
-/// dead end but the moment the child is told what the rock actually was
-/// (`CLAUDE.md:70` — never harsh). Empty but still 22px tall while the round is
-/// open, so revealing does not shift the buttons up the screen
-/// (`min-height:22px`, `index.html:159`).
-class _MatchBanner extends StatelessWidget {
-  const _MatchBanner({required this.answer, required this.win});
-
-  /// The true species, or null while the round is still open.
-  final Animal? answer;
-
-  final bool win;
-
-  @override
-  Widget build(BuildContext context) {
-    final Animal? a = answer;
-    final Widget content;
-    String? semantics;
-
-    if (a == null) {
-      content = const SizedBox.shrink();
-    } else {
-      // The prototype writes `a` unconditionally (`It’s a Elephant`); the
-      // article is picked here instead, because reading it aloud to a child is
-      // exactly what this line is for. Curly apostrophes are the prototype's.
-      final String article = _startsWithVowel(a.species) ? 'an' : 'a';
-      final Color color = win ? Palette.good : Palette.bad;
-
-      semantics = win
-          ? 'Yes! It’s $article ${a.species}! Plus 10 points'
-          : 'It’s $article ${a.species} — you’ll get the next one!';
-      content = Text.rich(
-        TextSpan(
-          children: <InlineSpan>[
-            TextSpan(
-              text: win
-                  ? 'Yes! ${a.emoji} It’s $article '
-                  : 'It’s ${a.emoji} $article ',
-            ),
-            // The species is the answer, so it is the one bold word.
-            TextSpan(
-              text: a.species,
-              style: const TextStyle(fontWeight: FontWeight.w900),
-            ),
-            TextSpan(text: win ? '! +10 ⭐' : ' — you’ll get the next one!'),
-          ],
-        ),
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          color: color,
-          fontSize: 16,
-          fontWeight: FontWeight.w800,
-          height: 1.2,
-        ),
-      );
-    }
-
-    return Padding(
-      // `.banner{margin:12px 0}` (`index.html:159`).
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 22),
-        child: Semantics(
-          liveRegion: semantics != null,
-          label: semantics,
-          child: ExcludeSemantics(child: Center(child: content)),
-        ),
-      ),
-    );
-  }
-
-  /// Of the eight species only "Elephant" takes *an*, but hard-coding that one
-  /// name would break the moment the ladder gains a rung.
-  static bool _startsWithVowel(String species) => const <String>[
-    'a',
-    'e',
-    'i',
-    'o',
-    'u',
-  ].contains(species[0].toLowerCase());
 }

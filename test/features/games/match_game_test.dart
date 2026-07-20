@@ -103,13 +103,9 @@ void main() {
       // (`$("szRock").textContent=an.emoji`, `index.html:1112`).
       expect(find.text('❓'), findsNothing);
       expect(find.text(answer.emoji), findsOneWidget);
-      // `Yes! 🐘 It’s a <b>Elephant</b>! +10 ⭐` (`index.html:1115`) — with the
-      // article agreeing with the species (see the port note in the banner).
+      expect(find.text('✓ Correct!  +10 ⭐'), findsOneWidget);
       expect(
-        find.text(
-          'Yes! ${answer.emoji} It’s an Elephant! +10 ⭐',
-          findRichText: true,
-        ),
+        find.textContaining('Elephant part of the Mouse-to-Whale size ladder.'),
         findsOneWidget,
       );
       expect(actions.awarded, <int>[10]);
@@ -130,25 +126,24 @@ void main() {
       await _drain(tester);
     });
 
-    testWidgets('advances to the next round after 1400ms', (
+    testWidgets('advances to the next round after Next', (
       WidgetTester tester,
     ) async {
       await _mount(tester, sky: sky);
 
       await _tap(tester, _label(answer));
-      await tester.pump(const Duration(milliseconds: 1399));
-      // Still reading the reveal.
+      // The shell leaves the explanation visible until the child continues.
       expect(_scoreValue(tester, 'ROUND'), '1/8');
       expect(find.text('❓'), findsNothing);
+      expect(find.text('Next'), findsOneWidget);
 
-      await tester.pump(const Duration(milliseconds: 1));
+      await _tap(tester, 'Next');
 
-      // `setTimeout(sizeRound,1400)` (`index.html:1116`): a fresh mystery, the
-      // banner cleared, the score carried over.
+      // A fresh mystery opens and the score carries over.
       expect(_scoreValue(tester, 'ROUND'), '2/8');
       expect(_scoreValue(tester, 'CORRECT'), '1');
       expect(find.text('❓'), findsOneWidget);
-      expect(find.textContaining('It’s', findRichText: true), findsNothing);
+      expect(find.text('Next'), findsNothing);
     });
   });
 
@@ -167,13 +162,10 @@ void main() {
 
       await _tap(tester, _label(_wrongOption()));
 
-      // Never harsh (`CLAUDE.md:70`), and it still teaches: the true animal is
-      // named whichever way the child guessed (`index.html:1115`).
+      // Never harsh (`CLAUDE.md:70`), and it explains the size-ladder rule.
+      expect(find.text('Good try — the answer is Elephant!'), findsOneWidget);
       expect(
-        find.text(
-          'It’s ${answer.emoji} an Elephant — you’ll get the next one!',
-          findRichText: true,
-        ),
+        find.textContaining('Elephant part of the Mouse-to-Whale size ladder.'),
         findsOneWidget,
       );
       // The rock turns into the animal on a wrong answer too — the child is
@@ -185,8 +177,8 @@ void main() {
       expect(_scoreValue(tester, 'CORRECT'), '0');
       expect(reactions, <bool>[false]);
 
-      // Unlike the two streak games, a wrong answer does not end the run.
-      await tester.pump(kMatchAdvanceDelay);
+      // Unlike the streak games, a wrong answer does not end the run.
+      await _tap(tester, 'Next');
       expect(find.text('ALL DONE!'), findsNothing);
       expect(_scoreValue(tester, 'ROUND'), '2/8');
     });
@@ -212,8 +204,8 @@ void main() {
 
       // **The score alone cannot catch this** — a second tap that scored would
       // read 1, but so would a first tap on the right answer, so the assertion
-      // has to be that nothing *else* moved either: no points, one sad cue, and
-      // the losing banner still on screen.
+      // has to be that nothing else moved either: no points, one sad cue, and
+      // the original feedback still on screen.
       //
       // **Two independent layers stop the tap, and this test cannot tell them
       // apart** (found by mutation): the revealed board passes `onTap: null`,
@@ -226,10 +218,7 @@ void main() {
       expect(_scoreValue(tester, 'CORRECT'), '0');
       expect(actions.awarded, isEmpty);
       expect(reactions, <bool>[false], reason: 'one cue, no cheer after it');
-      expect(
-        find.textContaining('you’ll get the next one!', findRichText: true),
-        findsOneWidget,
-      );
+      expect(find.text('Good try — the answer is Elephant!'), findsOneWidget);
 
       await _drain(tester);
     });
@@ -311,7 +300,7 @@ void main() {
       expect(find.text('best 3/8 · ⭐ 30 points'), findsOneWidget);
     });
 
-    testWidgets('banks nothing until the eighth reveal has passed', (
+    testWidgets('banks nothing until the eighth feedback is dismissed', (
       WidgetTester tester,
     ) async {
       final _RecordingActions actions = _RecordingActions();
@@ -322,14 +311,13 @@ void main() {
       }
       await _tap(tester, _label(answer));
 
-      // The eighth answer is in and the reveal is on screen, but `sizeRound`
-      // does the banking on its *next* call (`index.html:1090-1093`) — so a
-      // child who backs out here banks nothing, as in the prototype.
+      // The eighth answer is in and its shared feedback is on screen, so a
+      // child who backs out here banks nothing.
       expect(actions.bestSizeWrites, isEmpty);
       expect(actions.perfectRuns, 0);
       expect(find.text('ALL DONE!'), findsNothing);
 
-      await tester.pump(kMatchAdvanceDelay);
+      await _tap(tester, 'Next');
       expect(actions.bestSizeWrites, <int>[8]);
       expect(actions.perfectRuns, 1);
     });
@@ -464,26 +452,26 @@ Animal _wrongOption() =>
 /// board.
 bool _isAnswer(Animal a) => a.species == 'Elephant';
 
-/// Answer the round on screen and let its 1400ms timer carry the game on.
+/// Answer the round on screen and dismiss its shared feedback.
 Future<void> _answer(WidgetTester tester, {required bool correct}) async {
   final Animal option = correct
       ? _optionsOnScreen().firstWhere(_isAnswer)
       : _wrongOption();
   await _tap(tester, _label(option));
-  await tester.pump(kMatchAdvanceDelay);
+  await _tap(tester, 'Next');
 }
 
-/// Tap something and rebuild — a single `pump`, never `pumpAndSettle`, because
-/// the game leaves a real timer running and settling would advance the clock
-/// through it and past the state under test.
+/// Tap something and rebuild without letting the shell's feedback fallback
+/// advance past the state under test.
 Future<void> _tap(WidgetTester tester, String label) async {
   await tester.tap(find.text(label));
   await tester.pump();
 }
 
-/// Let a pending reveal timer fire, so a test that ends mid-round does not leave
-/// one behind for the framework to complain about.
-Future<void> _drain(WidgetTester tester) => tester.pump(kMatchAdvanceDelay);
+/// Let the shell's feedback fallback fire for tests that intentionally leave
+/// an answer revealed.
+Future<void> _drain(WidgetTester tester) =>
+    tester.pump(kGameFeedbackAutoAdvanceDelay);
 
 /// The big number in the score-bar cell captioned [label].
 String _scoreValue(WidgetTester tester, String label) {

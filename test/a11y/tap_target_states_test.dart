@@ -282,8 +282,10 @@ void main() {
         // than…") and the card underneath is the anchor, so the pair and their
         // roles are both recoverable — and once they are, the true answer is
         // just which of the two flies nearer.
-        await _tap(tester, _closerWrongAnswer(tester));
-        await tester.pump(kCloserGameOverDelay);
+        for (int life = 3; life > 0; life--) {
+          await _tap(tester, _closerWrongAnswer(tester));
+          await _tap(tester, 'Next');
+        }
 
         expect(
           find.text('Play again'),
@@ -388,11 +390,9 @@ final List<_Game> _games = <_Game>[
     // to work out which one is true — the end-panel arm below is the one that
     // has to care.
     answer: (WidgetTester tester) => _tap(tester, '⬇ Closer'),
-    // "…flies 12× Moon — farther. ✓ +10 ⭐" / "✗ good try!". `flies` is the
-    // half both outcomes share, and `findRichText` because the distance is
-    // bolded inside a `Text.rich`.
-    revealMarker: find.textContaining('flies', findRichText: true),
-    drain: kCloserAdvanceDelay + kCloserGameOverDelay,
+    // The common panel always gives the child a player-paced continuation.
+    revealMarker: _text('Next'),
+    drain: kGameFeedbackAutoAdvanceDelay,
   ),
   _Game(
     name: 'Match',
@@ -409,11 +409,8 @@ final List<_Game> _games = <_Game>[
     // here matches nothing and fails as though the game were broken.
     answer: (WidgetTester tester) =>
         _tapFinder(tester, find.textContaining('\u00A0\u00A0').first),
-    // `findRichText`, because Match's reveal is a `Text.rich` that bolds the
-    // species — the one banner of the four that is not a plain `Text`, and one
-    // that a default `find.textContaining` walks straight past.
-    revealMarker: find.textContaining('It’s', findRichText: true),
-    drain: kMatchAdvanceDelay,
+    revealMarker: _text('Next'),
+    drain: kGameFeedbackAutoAdvanceDelay,
   ),
 ];
 

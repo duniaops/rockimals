@@ -24,20 +24,7 @@ import 'package:rockimals/features/games/closer_pairing.dart';
 import 'package:rockimals/features/games/game_shell.dart';
 import 'package:rockimals/features/rewards/reaction.dart';
 
-/// How long the reveal sits before the next challenger is dealt
-/// (`setTimeout(closerRound,1250)`, `index.html:1079`).
-///
-/// Longer than Power Duel's 950ms, and it should be: the reveal here is a
-/// *sentence* naming the animal and its distance, not a tick, so the child needs
-/// time to read the thing they are about to be quizzed against next.
-const Duration kCloserAdvanceDelay = Duration(milliseconds: 1250);
-
-/// How long the wrong-answer reveal sits before the end screen
-/// (`setTimeout(…,1350)`, `index.html:1080`) — a touch longer than a win, so the
-/// run does not close before the child has read where the animal really flew.
-const Duration kCloserGameOverDelay = Duration(milliseconds: 1350);
-
-/// Closer or Farther: a streak game that ends on the first wrong answer.
+/// Closer or Farther: a streak game with three recoverable lives.
 ///
 /// Like Power Duel it finishes through [GameOverPanel], and like Power Duel it
 /// takes **no injected [Random]** — the suite plays by animal name against a sky
@@ -66,11 +53,11 @@ class _CloserGameState extends ConsumerState<CloserGame> {
   /// the round is revealed and both buttons are inert.
   bool? _guessedCloser;
 
+  /// Recoverable mistakes remaining in this run (Games v2 design rule 4).
+  int _lives = 3;
+
   /// Set when the run is over; the end screen replaces the board.
   bool _over = false;
-
-  /// The pending advance-or-end timer, cancelled if the screen goes away first.
-  Timer? _timer;
 
   @override
   void initState() {
@@ -83,12 +70,6 @@ class _CloserGameState extends ConsumerState<CloserGame> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) unawaited(ref.read(gameActionsProvider).markPlayed());
     });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
   }
 
   /// The whole sky, not today's list — the prototype draws both the anchor and
@@ -109,10 +90,10 @@ class _CloserGameState extends ConsumerState<CloserGame> {
   /// A fresh run — "Play again" is `startCloser` again (`index.html:1080`): the
   /// score resets, a new anchor is drawn, and another play is counted.
   void _restart() {
-    _timer?.cancel();
     unawaited(ref.read(gameActionsProvider).markPlayed());
     setState(() {
       _score = 0;
+      _lives = 3;
       _over = false;
       _guessedCloser = null;
       _round = _dealFrom(_pickAnchor());
@@ -129,6 +110,18 @@ class _CloserGameState extends ConsumerState<CloserGame> {
       _guessedCloser = null;
       _round = _dealFrom(_round.challenger);
     });
+  }
+
+  /// Dismiss the shared feedback. The third mistake ends the run only after
+  /// the child has had time to read the distance rule; earlier answers simply
+  /// continue the comparison chain.
+  void _finishFeedback() {
+    if (_guessedCloser == null || _over) return;
+    if (_lives == 0) {
+      setState(() => _over = true);
+    } else {
+      _nextRound();
+    }
   }
 
   void _guess({required bool closer}) {
@@ -154,11 +147,11 @@ class _CloserGameState extends ConsumerState<CloserGame> {
         _score = score;
         _guessedCloser = closer;
       });
-      _timer = Timer(kCloserAdvanceDelay, _nextRound);
     } else {
-      setState(() => _guessedCloser = closer);
-      _timer = Timer(kCloserGameOverDelay, () {
-        if (mounted) setState(() => _over = true);
+      setState(() {
+        _guessedCloser = closer;
+        _score = 0;
+        _lives--;
       });
     }
   }
@@ -168,6 +161,17 @@ class _CloserGameState extends ConsumerState<CloserGame> {
     return GameShell(
       // The overlay title `startCloser` sets (`index.html:1061`).
       title: '📏 Closer or Farther',
+      lives: _over ? null : _lives,
+      feedback: _over || _guessedCloser == null
+          ? null
+          : GameFeedback(
+              correct: _guessedCloser == _round.challengerIsCloser,
+              headline: _guessedCloser == _round.challengerIsCloser
+                  ? '✓ Correct!  +10 ⭐'
+                  : 'So close — $_lives ${_lives == 1 ? 'life' : 'lives'} left',
+              explanation: _closerExplanation(),
+            ),
+      onNext: _over || _guessedCloser == null ? null : _finishFeedback,
       body: _over ? _endPanel() : _board(),
     );
   }
@@ -226,9 +230,20 @@ class _CloserGameState extends ConsumerState<CloserGame> {
             ),
           ],
         ),
-        _CloserBanner(round: revealed ? _round : null, win: win),
       ],
     );
+  }
+
+  /// Explain the real distance that decided this comparison. The direction is
+  /// measured against the current anchor, so the rule stays clear even after
+  /// a wrong answer.
+  String _closerExplanation() {
+    final Asteroid challenger = _round.challenger;
+    final String direction = _round.challengerIsCloser ? 'closer' : 'farther';
+    return '${critter(challenger).name} flies '
+        '${distLabel(challenger.missLunar)} from Earth — $direction than '
+        '${critter(_round.anchor).name}. Choose the animal nearer Earth '
+        'for closer.';
   }
 }
 
@@ -394,78 +409,6 @@ class _AnchorAvatar extends StatelessWidget {
         border: Border.fromBorderSide(BorderSide(color: Palette.line)),
       ),
       child: Text(emoji, style: const TextStyle(fontSize: 24, height: 1)),
-    );
-  }
-}
-
-/// The reveal (`.banner`, `index.html:1078`): *{animal} flies **{distance}** —
-/// {closer|farther}.* followed by the outcome.
-///
-/// **It says where the challenger flew before it says whether the child was
-/// right**, which is the whole teaching move of this game — the answer is a real
-/// fact about a real rock, not a verdict. Empty but still 22px tall while the
-/// round is open, so revealing does not shift the buttons up the screen
-/// (`min-height:22px`, `index.html:159`).
-class _CloserBanner extends StatelessWidget {
-  const _CloserBanner({required this.round, required this.win});
-
-  /// The round being revealed, or null while it is still open.
-  final CloserRound? round;
-
-  final bool win;
-
-  @override
-  Widget build(BuildContext context) {
-    final CloserRound? r = round;
-    final Widget content;
-    String? semantics;
-
-    if (r == null) {
-      content = const SizedBox.shrink();
-    } else {
-      final Critter c = critter(r.challenger);
-      final String distance = distLabel(r.challenger.missLunar);
-      final String direction = r.challengerIsCloser ? 'closer' : 'farther';
-      // `${win?'✓ +10 ⭐':'✗ good try!'}` (`index.html:1078`) — the wrong-answer
-      // half is a nudge, never a telling-off (`CLAUDE.md:70`).
-      final String outcome = win ? '✓ +10 ⭐' : '✗ good try!';
-      final Color color = win ? Palette.good : Palette.bad;
-
-      semantics = '${c.name} flies $distance — $direction. $outcome';
-      content = Text.rich(
-        TextSpan(
-          children: <InlineSpan>[
-            TextSpan(text: '${c.animal.emoji} ${c.name} flies '),
-            // The distance is the answer, so it is the one bold thing in the
-            // sentence (`<b>${distLabel(ch.missLunar)}</b>`).
-            TextSpan(
-              text: distance,
-              style: const TextStyle(fontWeight: FontWeight.w900),
-            ),
-            TextSpan(text: ' — $direction. $outcome'),
-          ],
-        ),
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          color: color,
-          fontSize: 16,
-          fontWeight: FontWeight.w800,
-          height: 1.2,
-        ),
-      );
-    }
-
-    return Padding(
-      // `.banner{margin:12px 0}` (`index.html:159`).
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 22),
-        child: Semantics(
-          liveRegion: semantics != null,
-          label: semantics,
-          child: ExcludeSemantics(child: Center(child: content)),
-        ),
-      ),
     );
   }
 }
