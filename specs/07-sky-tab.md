@@ -35,9 +35,20 @@ detail screen).
 - Selected toggles get the "on" treatment; changing one re-renders the list.
 
 ### Footer note
-- `"📅 Showing {feedRange}"`, or **"sample set"** when running on the bundled
-  fallback data. Drop the prototype's "Time Machine ready" string — it advertises
-  a feature that does not exist.
+
+> **v1.0 record — superseded on 2026-07-20.** This spec originally required
+> `"📅 Showing {feedRange}"`, or **"sample set"** when running on the bundled
+> fallback data. That raw `feedRange` requirement remains here as the shipped-v1
+> record only. The later, authoritative date-copy rule in
+> `docs/GAMES_V2_SPEC.md` Item 1 and its implementation item in
+> `IMPLEMENTATION_PLAN.md` supersede it for all current work.
+
+- **Current requirement:** keep the `📅 Showing` footer, but format each live
+  window endpoint with the shared `friendlyDate(date, today)` formatter, e.g.
+  `"📅 Showing today → in 2 days"`; never show raw ISO dates. When running on
+  the bundled fallback data, show **`"📅 Showing sample set"`**. Drop the
+  prototype's "Time Machine ready" string — it advertises a feature that does
+  not exist.
 
 ### Empty state
 - When the close-flyby filter matches nothing:
@@ -51,7 +62,8 @@ detail screen).
 - [ ] The close-flyby filter uses `flybyTag` logic and shows the friendly empty
       state when nothing matches.
 - [ ] Tapping any card opens that animal's detail screen.
-- [ ] The footer shows the real date range, or "sample set" when offline.
+- [ ] The footer uses kid-friendly formatted live-window dates (never raw ISO),
+      or shows "sample set" when offline.
 - [ ] No jargon: no "hazardous", no raw km/LD/AU — distances are Moon-relative and
       the real designation never appears here.
 - [ ] The list scrolls smoothly on a busy day (60+ animals).

@@ -84,7 +84,7 @@ void main() {
 
   group('approachNote', () {
     test('shows a real approach date', () {
-      expect(approachNote('2026-07-17'), '⏳ approach 2026-07-17');
+      expect(approachNote('2026-07-17', _today), '⏳ approach today');
     });
 
     test('shows an em-dash for a bundled sample record', () {
@@ -93,7 +93,7 @@ void main() {
       // non-date precisely so nothing can pass it off as live data
       // (`fallback_asteroids.dart:202`), and printing the literal "sample"
       // would do exactly that to a child reading it.
-      expect(approachNote(sampleDate), '⏳ approach —');
+      expect(approachNote(sampleDate, _today), '⏳ approach —');
     });
   });
 
@@ -143,7 +143,7 @@ void main() {
         _app(MemoryStore(follows: const <String>['2026 AA', '2026 SAMPLE'])),
       );
 
-      expect(find.text('⏳ approach 2026-07-17'), findsOneWidget);
+      expect(find.text('⏳ approach today'), findsOneWidget);
       expect(find.text('⏳ approach —'), findsOneWidget);
     });
 
@@ -163,7 +163,7 @@ void main() {
 
       expect(
         tester.getSemantics(find.byType(AnimalCard)).label,
-        contains('⏳ approach 2026-07-17'),
+        contains('⏳ approach today'),
       );
 
       handle.dispose();
@@ -236,7 +236,7 @@ void main() {
       await tester.pumpWidget(_app(store));
 
       expect(find.byType(AnimalCard), findsOneWidget);
-      expect(find.text('⏳ approach 2026-07-17'), findsOneWidget);
+      expect(find.text('⏳ approach today'), findsOneWidget);
     });
 
     testWidgets('opens the detail screen when a card is tapped', (
@@ -270,6 +270,7 @@ ProviderContainer _container(Store store) => ProviderContainer(
   overrides: [
     asteroidFeedProvider.overrideWith((Ref ref) => _feed),
     storeProvider.overrideWithValue(store),
+    dayClockProvider.overrideWithValue(() => _today),
   ],
 );
 
@@ -288,6 +289,8 @@ final AsteroidFeed _feed = AsteroidFeed(
   feedRange: '2026-07-15 → 2026-07-17',
   provenance: FeedProvenance.today,
 );
+
+final DateTime _today = DateTime(2026, 7, 17);
 
 /// Three rocks whose miss distances are deliberately out of order in the list,
 /// plus one carrying [sampleDate] — so the sort and the em-dash both have

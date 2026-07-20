@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rockimals/core/a11y/tap_target.dart';
 import 'package:rockimals/core/animals/animal_system.dart';
+import 'package:rockimals/core/format/friendly_date.dart';
 import 'package:rockimals/core/mascot/rusty.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/data/models/asteroid.dart';
@@ -98,6 +99,7 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
     final List<Asteroid> all = ref.watch(asteroidsProvider).requireValue;
     final String feedRange = ref.watch(feedRangeProvider).requireValue;
     final bool usingFallback = ref.watch(usingFallbackProvider).requireValue;
+    final DateTime today = ref.watch(dayClockProvider)();
 
     final List<Asteroid> list = skyAnimals(
       all,
@@ -150,7 +152,8 @@ class _SkyScreenState extends ConsumerState<SkyScreen> {
                   // window; `usingFallback` picks between them because
                   // `feedRange` itself says "sample data" on the fallback path.
                   Text(
-                    '📅 Showing ${usingFallback ? 'sample set' : feedRange}',
+                    '📅 Showing '
+                    '${usingFallback ? 'sample set' : friendlyDateRange(feedRange, today)}',
                     style: const TextStyle(color: Palette.muted, fontSize: 13),
                   ),
                 ],

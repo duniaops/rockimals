@@ -184,11 +184,11 @@ void main() {
       },
     );
 
-    testWidgets('the footer shows the real window for a live sky', (
+    testWidgets('the footer shows a friendly window for a live sky', (
       tester,
     ) async {
       await _mount(tester, _sky(<Asteroid>[_a]));
-      expect(find.text('📅 Showing 2026-07-15 → 2026-07-17'), findsOneWidget);
+      expect(find.text('📅 Showing today → in 2 days'), findsOneWidget);
     });
 
     testWidgets('the footer says "sample set" offline, never "Time Machine"', (
@@ -252,6 +252,7 @@ Future<void> _mount(WidgetTester tester, AsteroidFeed feed) async {
         // `requireValue` is safe — the state the app is always in behind the
         // loading gate.
         asteroidFeedProvider.overrideWith((Ref ref) => feed),
+        dayClockProvider.overrideWithValue(() => _today),
         // The detail screen a tapped card opens reads `followsProvider`; an
         // in-memory follows keeps this suite off a Hive box.
         followsProvider.overrideWith(_MemFollows.new),
@@ -270,6 +271,8 @@ AsteroidFeed _sky(List<Asteroid> rocks) => AsteroidFeed(
   feedRange: '2026-07-15 → 2026-07-17',
   provenance: FeedProvenance.today,
 );
+
+final DateTime _today = DateTime(2026, 7, 15);
 
 /// Three rocks whose closeness, size, and speed each rank them differently, so
 /// the widget order tests can tell the three sorts apart.

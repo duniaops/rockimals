@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rockimals/core/format/friendly_date.dart';
 import 'package:rockimals/core/mascot/rusty.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/data/fallback_asteroids.dart';
@@ -43,8 +44,8 @@ List<Asteroid> followedAnimals(List<Asteroid> source, Set<String> follows) {
 /// carries [sampleDate] rather than a real date precisely so nothing can pass
 /// it off as live data (`fallback_asteroids.dart:202`), and printing the literal
 /// string "sample" here would do exactly that in a child's reading of it.
-String approachNote(String date) =>
-    '⏳ approach ${date == sampleDate ? '—' : date}';
+String approachNote(String date, DateTime today) =>
+    '⏳ approach ${friendlyDate(date, today)}';
 
 /// The My Animals tab — every animal a child follows, closest first, with the
 /// approach note the Sky tab's cards do not carry (`specs/05-rewards-collection
@@ -69,6 +70,7 @@ class WatchlistScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final List<Asteroid> all = ref.watch(asteroidsProvider).requireValue;
     final Set<String> follows = ref.watch(followsProvider);
+    final DateTime today = ref.watch(dayClockProvider)();
     final List<Asteroid> list = followedAnimals(all, follows);
 
     return SafeArea(
@@ -120,7 +122,7 @@ class WatchlistScreen extends ConsumerWidget {
                 itemCount: list.length,
                 itemBuilder: (BuildContext context, int i) {
                   final Asteroid a = list[i];
-                  final String note = approachNote(a.date);
+                  final String note = approachNote(a.date, today);
                   return Padding(
                     // `.acard{margin-bottom:10px}` (`index.html:65`).
                     padding: const EdgeInsets.only(bottom: 10),
