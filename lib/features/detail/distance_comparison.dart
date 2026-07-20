@@ -79,6 +79,19 @@ const double _trackTop = 22;
 /// 10px track at y=22, and the Earth/Moon ticks at y=38 with room for their text.
 const double _regionHeight = 54;
 
+/// How much horizontal room the "🌙 Moon" tick needs between its centre and the
+/// "Earth" tick's centre before the two 10px labels stop colliding — half of
+/// each label's rendered width plus a small gap.
+///
+/// **Not in the prototype, and deliberately so.** The prototype draws both
+/// ticks unconditionally (`index.html:595,597`), which garbles them into one
+/// unreadable smear for any distant rock: at 177× Moon the Moon marker sits
+/// `1/177` of the way along the track — a couple of pixels from Earth. When
+/// they collide, the Moon's *label* is dropped (the grey dot stays, exactly as
+/// the prototype places it): the panel header already announces the distance
+/// in Moon terms, so no information is lost, and "Earth" stays readable.
+const double _moonTickClearance = 44;
+
 /// The "How close does it pass?" panel (`.panel` + `.distwrap` + `.track`,
 /// `index.html:590-602`).
 class DistanceComparison extends StatelessWidget {
@@ -142,6 +155,13 @@ class _Track extends StatelessWidget {
           double centerX(double fraction) =>
               _trackInset + fraction * trackWidth;
 
+          // Whether the "🌙 Moon" tick has room to render clear of "Earth" —
+          // see [_moonTickClearance] for why it may not.
+          final bool moonTickFits =
+              centerX(positions.moonFraction) -
+                  centerX(DistanceTrack.earthFraction) >=
+              _moonTickClearance;
+
           return Stack(
             // The browser does not clip: the top ☄️ tick sits above the track and
             // an edge label can overflow into the panel padding, exactly as the
@@ -202,13 +222,15 @@ class _Track extends StatelessWidget {
                   color: _moonFill,
                 ),
               ),
-              // `.tick` "🌙 Moon" below the track (`index.html:597`).
-              _tick(
-                centerX: centerX(positions.moonFraction),
-                top: _trackTop + 16,
-                text: '🌙 Moon',
-                color: Palette.muted,
-              ),
+              // `.tick` "🌙 Moon" below the track (`index.html:597`) — only
+              // when it fits clear of "Earth"; see [_moonTickClearance].
+              if (moonTickFits)
+                _tick(
+                  centerX: centerX(positions.moonFraction),
+                  top: _trackTop + 16,
+                  text: '🌙 Moon',
+                  color: Palette.muted,
+                ),
 
               // `.astm` — a 12px accent disc with a glow at astPct
               // (`index.html:122,598`).

@@ -140,6 +140,20 @@ void main() {
       expectAsteroidOnTrack(tester);
     });
 
+    testWidgets('a distant rock drops the Moon tick rather than garble it', (
+      tester,
+    ) async {
+      // 52 Moons puts the Moon marker 1/52 of the way along the track — a few
+      // pixels from Earth, where the two labels would render on top of each
+      // other. The label is dropped (the header still gives the distance in
+      // Moon terms); the grey Moon *dot* stays, as the prototype places it.
+      await pump(tester, far);
+
+      expect(find.text('Earth'), findsOneWidget);
+      expect(find.text('🌙 Moon'), findsNothing);
+      expect(find.byKey(const ValueKey<String>('dist-moon')), findsOneWidget);
+    });
+
     testWidgets('the header speaks its natural-case label, not the caps', (
       tester,
     ) async {

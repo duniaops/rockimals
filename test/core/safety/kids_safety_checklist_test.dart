@@ -75,6 +75,10 @@ void main() {
         'flutter_test',
         'flutter_lints',
         'path_provider_platform_interface',
+        // Generates the launcher icon sets at build time from
+        // assets/icon/app_icon.png. Dev-only tooling: never imported by
+        // `lib/`, ships nothing into the app, reaches no network at runtime.
+        'flutter_launcher_icons',
         // Parses `lib/`'s own source for `panel_surface_guard_test.dart`. It
         // reads files off disk at test time and is never imported by `lib/`,
         // so it cannot reach a device — but it is named here anyway, because

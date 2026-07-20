@@ -25,7 +25,7 @@ abstract final class AppVersion {
 
   /// `version:`'s right half, after the `+`. Meaningless to a human on its own,
   /// which is why it renders in parentheses behind [name] rather than beside it.
-  static const String build = '1';
+  static const String build = '2';
 
   /// The one string the About block renders. Named rather than composed at the
   /// call site so the format is pinned in one place and by one test.
