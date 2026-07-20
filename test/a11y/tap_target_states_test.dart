@@ -44,6 +44,7 @@ import 'package:rockimals/features/games/closer_game.dart';
 import 'package:rockimals/features/games/duel_game.dart';
 import 'package:rockimals/features/games/game_shell.dart';
 import 'package:rockimals/features/games/match_game.dart';
+import 'package:rockimals/features/games/zoo_memory_screen.dart';
 import 'package:rockimals/features/radar/radar_focus.dart';
 import 'package:rockimals/features/rewards/badge_controller.dart';
 import 'package:rockimals/features/rewards/badge_popup.dart';
@@ -337,6 +338,17 @@ class _Game {
 
 final List<_Game> _games = <_Game>[
   _Game(
+    name: 'Space Zoo Memory',
+    build: ZooMemoryScreen.new,
+    answer: (WidgetTester tester) async {
+      await _tap(tester, 'Hide facts and play');
+      await _tapFinder(tester, _zooMemoryTiles('fact').first);
+      await _tapFinder(tester, _zooMemoryTiles('animal').first);
+    },
+    revealMarker: _text('Next'),
+    drain: kGameFeedbackAutoAdvanceDelay,
+  ),
+  _Game(
     name: 'Challenge',
     build: ChallengeGame.new,
     // Rank all four, in whatever order the shuffle put them on the board: the
@@ -413,6 +425,11 @@ final List<_Game> _games = <_Game>[
     drain: kGameFeedbackAutoAdvanceDelay,
   ),
 ];
+
+Finder _zooMemoryTiles(String row) => find.byWidgetPredicate((Widget widget) {
+  final Key? key = widget.key;
+  return key is ValueKey<String> && key.value.startsWith('zoo-memory-$row-');
+});
 
 /// A store already holding the 50 points that earn 🐭 Mouse Scout, so the badge
 /// arm's `check()` has something to celebrate.

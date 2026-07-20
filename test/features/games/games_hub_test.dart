@@ -145,7 +145,7 @@ void main() {
     }
 
     group('the game cards', () {
-      testWidgets('lists the four original games and all four v2 games', (
+      testWidgets('lists the four original games and all five v2 games', (
         tester,
       ) async {
         await pumpHub(tester);
@@ -158,6 +158,7 @@ void main() {
         expect(find.text('Moon Lanes'), findsOneWidget);
         expect(find.text('Flyby Snap'), findsOneWidget);
         expect(find.text('Size Stack'), findsOneWidget);
+        expect(find.text('Space Zoo Memory'), findsOneWidget);
       });
 
       testWidgets('shows the points total and each best from storage', (
@@ -190,7 +191,7 @@ void main() {
         expect(find.text('Best 0/8'), findsOneWidget); // Animal Match
       });
 
-      testWidgets('cues all seven games on a 320 by 568 phone', (tester) async {
+      testWidgets('cues all nine games on a 320 by 568 phone', (tester) async {
         // The cards are deliberately generous tap targets, so a short phone
         // cannot show all five without shrinking a child's targets. The cue
         // must therefore be above the fold and say both the total and how to
@@ -202,7 +203,7 @@ void main() {
 
         await pumpHub(tester);
 
-        final Finder cue = find.text('8 games · Scroll down to explore ↓');
+        final Finder cue = find.text('9 games · Scroll down to explore ↓');
         final Rect cueRect = tester.getRect(cue);
         expect(cueRect.top, greaterThanOrEqualTo(0));
         expect(cueRect.bottom, lessThanOrEqualTo(568));

@@ -15,6 +15,7 @@ import 'package:rockimals/features/games/moon_lanes_screen.dart';
 import 'package:rockimals/features/games/safari_game.dart';
 import 'package:rockimals/features/games/size_stack_screen.dart';
 import 'package:rockimals/features/games/tutorial/game_tutorial.dart';
+import 'package:rockimals/features/games/zoo_memory_screen.dart';
 import 'package:rockimals/features/settings/little_kids_mode.dart';
 import 'package:rockimals/features/settings/sound.dart';
 
@@ -109,6 +110,14 @@ class GamesHub extends ConsumerWidget {
             'Build a steady tower with the biggest real space animals at the bottom.',
         badge: 'Build',
       ),
+      const _GameCard(
+        id: _GameId.zooMemory,
+        icon: '🧠',
+        title: 'Space Zoo Memory',
+        description:
+            'Remember each animal’s real space fact, then reconnect the pairs.',
+        badge: 'Remember',
+      ),
     ];
 
     // 🧸 Little Kids mode offers the two simplest games only
@@ -188,14 +197,14 @@ class GamesHub extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  // Five generous game cards deliberately keep their roomy,
+                  // Generous game cards deliberately keep their roomy,
                   // easy-to-hit layout. On a short phone the lower cards sit
                   // below the fold, so say both how many there are and how to
                   // reach them before the first card begins.
                   const Padding(
                     padding: EdgeInsets.only(bottom: 12),
                     child: Text(
-                      '8 games · Scroll down to explore ↓',
+                      '9 games · Scroll down to explore ↓',
                       style: TextStyle(
                         color: Palette.muted,
                         fontSize: 13,
@@ -290,6 +299,8 @@ class GamesHub extends ConsumerWidget {
         return const FlybySnapScreen();
       case _GameId.sizeStack:
         return const SizeStackScreen();
+      case _GameId.zooMemory:
+        return const ZooMemoryScreen();
     }
   }
 }
@@ -304,6 +315,7 @@ enum _GameId {
   moonLanes,
   flybySnap,
   sizeStack,
+  zooMemory,
 }
 
 /// One game card's static content plus its live badge string.
