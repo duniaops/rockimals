@@ -145,7 +145,7 @@ void main() {
     }
 
     group('the game cards', () {
-      testWidgets('lists the four original games and all five v2 games', (
+      testWidgets('lists the four original games and all six v2 games', (
         tester,
       ) async {
         await pumpHub(tester);
@@ -159,6 +159,7 @@ void main() {
         expect(find.text('Flyby Snap'), findsOneWidget);
         expect(find.text('Size Stack'), findsOneWidget);
         expect(find.text('Space Zoo Memory'), findsOneWidget);
+        expect(find.text('Daily Data Quest'), findsOneWidget);
       });
 
       testWidgets('shows the points total and each best from storage', (
@@ -203,7 +204,7 @@ void main() {
 
         await pumpHub(tester);
 
-        final Finder cue = find.text('9 games · Scroll down to explore ↓');
+        final Finder cue = find.text('10 games · Scroll down to explore ↓');
         final Rect cueRect = tester.getRect(cue);
         expect(cueRect.top, greaterThanOrEqualTo(0));
         expect(cueRect.bottom, lessThanOrEqualTo(568));

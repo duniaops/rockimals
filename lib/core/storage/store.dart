@@ -88,6 +88,7 @@ class Store {
   static const String _littleKidsModeKey = 'aw_littlekids';
   static const String _cachedFeedKey = 'aw_feedcache';
   static const String _gameTutorialProgressKey = 'aw_gameintro';
+  static const String _dailyQuestPatchesKey = 'aw_questpatches';
 
   // --- Rewards ---------------------------------------------------------------
 
@@ -294,6 +295,19 @@ class Store {
 
   Future<void> setGameTutorialProgress(Iterable<String> value) =>
       _box.put(_gameTutorialProgressKey, value.toList(growable: false));
+
+  // --- Daily Data Quest -----------------------------------------------------
+
+  /// Calendar-day ids for completed Daily Data Quests.
+  ///
+  /// A patch is an earned collection item, never a streak. Keeping every id
+  /// means missing a day cannot remove a reward or make a later quest harder.
+  /// The date is deliberately the same coarse local-day value used by the day
+  /// clock, not a time or a record of where a child played.
+  List<String> get dailyQuestPatches => _readStringList(_dailyQuestPatchesKey);
+
+  Future<void> setDailyQuestPatches(Iterable<String> value) =>
+      _box.put(_dailyQuestPatchesKey, value.toList(growable: false));
 
   // --- Lifecycle -------------------------------------------------------------
 

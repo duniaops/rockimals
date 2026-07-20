@@ -35,6 +35,7 @@ class MemoryStore implements Store {
     this.badges = const <String>[],
     this.follows = const <String>[],
     this.gameTutorialProgress = const <String>[],
+    this.dailyQuestPatches = const <String>[],
   });
 
   @override
@@ -87,6 +88,9 @@ class MemoryStore implements Store {
 
   @override
   List<String> gameTutorialProgress;
+
+  @override
+  List<String> dailyQuestPatches;
 
   // The setters mirror the real store's signatures — `Future<void>`, taking an
   // `Iterable` and snapshotting it — so a caller that awaits them, or hands one
@@ -141,6 +145,10 @@ class MemoryStore implements Store {
   @override
   Future<void> setGameTutorialProgress(Iterable<String> value) async =>
       gameTutorialProgress = value.toList(growable: false);
+
+  @override
+  Future<void> setDailyQuestPatches(Iterable<String> value) async =>
+      dailyQuestPatches = value.toList(growable: false);
 
   @override
   Future<void> close() async {}

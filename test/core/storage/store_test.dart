@@ -52,6 +52,7 @@ void main() {
       expect(store.badges, isEmpty);
       expect(store.follows, isEmpty);
       expect(store.gameTutorialProgress, isEmpty);
+      expect(store.dailyQuestPatches, isEmpty);
     });
 
     test('sound starts on — a game that boots silent reads as broken', () {
@@ -151,6 +152,15 @@ void main() {
         'duel',
       ]);
     });
+
+    test('daily mission patches read back', () async {
+      await store.setDailyQuestPatches(<String>['2026-07-19', '2026-07-20']);
+
+      expect((await restart()).dailyQuestPatches, <String>[
+        '2026-07-19',
+        '2026-07-20',
+      ]);
+    });
   });
 
   group('a stored zero is not a missing key', () {
@@ -202,14 +212,20 @@ void main() {
   });
 
   group('the lists it hands out cannot be written through', () {
-    test('badges and follows are unmodifiable', () async {
+    test('badges, follows, and quest patches are unmodifiable', () async {
       await store.setBadges(<String>['play']);
       await store.setFollows(<String>['2011 EW']);
+      await store.setDailyQuestPatches(<String>['2026-07-20']);
 
       expect(() => store.badges.add('whale'), throwsUnsupportedError);
       expect(() => store.follows.add('433 Eros'), throwsUnsupportedError);
+      expect(
+        () => store.dailyQuestPatches.add('2026-07-21'),
+        throwsUnsupportedError,
+      );
       expect(store.badges, <String>['play']);
       expect(store.follows, <String>['2011 EW']);
+      expect(store.dailyQuestPatches, <String>['2026-07-20']);
     });
 
     test('the caller cannot mutate the store by keeping its own list', () async {

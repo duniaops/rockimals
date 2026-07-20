@@ -204,6 +204,7 @@ void main() {
         await store.setLittleKidsMode(true);
         await store.setCachedFeed('{}');
         await store.setGameTutorialProgress(<String>['guide', 'duel']);
+        await store.setDailyQuestPatches(<String>['2026-07-20']);
 
         expect(Hive.box<Object>(Store.boxName).keys.toSet(), <String>{
           // Scores and counters — a number the child earned, about nobody.
@@ -228,6 +229,9 @@ void main() {
           // A compact completion ledger for the optional game guide and its
           // one unscored first round per game. It is teaching progress only.
           'aw_gameintro',
+          // Earned daily-mission patches use only a calendar-day id. They are
+          // permanent collection rewards, never a streak or a location record.
+          'aw_questpatches',
           // The coarsest date the app can hold: a calendar day, so a streak can
           // be counted. Nothing finer, and nothing that says where or on what.
           'aw_lastplayed',

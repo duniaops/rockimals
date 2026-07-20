@@ -7,6 +7,7 @@ import 'package:rockimals/core/theme/featured_gradient.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/features/games/challenge_game.dart';
 import 'package:rockimals/features/games/closer_game.dart';
+import 'package:rockimals/features/games/daily_quest_screen.dart';
 import 'package:rockimals/features/games/duel_game.dart';
 import 'package:rockimals/features/games/flyby_snap_screen.dart';
 import 'package:rockimals/features/games/games_providers.dart';
@@ -77,6 +78,14 @@ class GamesHub extends ConsumerWidget {
         description:
             'A space rock zooms by — can you guess which animal it is? 8 rounds.',
         badge: 'Best ${stats.bestSize}/8',
+      ),
+      const _GameCard(
+        id: _GameId.dailyQuest,
+        icon: '🗓️',
+        title: 'Daily Data Quest',
+        description:
+            'A fresh three-part mission using today’s real space-animal data.',
+        badge: 'Daily quest',
       ),
       const _GameCard(
         id: _GameId.safari,
@@ -204,7 +213,7 @@ class GamesHub extends ConsumerWidget {
                   const Padding(
                     padding: EdgeInsets.only(bottom: 12),
                     child: Text(
-                      '9 games · Scroll down to explore ↓',
+                      '10 games · Scroll down to explore ↓',
                       style: TextStyle(
                         color: Palette.muted,
                         fontSize: 13,
@@ -301,6 +310,8 @@ class GamesHub extends ConsumerWidget {
         return const SizeStackScreen();
       case _GameId.zooMemory:
         return const ZooMemoryScreen();
+      case _GameId.dailyQuest:
+        return const DailyQuestScreen();
     }
   }
 }
@@ -316,6 +327,7 @@ enum _GameId {
   flybySnap,
   sizeStack,
   zooMemory,
+  dailyQuest,
 }
 
 /// One game card's static content plus its live badge string.
