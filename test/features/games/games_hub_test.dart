@@ -16,7 +16,7 @@ import 'package:rockimals/features/settings/calm_motion.dart';
 import 'package:rockimals/features/settings/little_kids_mode.dart';
 import 'package:rockimals/features/settings/sound.dart';
 
-/// The Play hub (`specs/04`, "Build the Play hub"): the four game cards with
+/// The Play hub (`specs/04`, "Build the Play hub"): the original game cards with
 /// their bests, and the sound toggle that must survive a restart.
 ///
 /// **Split the way the codebase splits store-backed UI.** The *widget* tests
@@ -144,14 +144,17 @@ void main() {
       await tester.pump();
     }
 
-    group('the four game cards', () {
-      testWidgets('lists all four with the prototype titles', (tester) async {
+    group('the game cards', () {
+      testWidgets('lists the four original games and Radar Safari', (
+        tester,
+      ) async {
         await pumpHub(tester);
 
         expect(find.text("Today's Challenge"), findsOneWidget);
         expect(find.text('Power Duel'), findsOneWidget);
         expect(find.text('Closer or Farther'), findsOneWidget);
         expect(find.text('Animal Match'), findsOneWidget);
+        expect(find.text('Radar Safari'), findsOneWidget);
       });
 
       testWidgets('shows the points total and each best from storage', (
@@ -184,9 +187,9 @@ void main() {
         expect(find.text('Best 0/8'), findsOneWidget); // Animal Match
       });
 
-      testWidgets('cues all four games on a 320 by 568 phone', (tester) async {
+      testWidgets('cues all five games on a 320 by 568 phone', (tester) async {
         // The cards are deliberately generous tap targets, so a short phone
-        // cannot show all four without shrinking a child's targets. The cue
+        // cannot show all five without shrinking a child's targets. The cue
         // must therefore be above the fold and say both the total and how to
         // reach the rest before the first card starts.
         tester.view
@@ -196,7 +199,7 @@ void main() {
 
         await pumpHub(tester);
 
-        final Finder cue = find.text('4 games · Scroll down to explore ↓');
+        final Finder cue = find.text('5 games · Scroll down to explore ↓');
         final Rect cueRect = tester.getRect(cue);
         expect(cueRect.top, greaterThanOrEqualTo(0));
         expect(cueRect.bottom, lessThanOrEqualTo(568));

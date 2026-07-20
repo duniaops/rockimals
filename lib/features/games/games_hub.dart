@@ -10,6 +10,7 @@ import 'package:rockimals/features/games/closer_game.dart';
 import 'package:rockimals/features/games/duel_game.dart';
 import 'package:rockimals/features/games/games_providers.dart';
 import 'package:rockimals/features/games/match_game.dart';
+import 'package:rockimals/features/games/safari_game.dart';
 import 'package:rockimals/features/games/tutorial/game_tutorial.dart';
 import 'package:rockimals/features/settings/little_kids_mode.dart';
 import 'package:rockimals/features/settings/sound.dart';
@@ -17,10 +18,10 @@ import 'package:rockimals/features/settings/sound.dart';
 /// The Play hub — a port of the prototype's `openGames` (`index.html:1002-1021`),
 /// the screen the radar's "🎮 Play" CTA opens.
 ///
-/// It shows the points total, a persisted sound toggle, and the four game cards
+/// It shows the points total, a persisted sound toggle, and the game cards
 /// (Today's Challenge featured, then Power Duel / Closer or Farther / Animal
 /// Match, each with its personal best). This is `specs/04`'s "Play hub" item;
-/// the four games it launches were their own items after it, and all four have
+/// the original four games it launches were their own items, and all have
 /// now landed — [_destinationFor] is the one seam each of them edited.
 ///
 /// **This screen is also the only door to any game**, which is what lets 🧸
@@ -35,7 +36,7 @@ class GamesHub extends ConsumerWidget {
     final GamesHubStats stats = ref.watch(gamesHubStatsProvider);
     final bool soundOn = ref.watch(soundOnProvider);
 
-    // The four cards, in the prototype's order (`index.html:1003-1006`). Copy is
+    // The four original cards retain the prototype's order (`index.html:1003-1006`). Copy is
     // ported verbatim, curly apostrophes and em dashes included.
     final List<_GameCard> cards = <_GameCard>[
       const _GameCard(
@@ -72,6 +73,14 @@ class GamesHub extends ConsumerWidget {
         description:
             'A space rock zooms by — can you guess which animal it is? 8 rounds.',
         badge: 'Best ${stats.bestSize}/8',
+      ),
+      const _GameCard(
+        id: _GameId.safari,
+        icon: '🧭',
+        title: 'Radar Safari',
+        description:
+            'Follow real space clues and find the right animal on the live radar.',
+        badge: 'Explore',
       ),
     ];
 
@@ -152,14 +161,14 @@ class GamesHub extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  // Four generous game cards deliberately keep their roomy,
+                  // Five generous game cards deliberately keep their roomy,
                   // easy-to-hit layout. On a short phone the lower cards sit
                   // below the fold, so say both how many there are and how to
                   // reach them before the first card begins.
                   const Padding(
                     padding: EdgeInsets.only(bottom: 12),
                     child: Text(
-                      '4 games · Scroll down to explore ↓',
+                      '5 games · Scroll down to explore ↓',
                       style: TextStyle(
                         color: Palette.muted,
                         fontSize: 13,
@@ -193,7 +202,7 @@ class GamesHub extends ConsumerWidget {
     );
   }
 
-  /// Where each card goes. All four games have now landed (`specs/04`), so the
+  /// Where each card goes. The original four games have landed (`specs/04`), so the
   /// kid-toned "coming soon" placeholder each card opened while its game was
   /// still ahead is gone along with the last branch that used it.
   Widget _destinationFor(_GameId id) {
@@ -246,12 +255,14 @@ class GamesHub extends ConsumerWidget {
                 onPracticeComplete: onPracticeComplete,
               ),
         );
+      case _GameId.safari:
+        return const SafariGame();
     }
   }
 }
 
-/// The four games, used to key [GamesHub._destinationFor].
-enum _GameId { daily, duel, closer, size }
+/// The games, used to key [GamesHub._destinationFor].
+enum _GameId { daily, duel, closer, size, safari }
 
 /// One game card's static content plus its live badge string.
 class _GameCard {

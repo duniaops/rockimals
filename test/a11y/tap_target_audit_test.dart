@@ -12,6 +12,7 @@ import 'package:rockimals/features/games/closer_game.dart';
 import 'package:rockimals/features/games/duel_game.dart';
 import 'package:rockimals/features/games/games_hub.dart';
 import 'package:rockimals/features/games/match_game.dart';
+import 'package:rockimals/features/games/safari_game.dart';
 import 'package:rockimals/features/radar/radar_geometry.dart';
 import 'package:rockimals/features/radar/radar_painter.dart';
 import 'package:rockimals/features/settings/little_kids_mode.dart';
@@ -131,14 +132,15 @@ void main() {
         expectEveryTapTargetIsBigEnough(tester, reason: 'Settings$at');
       });
 
-      testWidgets('in all four games$at', (tester) async {
+      testWidgets('in all five games$at', (tester) async {
         // Every game, not a sample: an answer card is the control a child taps
-        // most in the whole app, and the four games build theirs separately.
+        // most in the whole app, and the games build theirs separately.
         final Map<String, Widget> games = <String, Widget>{
           'Challenge': const ChallengeGame(),
           'Duel': const DuelGame(),
           'Closer': const CloserGame(),
           'Match': const MatchGame(),
+          'Safari': const SafariGame(),
         };
 
         for (final MapEntry<String, Widget> game in games.entries) {
@@ -236,7 +238,7 @@ void main() {
       expectEveryTapTargetIsBigEnough(tester, reason: 'Settings, little kids');
     });
 
-    testWidgets('in all four games at $worst× text', (tester) async {
+    testWidgets('in all five games at $worst× text', (tester) async {
       // The games stack full-width `ActionButton`s and are where a child taps
       // most, so they get the same coverage here as in the audit above.
       final Map<String, Widget> games = <String, Widget>{
@@ -244,6 +246,7 @@ void main() {
         'Duel': const DuelGame(),
         'Closer': const CloserGame(),
         'Match': const MatchGame(),
+        'Safari': const SafariGame(),
       };
 
       for (final MapEntry<String, Widget> game in games.entries) {
@@ -348,7 +351,7 @@ Future<void> _pump(
         asteroidFeedProvider.overrideWith((Ref ref) => AsteroidFeed.fallback()),
         dayStreakProvider.overrideWithValue(0),
         storeProvider.overrideWithValue(MemoryStore()),
-        // The walk taps its way through all four games, and an answer plays a
+        // The walk taps its way through all five games, and an answer plays a
         // cue. Nothing here asserts on sound; this keeps the audio plugin off
         // the path, which the audit had been getting away with only because a
         // real `ToneSoundEngine` failed *quietly* on a host VM. It no longer
