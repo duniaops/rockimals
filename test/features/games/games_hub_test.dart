@@ -145,9 +145,7 @@ void main() {
     }
 
     group('the game cards', () {
-      testWidgets('lists the four original games and all six v2 games', (
-        tester,
-      ) async {
+      testWidgets('lists all ten games', (tester) async {
         await pumpHub(tester);
 
         expect(find.text("Today's Challenge"), findsOneWidget);
@@ -160,6 +158,41 @@ void main() {
         expect(find.text('Size Stack'), findsOneWidget);
         expect(find.text('Space Zoo Memory'), findsOneWidget);
         expect(find.text('Daily Data Quest'), findsOneWidget);
+      });
+
+      testWidgets('groups every game into the four Games v2 play choices', (
+        tester,
+      ) async {
+        await pumpHub(tester);
+
+        Finder section(String name) =>
+            find.byKey(ValueKey<String>('games-section-$name'));
+
+        void expectCards(String name, List<String> titles) {
+          expect(section(name), findsOneWidget, reason: name);
+          for (final String title in titles) {
+            expect(
+              find.descendant(of: section(name), matching: find.text(title)),
+              findsOneWidget,
+              reason: '$title belongs in $name',
+            );
+          }
+        }
+
+        // Daily has date-bound play; Explore is for discovering the animals;
+        // Quick Play is the instant-action set; and Size Stack is the build
+        // activity. Each title is already asserted above as a singleton, so
+        // these membership checks also prove no card appears in two sections.
+        expectCards('daily', <String>["Today's Challenge", 'Daily Data Quest']);
+        expectCards('explore', <String>['Radar Safari', 'Space Zoo Memory']);
+        expectCards('quickPlay', <String>[
+          'Power Duel',
+          'Closer or Farther',
+          'Animal Match',
+          'Moon Lanes',
+          'Flyby Snap',
+        ]);
+        expectCards('build', <String>['Size Stack']);
       });
 
       testWidgets('shows the points total and each best from storage', (
@@ -176,8 +209,9 @@ void main() {
         );
 
         expect(find.text('120'), findsOneWidget);
-        // Today's Challenge carries the fixed "Daily" tag, not a best.
-        expect(find.text('Daily'), findsOneWidget);
+        // Today's Challenge carries the fixed "Daily" tag, alongside the
+        // Daily section heading, rather than a best.
+        expect(find.text('Daily'), findsNWidgets(2));
         expect(find.text('Best 7'), findsOneWidget);
         expect(find.text('Best 3'), findsOneWidget);
         // Animal Match is scored out of 8.
@@ -192,9 +226,9 @@ void main() {
         expect(find.text('Best 0/8'), findsOneWidget); // Animal Match
       });
 
-      testWidgets('cues all nine games on a 320 by 568 phone', (tester) async {
+      testWidgets('cues all ten games on a 320 by 568 phone', (tester) async {
         // The cards are deliberately generous tap targets, so a short phone
-        // cannot show all five without shrinking a child's targets. The cue
+        // cannot show all ten without shrinking a child's targets. The cue
         // must therefore be above the fold and say both the total and how to
         // reach the rest before the first card starts.
         tester.view

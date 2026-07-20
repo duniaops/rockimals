@@ -41,11 +41,13 @@ class GamesHub extends ConsumerWidget {
     final GamesHubStats stats = ref.watch(gamesHubStatsProvider);
     final bool soundOn = ref.watch(soundOnProvider);
 
-    // The four original cards retain the prototype's order (`index.html:1003-1006`). Copy is
-    // ported verbatim, curly apostrophes and em dashes included.
+    // Games v2 has four ways to play. Keeping each card's section beside its
+    // route keeps the hub's taxonomy explicit: a new game cannot quietly land
+    // outside the Daily · Explore · Quick Play · Build choices.
     final List<_GameCard> cards = <_GameCard>[
       const _GameCard(
         id: _GameId.daily,
+        section: _GameSection.daily,
         icon: '🎯',
         title: "Today's Challenge",
         description:
@@ -55,6 +57,7 @@ class GamesHub extends ConsumerWidget {
       ),
       _GameCard(
         id: _GameId.duel,
+        section: _GameSection.quickPlay,
         icon: '⚔️',
         title: 'Power Duel',
         description:
@@ -64,6 +67,7 @@ class GamesHub extends ConsumerWidget {
       ),
       _GameCard(
         id: _GameId.closer,
+        section: _GameSection.quickPlay,
         icon: '📏',
         title: 'Closer or Farther',
         description:
@@ -73,6 +77,7 @@ class GamesHub extends ConsumerWidget {
       ),
       _GameCard(
         id: _GameId.size,
+        section: _GameSection.quickPlay,
         icon: '🐾',
         title: 'Animal Match',
         description:
@@ -81,6 +86,7 @@ class GamesHub extends ConsumerWidget {
       ),
       const _GameCard(
         id: _GameId.dailyQuest,
+        section: _GameSection.daily,
         icon: '🗓️',
         title: 'Daily Data Quest',
         description:
@@ -89,6 +95,7 @@ class GamesHub extends ConsumerWidget {
       ),
       const _GameCard(
         id: _GameId.safari,
+        section: _GameSection.explore,
         icon: '🧭',
         title: 'Radar Safari',
         description:
@@ -97,6 +104,7 @@ class GamesHub extends ConsumerWidget {
       ),
       const _GameCard(
         id: _GameId.moonLanes,
+        section: _GameSection.quickPlay,
         icon: '🌙',
         title: 'Moon Lanes',
         description:
@@ -105,6 +113,7 @@ class GamesHub extends ConsumerWidget {
       ),
       const _GameCard(
         id: _GameId.flybySnap,
+        section: _GameSection.quickPlay,
         icon: '📸',
         title: 'Flyby Snap',
         description:
@@ -113,6 +122,7 @@ class GamesHub extends ConsumerWidget {
       ),
       const _GameCard(
         id: _GameId.sizeStack,
+        section: _GameSection.build,
         icon: '🧱',
         title: 'Size Stack',
         description:
@@ -121,6 +131,7 @@ class GamesHub extends ConsumerWidget {
       ),
       const _GameCard(
         id: _GameId.zooMemory,
+        section: _GameSection.explore,
         icon: '🧠',
         title: 'Space Zoo Memory',
         description:
@@ -221,12 +232,18 @@ class GamesHub extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  for (final _GameCard card in cards)
-                    if (!simplestOnly || card.simplest)
-                      _GameCardTile(
-                        card: card,
-                        onTap: () => _launch(context, card.id),
-                      ),
+                  for (final _GameSection section in _GameSection.values)
+                    _GameSectionCards(
+                      section: section,
+                      cards: cards
+                          .where(
+                            (_GameCard card) =>
+                                card.section == section &&
+                                (!simplestOnly || card.simplest),
+                          )
+                          .toList(growable: false),
+                      onLaunch: (_GameId id) => _launch(context, id),
+                    ),
                 ],
               ),
             ),
@@ -330,10 +347,27 @@ enum _GameId {
   dailyQuest,
 }
 
+/// The four Play-hub choices in Games v2 (`docs/GAMES_V2_SPEC.md`, release
+/// 1.3). The categories describe how a child approaches a game, rather than
+/// its NASA field: Memory belongs in Explore because reconnecting facts is a
+/// gentle way to discover the animals; Size Stack is the one build-and-balance
+/// activity.
+enum _GameSection {
+  daily('Daily'),
+  explore('Explore'),
+  quickPlay('Quick Play'),
+  build('Build');
+
+  const _GameSection(this.title);
+
+  final String title;
+}
+
 /// One game card's static content plus its live badge string.
 class _GameCard {
   const _GameCard({
     required this.id,
+    required this.section,
     required this.icon,
     required this.title,
     required this.description,
@@ -343,6 +377,7 @@ class _GameCard {
   });
 
   final _GameId id;
+  final _GameSection section;
   final String icon;
   final String title;
   final String description;
@@ -492,6 +527,53 @@ const BoxDecoration _featuredCardSurface = BoxDecoration(
   borderRadius: kPanelRadius,
   border: Border.fromBorderSide(BorderSide(color: Palette.accent)),
 );
+
+/// A named group in the Games v2 Play hub. Empty groups are omitted so Little
+/// Kids mode still exposes only the two games it permits, without unexplained
+/// headings for games a child cannot open.
+class _GameSectionCards extends StatelessWidget {
+  const _GameSectionCards({
+    required this.section,
+    required this.cards,
+    required this.onLaunch,
+  });
+
+  final _GameSection section;
+  final List<_GameCard> cards;
+  final ValueChanged<_GameId> onLaunch;
+
+  @override
+  Widget build(BuildContext context) {
+    if (cards.isEmpty) return const SizedBox.shrink();
+
+    return Semantics(
+      container: true,
+      label: '${section.title} games',
+      child: Column(
+        key: ValueKey<String>('games-section-${section.name}'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Semantics(
+              header: true,
+              child: Text(
+                section.title,
+                style: const TextStyle(
+                  color: Palette.ink,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ),
+          for (final _GameCard card in cards)
+            _GameCardTile(card: card, onTap: () => onLaunch(card.id)),
+        ],
+      ),
+    );
+  }
+}
 
 /// One game card (`.gcard`, `index.html:204-210`): the icon, the title and
 /// description, and the personal-best badge, with the featured card carrying the

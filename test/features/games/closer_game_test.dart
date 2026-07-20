@@ -361,7 +361,7 @@ void main() {
           // measure the full-length reaction as they did before the setting.
           reducedMotionProvider.overrideWith(StubCalmMotion.new),
           // The hub resolves 🧸 Little Kids mode to pick its card list. Held
-          // off, so all four cards are on screen as they were before it.
+          // off, so Closer or Farther remains available in Quick Play.
           littleKidsModeProvider.overrideWith(StubLittleKids.new),
         ],
         child: const MaterialApp(home: GamesHub()),
@@ -369,6 +369,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    // Daily and Explore now precede Quick Play, so reach this card as a child
+    // would, by scrolling the hub before tapping it.
+    await tester.scrollUntilVisible(find.text('Closer or Farther'), 100);
     await tester.tap(find.text('Closer or Farther'));
     await tester.pumpAndSettle();
 

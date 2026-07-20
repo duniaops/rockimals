@@ -373,7 +373,7 @@ void main() {
           soundOnProvider.overrideWith(_StubSound.new),
           reducedMotionProvider.overrideWith(StubCalmMotion.new),
           // The hub resolves 🧸 Little Kids mode to pick its card list. Held
-          // off, so all four cards are on screen as they were before it.
+          // off, so Animal Match remains available in Quick Play.
           littleKidsModeProvider.overrideWith(StubLittleKids.new),
         ],
         child: const MaterialApp(home: GamesHub()),
@@ -381,6 +381,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    // Daily and Explore now precede Quick Play, so this route test must scroll
+    // to Animal Match instead of relying on the hub's former flat order.
+    await tester.scrollUntilVisible(find.text('Animal Match'), 100);
     await tester.tap(find.text('Animal Match'));
     await tester.pumpAndSettle();
     expect(find.text('🐾 Animal Match'), findsOneWidget);

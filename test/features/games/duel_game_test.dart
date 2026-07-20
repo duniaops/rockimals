@@ -347,7 +347,7 @@ void main() {
           soundOnProvider.overrideWith(_StubSound.new),
           reducedMotionProvider.overrideWith(StubCalmMotion.new),
           // The hub resolves 🧸 Little Kids mode to pick its card list. Held
-          // off, so all four cards are on screen as they were before it.
+          // off, so Power Duel remains available in Quick Play.
           littleKidsModeProvider.overrideWith(StubLittleKids.new),
         ],
         child: const MaterialApp(home: GamesHub()),
@@ -355,6 +355,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    // Daily and Explore now precede Quick Play, so this interaction asserts the
+    // route through the hub's real scroll affordance rather than depending on
+    // the old flat list fitting this test phone.
+    await tester.scrollUntilVisible(find.text('Power Duel'), 100);
     await tester.tap(find.text('Power Duel'));
     await tester.pumpAndSettle();
 
