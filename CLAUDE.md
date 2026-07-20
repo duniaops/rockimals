@@ -102,3 +102,30 @@ Two things worth knowing before you run it:
 A task is done when: it builds and runs on iOS **and** Android; behaviour matches
 the prototype; the task's Acceptance criteria all pass; offline mode still works;
 and there are no crashes or console errors.
+
+
+## Secrets — never commit one
+
+**Never commit a secret to this repo, in any form.** The repo is public; a
+secret that lands in a commit stays published forever, because a follow-up
+commit removes it from the tree but not from history. This has already
+happened once: the registered NASA API key was baked into a web build
+(`--dart-define` writes it into `main.dart.js` ~120 times) and pushed in
+`c51d9fe`, and the key had to be regenerated.
+
+Concretely:
+
+- `--dart-define=NASA_API_KEY=<key>` is for **iOS/Android release builds
+  only** — never for `flutter build web`. The web demo ships on `DEMO_KEY`
+  (the `AppConfig` fallback when the define is absent), which is rate-limited
+  per visitor IP and fine for a demo.
+- Before committing anything under `docs/app/` (the deployed web build),
+  verify the bundle is clean: `grep -c DEMO_KEY docs/app/main.dart.js` must be
+  ≥ 1, and a search for any 40-character key-looking string
+  (`grep -oE '[A-Za-z0-9]{40}' docs/app/main.dart.js`) must turn up nothing
+  that is a credential.
+- Keys, tokens, passwords, `.env` files, and service credentials never go in
+  source, fixtures, tests, comments, or docs. A build that needs one takes it
+  as a flag or environment value at build time; it stays out of the tree.
+- If a secret does land in a commit anyway: treat it as public from that
+  moment, regenerate/rotate it immediately, and only then clean the tree.
