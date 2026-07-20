@@ -153,7 +153,7 @@ void main() {
       expect(find.text('1/4 ranked'), findsOneWidget);
     });
 
-    testWidgets('a full ranking offers Reveal, and Start over clears it '
+    testWidgets('tapping alone completes a ranking, and Start over clears it '
         'without re-dealing', (WidgetTester tester) async {
       final _RecordingActions actions = _RecordingActions();
       await _mount(tester, sky: sky, actions: actions);
@@ -172,6 +172,30 @@ void main() {
         expect(find.text(name), findsOneWidget);
       }
       expect(actions.played, 1);
+    });
+
+    testWidgets('dragging cards before one another ranks and reorders them', (
+      WidgetTester tester,
+    ) async {
+      await _mount(tester, sky: sky);
+
+      // Each drop inserts its source immediately ahead of its target. Building
+      // from the bottom keeps the intended strongest-to-weakest order while
+      // proving the drag path can establish all four ranks from an empty board.
+      await _dragCardBefore(tester, weak, weakest);
+      expect(find.text('2/4 ranked'), findsOneWidget);
+      await _dragCardBefore(tester, strong, weak);
+      expect(find.text('3/4 ranked'), findsOneWidget);
+      await _dragCardBefore(tester, strongest, strong);
+
+      expect(find.text('4/4 ranked'), findsOneWidget);
+      await tester.tap(find.text('Reveal the truth'));
+      await tester.pumpAndSettle();
+      expect(find.text('🎯 Amazing! · +100 ⭐'), findsOneWidget);
+      expect(
+        find.text('Order accuracy: 100% · Exact positions: 4/4'),
+        findsOneWidget,
+      );
     });
   });
 
@@ -390,6 +414,19 @@ Future<void> _rank(WidgetTester tester, List<String> names) async {
 
 Future<void> _tapCard(WidgetTester tester, String name) async {
   await tester.tap(find.text(name));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _dragCardBefore(
+  WidgetTester tester,
+  Asteroid dragged,
+  Asteroid before,
+) async {
+  await tester.dragFrom(
+    tester.getCenter(find.text(critter(dragged).name)),
+    tester.getCenter(find.text(critter(before).name)) -
+        tester.getCenter(find.text(critter(dragged).name)),
+  );
   await tester.pumpAndSettle();
 }
 

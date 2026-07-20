@@ -112,6 +112,29 @@ class _ChallengeGameState extends ConsumerState<ChallengeGame> {
     setState(() => _picks = <int>[..._picks, index]);
   }
 
+  /// Moves [from] immediately ahead of [before] in the child's ranking.
+  ///
+  /// A drag is allowed to establish a ranking as well as refine one: dropping
+  /// two previously unranked animals puts the dragged animal ahead of the one
+  /// it landed on, and each later drop inserts another animal at that spot.
+  /// That makes the board useful from its empty state while preserving the
+  /// existing tap path as the screen-reader-friendly alternative.
+  void _reorder(int from, int before) {
+    if (_grade != null || from == before) return;
+
+    final List<int> reordered = List<int>.of(_picks);
+    if (!reordered.contains(from)) reordered.add(from);
+    if (!reordered.contains(before)) reordered.add(before);
+
+    final int fromRank = reordered.indexOf(from);
+    int beforeRank = reordered.indexOf(before);
+    reordered.removeAt(fromRank);
+    if (fromRank < beforeRank) beforeRank--;
+    reordered.insert(beforeRank, from);
+
+    setState(() => _picks = reordered);
+  }
+
   void _reveal() {
     final ChallengeGrade grade = gradeChallenge(cards: _cards, picks: _picks);
     unawaited(ref.read(gameActionsProvider).awardPoints(grade.gain));
@@ -151,6 +174,7 @@ class _ChallengeGameState extends ConsumerState<ChallengeGame> {
               picks: _picks,
               grade: grade,
               onPick: _pick,
+              onReorder: _reorder,
             ),
           ),
           _ChallengeBanner(
@@ -193,7 +217,10 @@ class _ChallengeInstruction extends StatelessWidget {
     return const Text.rich(
       TextSpan(
         children: <InlineSpan>[
-          TextSpan(text: 'Tap the space animals in order — '),
+          TextSpan(
+            text:
+                'Tap the space animals in order, or drag one before another — ',
+          ),
           TextSpan(
             text: 'strongest power first ⭐',
             style: TextStyle(
@@ -235,12 +262,14 @@ class _ChallengeGrid extends StatelessWidget {
     required this.picks,
     required this.grade,
     required this.onPick,
+    required this.onReorder,
   });
 
   final List<Asteroid> cards;
   final List<int> picks;
   final ChallengeGrade? grade;
   final void Function(int) onPick;
+  final void Function(int from, int before) onReorder;
 
   @override
   Widget build(BuildContext context) {
@@ -262,11 +291,13 @@ class _ChallengeGrid extends StatelessWidget {
                   // to the full width, which is what `1fr 1fr` does too.
                   Expanded(
                     child: row * _columns + col < cards.length
-                        ? _ChallengeCard(
+                        ? _ReorderableChallengeCard(
+                            index: row * _columns + col,
                             asteroid: cards[row * _columns + col],
                             pickedRank: picks.indexOf(row * _columns + col),
                             trueRank: grade?.truthRank[row * _columns + col],
                             onTap: () => onPick(row * _columns + col),
+                            onReorder: onReorder,
                           )
                         : const SizedBox.shrink(),
                   ),
@@ -286,6 +317,75 @@ class _ChallengeGrid extends StatelessWidget {
   static const double _gap = 10;
 }
 
+/// A card that can be dropped immediately before another card in the ranking.
+///
+/// The cards stay in their familiar 2×2 places; their numbered badges are the
+/// order. That means a drag changes the same [_ChallengeGameState._picks] list
+/// that taps do, so grading, reveal copy, and the accessible interaction all
+/// have one source of truth.
+class _ReorderableChallengeCard extends StatelessWidget {
+  const _ReorderableChallengeCard({
+    required this.index,
+    required this.asteroid,
+    required this.pickedRank,
+    required this.trueRank,
+    required this.onTap,
+    required this.onReorder,
+  });
+
+  final int index;
+  final Asteroid asteroid;
+  final int pickedRank;
+  final int? trueRank;
+  final VoidCallback onTap;
+  final void Function(int from, int before) onReorder;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool canReorder = trueRank == null;
+    final Widget card = _ChallengeCard(
+      asteroid: asteroid,
+      pickedRank: pickedRank,
+      trueRank: trueRank,
+      onTap: onTap,
+    );
+
+    return DragTarget<int>(
+      onWillAcceptWithDetails: (DragTargetDetails<int> details) =>
+          canReorder && details.data != index,
+      onAcceptWithDetails: (DragTargetDetails<int> details) =>
+          onReorder(details.data, index),
+      builder:
+          (
+            BuildContext context,
+            List<int?> candidateData,
+            List<dynamic> rejectedData,
+          ) {
+            final bool isDropTarget = candidateData.isNotEmpty;
+            return Draggable<int>(
+              data: index,
+              maxSimultaneousDrags: canReorder ? 1 : 0,
+              feedback: Material(
+                color: Colors.transparent,
+                child: SizedBox(
+                  width: 160,
+                  child: Opacity(opacity: 0.9, child: card),
+                ),
+              ),
+              childWhenDragging: Opacity(opacity: 0.35, child: card),
+              child: _ChallengeCard(
+                asteroid: asteroid,
+                pickedRank: pickedRank,
+                trueRank: trueRank,
+                onTap: onTap,
+                isDropTarget: isDropTarget,
+              ),
+            );
+          },
+    );
+  }
+}
+
 /// One animal in the grid (`.chcard`, `index.html:131-142`).
 ///
 /// Three states in one widget, because the prototype's is one element that gains
@@ -298,6 +398,7 @@ class _ChallengeCard extends StatelessWidget {
     required this.pickedRank,
     required this.trueRank,
     required this.onTap,
+    this.isDropTarget = false,
   });
 
   final Asteroid asteroid;
@@ -311,6 +412,9 @@ class _ChallengeCard extends StatelessWidget {
 
   final VoidCallback onTap;
 
+  /// A dragged animal will be inserted just ahead of this card's rank.
+  final bool isDropTarget;
+
   @override
   Widget build(BuildContext context) {
     final Critter c = critter(asteroid);
@@ -320,11 +424,13 @@ class _ChallengeCard extends StatelessWidget {
     // counts (`ok = userPos === truePos`, `index.html:933`).
     final bool? isCorrect = revealed == null ? null : pickedRank == revealed;
 
-    final Color borderColour = switch (isCorrect) {
-      true => Palette.good,
-      false => Palette.bad,
-      null => isPicked ? Palette.accent : Palette.line,
-    };
+    final Color borderColour = isDropTarget
+        ? Palette.accent2
+        : switch (isCorrect) {
+            true => Palette.good,
+            false => Palette.bad,
+            null => isPicked ? Palette.accent : Palette.line,
+          };
     // `${sizeLabel(a.diaMax)}<br>${distLabel(a.missLunar)} · ${velKps.toFixed(0)}
     // km/s` (`index.html:892`) — every field through the AnimalSystem
     // formatters, so the game cannot phrase a size or a distance differently
