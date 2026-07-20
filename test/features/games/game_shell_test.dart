@@ -10,6 +10,7 @@ import 'package:rockimals/core/audio/sound_engine.dart';
 import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/core/streak/day_streak.dart';
 import 'package:rockimals/features/data/providers.dart';
+import 'package:rockimals/features/games/game_round_timer.dart';
 import 'package:rockimals/features/games/game_shell.dart';
 import 'package:rockimals/features/games/games_providers.dart';
 import 'package:rockimals/features/settings/calm_motion.dart';
@@ -736,6 +737,48 @@ void main() {
       await tester.pump();
       await tester.pump(kGameFeedbackAutoAdvanceDelay);
       expect(advances, 0);
+    });
+
+    testWidgets('feedback publishes the future round-timer pause hook', (
+      WidgetTester tester,
+    ) async {
+      final ProviderContainer container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: GameShell(
+              title: '🎮 Test Game',
+              body: const Text('Round'),
+              feedback: const GameFeedback(
+                correct: true,
+                headline: 'Great flying!',
+                explanation: 'Nova wins — she passed closer.',
+              ),
+              onNext: () {},
+            ),
+          ),
+        ),
+      );
+
+      expect(container.read(gameRoundTimerPausedProvider), isTrue);
+      expect(
+        container.read(gameRoundTimerPauseReasonsProvider),
+        contains(GameRoundTimerPauseReason.feedback),
+      );
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: GameShell(title: '🎮 Test Game', body: Text('Round')),
+          ),
+        ),
+      );
+
+      expect(container.read(gameRoundTimerPausedProvider), isFalse);
     });
   });
 }

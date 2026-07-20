@@ -19,6 +19,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rockimals/core/audio/sound_cues.dart';
 import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/features/data/providers.dart';
+import 'package:rockimals/features/games/game_round_timer.dart';
 import 'package:rockimals/features/rewards/badges.dart';
 import 'package:rockimals/features/rewards/sound_controller.dart';
 
@@ -118,6 +119,23 @@ class BadgeController extends Notifier<BadgeState> {
       check();
     });
 
+    // A badge often arrives from the same answer that opens shared feedback.
+    // Keep its earned record and queue immediately, but wait to put a popup in
+    // front of the explanation. When Next (or its fallback) clears feedback,
+    // this is the single place that resumes the queue.
+    ref.listen<Set<GameRoundTimerPauseReason>>(
+      gameRoundTimerPauseReasonsProvider,
+      (
+        Set<GameRoundTimerPauseReason>? previous,
+        Set<GameRoundTimerPauseReason> next,
+      ) {
+        if (previous?.contains(GameRoundTimerPauseReason.feedback) == true &&
+            !next.contains(GameRoundTimerPauseReason.feedback)) {
+          _drain();
+        }
+      },
+    );
+
     ref.onDispose(() => _drainTimer?.cancel());
 
     // `ref.read`, not `watch`: a rebuild here would drop a queued celebration on
@@ -182,8 +200,13 @@ class BadgeController extends Notifier<BadgeState> {
       queue: state.queue,
       celebrating: null,
     );
+    _setBadgeTimerPaused(false);
     _drainTimer?.cancel();
-    _drainTimer = Timer(kBadgeDrainGap, _drain);
+    // The beat belongs between celebrations, not after the last one. Avoid a
+    // needless live timer once the final badge has left the screen.
+    if (state.queue.isNotEmpty) {
+      _drainTimer = Timer(kBadgeDrainGap, _drain);
+    }
   }
 
   /// Show the next queued badge and cheer (`drainBadges`,
@@ -193,12 +216,17 @@ class BadgeController extends Notifier<BadgeState> {
   /// .contains("show"))return` — nothing happens with an empty queue, and a
   /// celebration already on screen is never interrupted by a later one.
   void _drain() {
-    if (state.queue.isEmpty || state.celebrating != null) return;
+    if (state.queue.isEmpty ||
+        state.celebrating != null ||
+        _feedbackIsVisible) {
+      return;
+    }
     state = BadgeState(
       earned: state.earned,
       queue: state.queue.sublist(1),
       celebrating: state.queue.first,
     );
+    _setBadgeTimerPaused(true);
     // `playCheer()` (`index.html:995`) — the fourth call site the sound gate was
     // built for, and the cue's first real trigger. It plays here rather than in
     // the popup widget so that "a badge is being celebrated" and "the fanfare
@@ -224,6 +252,16 @@ class BadgeController extends Notifier<BadgeState> {
       perfectRuns: store.perfect,
       followCount: ref.read(followsProvider).length,
     );
+  }
+
+  bool get _feedbackIsVisible => ref
+      .read(gameRoundTimerPauseReasonsProvider)
+      .contains(GameRoundTimerPauseReason.feedback);
+
+  void _setBadgeTimerPaused(bool paused) {
+    ref
+        .read(gameRoundTimerPauseReasonsProvider.notifier)
+        .setPaused(GameRoundTimerPauseReason.badge, paused);
   }
 }
 

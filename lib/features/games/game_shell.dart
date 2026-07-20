@@ -31,6 +31,7 @@ import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/core/streak/day_streak.dart';
 import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/features/data/providers.dart';
+import 'package:rockimals/features/games/game_round_timer.dart';
 import 'package:rockimals/features/games/games_providers.dart';
 import 'package:rockimals/features/profile/profile_providers.dart';
 import 'package:rockimals/features/rewards/badge_controller.dart';
@@ -487,12 +488,16 @@ class GameShell extends ConsumerStatefulWidget {
 
 class _GameShellState extends ConsumerState<GameShell> {
   Timer? _feedbackTimer;
+  late final GameRoundTimerPauseNotifier _roundTimerPause;
+  int _pausePublishGeneration = 0;
   bool _advanced = false;
 
   @override
   void initState() {
     super.initState();
+    _roundTimerPause = ref.read(gameRoundTimerPauseReasonsProvider.notifier);
     _scheduleFeedbackAdvance();
+    _syncFeedbackTimerPause();
   }
 
   @override
@@ -502,12 +507,34 @@ class _GameShellState extends ConsumerState<GameShell> {
         widget.onNext != oldWidget.onNext) {
       _scheduleFeedbackAdvance();
     }
+    if (!identical(widget.feedback, oldWidget.feedback)) {
+      _syncFeedbackTimerPause();
+    }
   }
 
   @override
   void dispose() {
     _feedbackTimer?.cancel();
+    // Invalidate any queued publication. A provider scope can disappear in the
+    // same frame as this shell, in which case publishing after the frame would
+    // be a write into a disposed container.
+    _pausePublishGeneration++;
     super.dispose();
+  }
+
+  void _syncFeedbackTimerPause() =>
+      _setRoundTimerPaused(widget.feedback != null);
+
+  void _setRoundTimerPaused(bool paused) {
+    // `initState`, `didUpdateWidget`, and `dispose` all run while Flutter is
+    // updating its element tree. Riverpod deliberately rejects provider writes
+    // there, so publish after that frame instead. If feedback changes more than
+    // once in a frame, callbacks keep their order and the final value wins.
+    final int generation = ++_pausePublishGeneration;
+    WidgetsBinding.instance.addPostFrameCallback((Duration _) {
+      if (!mounted || generation != _pausePublishGeneration) return;
+      _roundTimerPause.setPaused(GameRoundTimerPauseReason.feedback, paused);
+    });
   }
 
   void _scheduleFeedbackAdvance() {

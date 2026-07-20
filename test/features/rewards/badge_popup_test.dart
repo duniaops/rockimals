@@ -159,6 +159,28 @@ void main() {
     expect(container.read(badgesProvider).celebrating, isNull);
   });
 
+  testWidgets('its fading exit lets a tap reach the game beneath it', (
+    WidgetTester tester,
+  ) async {
+    int taps = 0;
+    final ProviderContainer container = await pumpApp(
+      tester,
+      home: _TapHome(onTap: () => taps++),
+    );
+
+    store.points = 50;
+    container.read(badgesProvider.notifier).check();
+    await settle(tester);
+
+    // Begin the reverse animation from an empty part of the underlying screen.
+    await tester.tapAt(const Offset(20, 20));
+    await tester.pump();
+    await tester.tap(find.text('Answer beneath'));
+    await tester.pump();
+
+    expect(taps, 1, reason: 'the fading scrim must not consume answer taps');
+  });
+
   testWidgets('two badges are celebrated one at a time, in order', (
     WidgetTester tester,
   ) async {
@@ -430,6 +452,25 @@ class _Home extends StatelessWidget {
             ),
           ),
           child: const Text('open a game'),
+        ),
+      ),
+    );
+  }
+}
+
+/// A game answer target beneath the global popup.
+class _TapHome extends StatelessWidget {
+  const _TapHome({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: ElevatedButton(
+          onPressed: onTap,
+          child: const Text('Answer beneath'),
         ),
       ),
     );

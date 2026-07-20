@@ -146,6 +146,7 @@ class _BadgePopupHostState extends ConsumerState<BadgePopupHost>
                 badge: badge,
                 t: _controller.value,
                 calm: calm,
+                interactive: _controller.status != AnimationStatus.reverse,
                 onDismiss: () => ref.read(badgesProvider.notifier).dismiss(),
               );
             },
@@ -162,6 +163,7 @@ class _BadgeCelebration extends StatelessWidget {
     required this.badge,
     required this.t,
     required this.calm,
+    required this.interactive,
     required this.onDismiss,
   });
 
@@ -177,6 +179,7 @@ class _BadgeCelebration extends StatelessWidget {
   /// for movement that keeps going or travels across the screen; a card that
   /// springs to its own size in a third of a second is neither.
   final bool calm;
+  final bool interactive;
   final VoidCallback onDismiss;
 
   /// `transition:opacity .25s` with CSS's default `ease` timing, over an
@@ -202,40 +205,39 @@ class _BadgeCelebration extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      // Read as one sentence, because a screen reader meets this popup with no
-      // warning: what was won, how it was won, and what to do about it.
-      label:
-          'New badge! ${badge.title}. ${badge.description}. '
-          'Tap to keep playing.',
-      child: GestureDetector(
-        // The whole scrim dismisses (`$("badgePop").onclick`,
-        // `index.html:1126`) — the target is the screen, which is the right size
-        // for a child who is looking at the badge rather than at a button.
-        //
-        // **It stays tappable and opaque to taps through the closing fade**,
-        // where the prototype's `pointer-events:none` lets a tap fall through to
-        // whatever is behind. A tap landing on a game answer 200ms after the
-        // child dismissed a popup they were not aiming at is the sort of thing
-        // that reads as the app answering for them.
-        behavior: HitTestBehavior.opaque,
-        onTap: onDismiss,
-        child: Opacity(
-          opacity: _fade.transform(t),
-          child: ClipRect(
-            child: BackdropFilter(
-              filter: ui.ImageFilter.blur(
-                sigmaX: _scrimBlur,
-                sigmaY: _scrimBlur,
-              ),
-              child: ColoredBox(
-                color: _scrim,
-                child: Center(
-                  child: Transform.scale(
-                    scale: _cardScale.transform(t),
-                    child: ExcludeSemantics(
-                      child: _BadgeCard(badge: badge, calm: calm),
+    return IgnorePointer(
+      // Once dismissal begins, the still-visible fade is decoration only. It
+      // must not swallow the next tap intended for the underlying game.
+      ignoring: !interactive,
+      child: Semantics(
+        button: true,
+        // Read as one sentence, because a screen reader meets this popup with no
+        // warning: what was won, how it was won, and what to do about it.
+        label:
+            'New badge! ${badge.title}. ${badge.description}. '
+            'Tap to keep playing.',
+        child: GestureDetector(
+          // The whole scrim dismisses (`$("badgePop").onclick`,
+          // `index.html:1126`) — the target is the screen, which is the right
+          // size for a child who is looking at the badge rather than a button.
+          behavior: HitTestBehavior.opaque,
+          onTap: onDismiss,
+          child: Opacity(
+            opacity: _fade.transform(t),
+            child: ClipRect(
+              child: BackdropFilter(
+                filter: ui.ImageFilter.blur(
+                  sigmaX: _scrimBlur,
+                  sigmaY: _scrimBlur,
+                ),
+                child: ColoredBox(
+                  color: _scrim,
+                  child: Center(
+                    child: Transform.scale(
+                      scale: _cardScale.transform(t),
+                      child: ExcludeSemantics(
+                        child: _BadgeCard(badge: badge, calm: calm),
+                      ),
                     ),
                   ),
                 ),

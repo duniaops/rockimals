@@ -20,6 +20,7 @@ import 'package:rockimals/core/audio/sound_cues.dart';
 import 'package:rockimals/core/audio/sound_engine.dart';
 import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/features/data/providers.dart';
+import 'package:rockimals/features/games/game_round_timer.dart';
 import 'package:rockimals/features/rewards/badge_controller.dart';
 import 'package:rockimals/features/rewards/badges.dart';
 import 'package:rockimals/features/settings/sound.dart';
@@ -123,6 +124,37 @@ void main() {
         reason: 'the earned set is checked before the condition is asked',
       );
       expect(engine.played, <SoundCue>[SoundCue.cheer], reason: 'one cheer');
+    });
+
+    test('waits for answer feedback to close before celebrating', () async {
+      final GameRoundTimerPauseNotifier pause = container.read(
+        gameRoundTimerPauseReasonsProvider.notifier,
+      );
+      pause.setPaused(GameRoundTimerPauseReason.feedback, true);
+
+      await store.setPoints(50);
+      controller().check();
+
+      expect(read().earned, <String>{'mouse'}, reason: 'earning persists now');
+      expect(read().queue.map((AnimalBadge badge) => badge.id), <String>[
+        'mouse',
+      ]);
+      expect(read().celebrating, isNull);
+      expect(engine.played, isEmpty, reason: 'the popup has not opened yet');
+
+      pause.setPaused(GameRoundTimerPauseReason.feedback, false);
+
+      expect(read().celebrating!.id, 'mouse');
+      expect(read().queue, isEmpty);
+      expect(engine.played, <SoundCue>[SoundCue.cheer]);
+      expect(
+        container.read(gameRoundTimerPauseReasonsProvider),
+        contains(GameRoundTimerPauseReason.badge),
+        reason: 'a future timed round pauses while its badge is on screen',
+      );
+
+      controller().dismiss();
+      expect(container.read(gameRoundTimerPausedProvider), isFalse);
     });
   });
 
