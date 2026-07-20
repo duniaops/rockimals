@@ -10,6 +10,7 @@ import 'package:rockimals/features/games/closer_game.dart';
 import 'package:rockimals/features/games/duel_game.dart';
 import 'package:rockimals/features/games/games_providers.dart';
 import 'package:rockimals/features/games/match_game.dart';
+import 'package:rockimals/features/games/tutorial/game_tutorial.dart';
 import 'package:rockimals/features/settings/little_kids_mode.dart';
 import 'package:rockimals/features/settings/sound.dart';
 
@@ -178,13 +179,53 @@ class GamesHub extends ConsumerWidget {
   Widget _destinationFor(_GameId id) {
     switch (id) {
       case _GameId.daily:
-        return const ChallengeGame();
+        return GameTutorialGate(
+          game: GameTutorialId.daily,
+          builder:
+              ({
+                required bool practice,
+                required VoidCallback onPracticeComplete,
+              }) => ChallengeGame(
+                practice: practice,
+                onPracticeComplete: onPracticeComplete,
+              ),
+        );
       case _GameId.duel:
-        return const DuelGame();
+        return GameTutorialGate(
+          game: GameTutorialId.duel,
+          builder:
+              ({
+                required bool practice,
+                required VoidCallback onPracticeComplete,
+              }) => DuelGame(
+                practice: practice,
+                onPracticeComplete: onPracticeComplete,
+              ),
+        );
       case _GameId.closer:
-        return const CloserGame();
+        return GameTutorialGate(
+          game: GameTutorialId.closer,
+          builder:
+              ({
+                required bool practice,
+                required VoidCallback onPracticeComplete,
+              }) => CloserGame(
+                practice: practice,
+                onPracticeComplete: onPracticeComplete,
+              ),
+        );
       case _GameId.size:
-        return const MatchGame();
+        return GameTutorialGate(
+          game: GameTutorialId.match,
+          builder:
+              ({
+                required bool practice,
+                required VoidCallback onPracticeComplete,
+              }) => MatchGame(
+                practice: practice,
+                onPracticeComplete: onPracticeComplete,
+              ),
+        );
     }
   }
 }

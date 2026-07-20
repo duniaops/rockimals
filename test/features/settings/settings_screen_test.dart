@@ -139,6 +139,28 @@ void main() {
     });
   });
 
+  group('the replayable game guide', () {
+    testWidgets('opens from Settings and records that the guide was shown', (
+      tester,
+    ) async {
+      late Store store;
+      await _openSettings(tester, onStore: (Store value) => store = value);
+      await tester.scrollUntilVisible(
+        find.text('Play the game guide again'),
+        200,
+      );
+
+      await tester.tap(find.text('Play the game guide again'));
+      await tester.pumpAndSettle();
+      expect(find.text('Welcome to Play!'), findsOneWidget);
+
+      await tester.tap(find.text('Skip tutorial'));
+      await tester.pump();
+      expect(store.gameTutorialProgress, contains('guide'));
+      expect(find.byType(SettingsScreen), findsOneWidget);
+    });
+  });
+
   group('tap targets', () {
     // `specs/08-settings-about.md:82` — *"Every tap target is ≥48dp"*. Both are
     // measured off the rendered box rather than read back from the constant

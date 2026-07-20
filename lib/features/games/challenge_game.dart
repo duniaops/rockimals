@@ -37,7 +37,14 @@ import 'package:rockimals/features/rewards/reaction.dart';
 /// — which makes a seed an unused parameter, and this plan's rule is that a
 /// helper waits for a real caller.
 class ChallengeGame extends ConsumerStatefulWidget {
-  const ChallengeGame({super.key});
+  const ChallengeGame({
+    this.practice = false,
+    this.onPracticeComplete,
+    super.key,
+  });
+
+  final bool practice;
+  final VoidCallback? onPracticeComplete;
 
   @override
   ConsumerState<ChallengeGame> createState() => _ChallengeGameState();
@@ -63,7 +70,9 @@ class _ChallengeGameState extends ConsumerState<ChallengeGame> {
     // (`index.html:884`). Deferred a frame so the store write cannot run during
     // initialisation.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) unawaited(ref.read(gameActionsProvider).markPlayed());
+      if (mounted && !widget.practice) {
+        unawaited(ref.read(gameActionsProvider).markPlayed());
+      }
     });
   }
 
@@ -91,7 +100,7 @@ class _ChallengeGameState extends ConsumerState<ChallengeGame> {
   /// A fresh round — "Play again" is `startChallenge` again
   /// (`index.html:946`), so it deals **new** animals and counts another play.
   void _startOver() {
-    unawaited(ref.read(gameActionsProvider).markPlayed());
+    if (!widget.practice) unawaited(ref.read(gameActionsProvider).markPlayed());
     setState(() {
       _cards = _dealCards();
       _picks = <int>[];
@@ -137,7 +146,9 @@ class _ChallengeGameState extends ConsumerState<ChallengeGame> {
 
   void _reveal() {
     final ChallengeGrade grade = gradeChallenge(cards: _cards, picks: _picks);
-    unawaited(ref.read(gameActionsProvider).awardPoints(grade.gain));
+    if (!widget.practice) {
+      unawaited(ref.read(gameActionsProvider).awardPoints(grade.gain));
+    }
     // One reaction for the round, on the prototype's `acc >= 60` threshold
     // (`index.html:939`). The per-card avatar hops (`index.html:937`) are task
     // 05's reaction animations; this is the framework hook they listen on.
@@ -178,8 +189,9 @@ class _ChallengeGameState extends ConsumerState<ChallengeGame> {
             ),
           ),
           _ChallengeBanner(
-            headline:
-                grade?.banner ?? '${_picks.length}/${_cards.length} ranked',
+            headline: widget.practice && grade != null
+                ? 'Practice complete — no points this time'
+                : grade?.banner ?? '${_picks.length}/${_cards.length} ranked',
             measures: grade?.measures,
             // `.banner.correct` / `.banner.wrong` (`index.html:161`); plain ink
             // while the round is still being ranked.
@@ -191,7 +203,12 @@ class _ChallengeGameState extends ConsumerState<ChallengeGame> {
           ),
           // `#chActions` (`index.html:908-915,942`): what the child can do next
           // depends only on how far through the round they are.
-          if (grade != null) ...<Widget>[
+          if (widget.practice && grade != null) ...<Widget>[
+            ActionButton(
+              label: 'Start playing',
+              onTap: widget.onPracticeComplete ?? () {},
+            ),
+          ] else if (grade != null) ...<Widget>[
             ActionButton(label: 'Play again', onTap: _startOver),
             const SizedBox(height: 8),
             ActionButton(label: 'Done', ghost: true, onTap: _done),

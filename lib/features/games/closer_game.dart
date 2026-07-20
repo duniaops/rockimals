@@ -31,7 +31,10 @@ import 'package:rockimals/features/rewards/reaction.dart';
 /// small enough that the deal has only one challenger to find, so a seed would
 /// be an unused parameter.
 class CloserGame extends ConsumerStatefulWidget {
-  const CloserGame({super.key});
+  const CloserGame({this.practice = false, this.onPracticeComplete, super.key});
+
+  final bool practice;
+  final VoidCallback? onPracticeComplete;
 
   @override
   ConsumerState<CloserGame> createState() => _CloserGameState();
@@ -62,13 +65,15 @@ class _CloserGameState extends ConsumerState<CloserGame> {
   @override
   void initState() {
     super.initState();
-    _best = ref.read(gameActionsProvider).bestCloser;
+    _best = widget.practice ? 0 : ref.read(gameActionsProvider).bestCloser;
     _round = _dealFrom(_pickAnchor());
     // `markPlayed()` before the first round, as `startCloser` does
     // (`index.html:1061`). Deferred a frame so the store write cannot run
     // during initialisation.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) unawaited(ref.read(gameActionsProvider).markPlayed());
+      if (mounted && !widget.practice) {
+        unawaited(ref.read(gameActionsProvider).markPlayed());
+      }
     });
   }
 
@@ -90,7 +95,7 @@ class _CloserGameState extends ConsumerState<CloserGame> {
   /// A fresh run — "Play again" is `startCloser` again (`index.html:1080`): the
   /// score resets, a new anchor is drawn, and another play is counted.
   void _restart() {
-    unawaited(ref.read(gameActionsProvider).markPlayed());
+    if (!widget.practice) unawaited(ref.read(gameActionsProvider).markPlayed());
     setState(() {
       _score = 0;
       _lives = 3;
@@ -117,6 +122,10 @@ class _CloserGameState extends ConsumerState<CloserGame> {
   /// continue the comparison chain.
   void _finishFeedback() {
     if (_guessedCloser == null || _over) return;
+    if (widget.practice) {
+      widget.onPracticeComplete?.call();
+      return;
+    }
     if (_lives == 0) {
       setState(() => _over = true);
     } else {
@@ -137,12 +146,14 @@ class _CloserGameState extends ConsumerState<CloserGame> {
 
     if (win) {
       final int score = _score + 1;
-      if (score > _best) {
+      if (!widget.practice && score > _best) {
         _best = score;
         unawaited(actions.setBestCloser(score));
       }
-      unawaited(actions.noteStreak(score));
-      unawaited(actions.awardPoints(10));
+      if (!widget.practice) {
+        unawaited(actions.noteStreak(score));
+        unawaited(actions.awardPoints(10));
+      }
       setState(() {
         _score = score;
         _guessedCloser = closer;
@@ -167,7 +178,9 @@ class _CloserGameState extends ConsumerState<CloserGame> {
           : GameFeedback(
               correct: _guessedCloser == _round.challengerIsCloser,
               headline: _guessedCloser == _round.challengerIsCloser
-                  ? '✓ Correct!  +10 ⭐'
+                  ? widget.practice
+                        ? '✓ Great practice!'
+                        : '✓ Correct!  +10 ⭐'
                   : 'So close — $_lives ${_lives == 1 ? 'life' : 'lives'} left',
               explanation: _closerExplanation(),
             ),

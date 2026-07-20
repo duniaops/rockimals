@@ -34,6 +34,7 @@ class MemoryStore implements Store {
     this.littleKidsMode = false,
     this.badges = const <String>[],
     this.follows = const <String>[],
+    this.gameTutorialProgress = const <String>[],
   });
 
   @override
@@ -84,6 +85,9 @@ class MemoryStore implements Store {
   @override
   List<String> follows;
 
+  @override
+  List<String> gameTutorialProgress;
+
   // The setters mirror the real store's signatures — `Future<void>`, taking an
   // `Iterable` and snapshotting it — so a caller that awaits them, or hands one
   // a lazy iterable, behaves the same here as against a box.
@@ -133,6 +137,10 @@ class MemoryStore implements Store {
 
   @override
   Future<void> setCachedFeed(String value) async => cachedFeed = value;
+
+  @override
+  Future<void> setGameTutorialProgress(Iterable<String> value) async =>
+      gameTutorialProgress = value.toList(growable: false);
 
   @override
   Future<void> close() async {}

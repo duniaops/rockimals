@@ -31,7 +31,12 @@ import 'package:rockimals/features/rewards/reaction.dart';
 /// by animal *name* and pin the deal by handing the game a sky it can only draw
 /// one pair from, so a seed would be an unused parameter.
 class DuelGame extends ConsumerStatefulWidget {
-  const DuelGame({super.key});
+  const DuelGame({this.practice = false, this.onPracticeComplete, super.key});
+
+  /// A first-launch teaching round: it shows the real answer and feedback but
+  /// cannot change points, records, badges, or the played count.
+  final bool practice;
+  final VoidCallback? onPracticeComplete;
 
   @override
   ConsumerState<DuelGame> createState() => _DuelGameState();
@@ -62,13 +67,15 @@ class _DuelGameState extends ConsumerState<DuelGame> {
   @override
   void initState() {
     super.initState();
-    _best = ref.read(gameActionsProvider).bestDuel;
+    _best = widget.practice ? 0 : ref.read(gameActionsProvider).bestDuel;
     _pair = _deal();
     // `markPlayed()` before the first round, as `startDuel` does
     // (`index.html:1035`). Deferred a frame so the store write cannot run
     // during initialisation.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) unawaited(ref.read(gameActionsProvider).markPlayed());
+      if (mounted && !widget.practice) {
+        unawaited(ref.read(gameActionsProvider).markPlayed());
+      }
     });
   }
 
@@ -87,7 +94,7 @@ class _DuelGameState extends ConsumerState<DuelGame> {
   /// A fresh run — "Play again" is `startDuel` again (`index.html:1030`): the
   /// streak resets to zero and another play is counted.
   void _restart() {
-    unawaited(ref.read(gameActionsProvider).markPlayed());
+    if (!widget.practice) unawaited(ref.read(gameActionsProvider).markPlayed());
     setState(() {
       _streak = 0;
       _lives = 3;
@@ -111,6 +118,10 @@ class _DuelGameState extends ConsumerState<DuelGame> {
   /// child has had time to read why; every earlier answer deals another pair.
   void _finishFeedback() {
     if (_pickedA == null || _over) return;
+    if (widget.practice) {
+      widget.onPracticeComplete?.call();
+      return;
+    }
     if (_lives == 0) {
       setState(() => _over = true);
     } else {
@@ -130,12 +141,14 @@ class _DuelGameState extends ConsumerState<DuelGame> {
 
     if (win) {
       final int streak = _streak + 1;
-      if (streak > _best) {
+      if (!widget.practice && streak > _best) {
         _best = streak;
         unawaited(actions.setBestDuel(streak));
       }
-      unawaited(actions.noteStreak(streak));
-      unawaited(actions.awardPoints(10));
+      if (!widget.practice) {
+        unawaited(actions.noteStreak(streak));
+        unawaited(actions.awardPoints(10));
+      }
       setState(() {
         _streak = streak;
         _pickedA = isA;
@@ -160,7 +173,9 @@ class _DuelGameState extends ConsumerState<DuelGame> {
           : GameFeedback(
               correct: _pickedA == _pair.winnerIsA,
               headline: _pickedA == _pair.winnerIsA
-                  ? '✓ Correct!  +10 ⭐'
+                  ? widget.practice
+                        ? '✓ Great practice!'
+                        : '✓ Correct!  +10 ⭐'
                   : 'So close — $_lives ${_lives == 1 ? 'life' : 'lives'} left',
               explanation: _duelExplanation(),
             ),

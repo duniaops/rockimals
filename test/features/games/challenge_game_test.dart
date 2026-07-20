@@ -15,6 +15,7 @@ import 'package:rockimals/features/settings/calm_motion.dart';
 import 'package:rockimals/features/settings/little_kids_mode.dart';
 import 'package:rockimals/features/settings/sound.dart';
 
+import '../../support/memory_store.dart';
 import '../../support/recording_sound_engine.dart';
 import '../../support/stub_settings.dart';
 
@@ -495,6 +496,7 @@ Future<void> _mountFromHub(
             bestSize: 0,
           ),
         ),
+        storeProvider.overrideWithValue(_completedTutorialStore()),
         soundOnProvider.overrideWith(_StubSound.new),
         // The toggle above is stubbed *on*, so cues get past the gate and reach
         // whatever engine is registered. Without this line that is the real one,
@@ -518,6 +520,16 @@ Future<void> _mountFromHub(
   await tester.tap(find.text('🎮 Play'));
   await tester.pumpAndSettle();
 }
+
+MemoryStore _completedTutorialStore() => MemoryStore(
+  gameTutorialProgress: const <String>[
+    'guide',
+    'daily',
+    'duel',
+    'closer',
+    'match',
+  ],
+);
 
 AsteroidFeed _feed(List<Asteroid> asteroids, List<Asteroid> todayList) {
   return AsteroidFeed(

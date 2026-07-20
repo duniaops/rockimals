@@ -15,6 +15,7 @@ import 'package:rockimals/features/settings/calm_motion.dart';
 import 'package:rockimals/features/settings/little_kids_mode.dart';
 import 'package:rockimals/features/settings/sound.dart';
 
+import '../../support/memory_store.dart';
 import '../../support/recording_sound_engine.dart';
 import '../../support/stub_settings.dart';
 
@@ -353,6 +354,7 @@ void main() {
               bestSize: 0,
             ),
           ),
+          storeProvider.overrideWithValue(_completedTutorialStore()),
           soundOnProvider.overrideWith(_StubSound.new),
           // The avatars resolve 🐢 Calm motion to time their hop, and the real
           // notifier reads the store. Held at "never chose", so these tests
@@ -413,6 +415,16 @@ void main() {
     });
   });
 }
+
+MemoryStore _completedTutorialStore() => MemoryStore(
+  gameTutorialProgress: const <String>[
+    'guide',
+    'daily',
+    'duel',
+    'closer',
+    'match',
+  ],
+);
 
 /// Which rock the deal put on the anchor card, read off the board.
 ///

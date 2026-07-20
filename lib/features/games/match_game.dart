@@ -30,7 +30,10 @@ import 'package:rockimals/features/rewards/reaction.dart';
 /// three option buttons off the board and tapping the one the ladder says is
 /// right, so a seed would be an unused parameter (the challenge suite's rule).
 class MatchGame extends ConsumerStatefulWidget {
-  const MatchGame({super.key});
+  const MatchGame({this.practice = false, this.onPracticeComplete, super.key});
+
+  final bool practice;
+  final VoidCallback? onPracticeComplete;
 
   @override
   ConsumerState<MatchGame> createState() => _MatchGameState();
@@ -62,13 +65,15 @@ class _MatchGameState extends ConsumerState<MatchGame> {
   @override
   void initState() {
     super.initState();
-    _best = ref.read(gameActionsProvider).bestSize;
+    _best = widget.practice ? 0 : ref.read(gameActionsProvider).bestSize;
     _round = dealMatchRound(_sky, _random);
     // `markPlayed()` before the first round, as `startSize` does
     // (`index.html:1088`). Deferred a frame so the store write cannot run
     // during initialisation.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) unawaited(ref.read(gameActionsProvider).markPlayed());
+      if (mounted && !widget.practice) {
+        unawaited(ref.read(gameActionsProvider).markPlayed());
+      }
     });
   }
 
@@ -84,7 +89,7 @@ class _MatchGameState extends ConsumerState<MatchGame> {
   /// round counter and score reset, a new rock is dealt, and another play is
   /// counted.
   void _restart() {
-    unawaited(ref.read(gameActionsProvider).markPlayed());
+    if (!widget.practice) unawaited(ref.read(gameActionsProvider).markPlayed());
     setState(() {
       _question = 1;
       _score = 0;
@@ -103,6 +108,10 @@ class _MatchGameState extends ConsumerState<MatchGame> {
   /// eighth reveal banks nothing, which is the prototype's behaviour too.
   void _advance() {
     if (!mounted) return;
+    if (widget.practice) {
+      widget.onPracticeComplete?.call();
+      return;
+    }
     if (_question >= kMatchRounds) {
       _finish();
       return;
@@ -142,7 +151,7 @@ class _MatchGameState extends ConsumerState<MatchGame> {
     final bool win = _round.isCorrect(option);
     ref.read(gameReactionProvider.notifier).react(correct: win);
 
-    if (win) {
+    if (win && !widget.practice) {
       unawaited(ref.read(gameActionsProvider).awardPoints(10));
     }
     setState(() {
@@ -161,7 +170,9 @@ class _MatchGameState extends ConsumerState<MatchGame> {
           : GameFeedback(
               correct: _round.isCorrect(_picked!),
               headline: _round.isCorrect(_picked!)
-                  ? '✓ Correct!  +10 ⭐'
+                  ? widget.practice
+                        ? '✓ Great practice!'
+                        : '✓ Correct!  +10 ⭐'
                   : 'Good try — the answer is ${_round.answer.species}!',
               explanation: _matchExplanation(),
             ),

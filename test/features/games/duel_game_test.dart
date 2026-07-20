@@ -15,6 +15,7 @@ import 'package:rockimals/features/settings/calm_motion.dart';
 import 'package:rockimals/features/settings/little_kids_mode.dart';
 import 'package:rockimals/features/settings/sound.dart';
 
+import '../../support/memory_store.dart';
 import '../../support/recording_sound_engine.dart';
 import '../../support/stub_settings.dart';
 
@@ -342,6 +343,7 @@ void main() {
               bestSize: 0,
             ),
           ),
+          storeProvider.overrideWithValue(_completedTutorialStore()),
           soundOnProvider.overrideWith(_StubSound.new),
           reducedMotionProvider.overrideWith(StubCalmMotion.new),
           // The hub resolves 🧸 Little Kids mode to pick its card list. Held
@@ -401,6 +403,16 @@ void main() {
     });
   });
 }
+
+MemoryStore _completedTutorialStore() => MemoryStore(
+  gameTutorialProgress: const <String>[
+    'guide',
+    'daily',
+    'duel',
+    'closer',
+    'match',
+  ],
+);
 
 /// Tap something and rebuild — a single `pump`, never `pumpAndSettle`, because
 /// the game leaves a real timer running and settling would advance the clock

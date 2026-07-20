@@ -1,8 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rockimals/core/a11y/tap_target.dart';
+import 'package:rockimals/core/chrome/action_button.dart';
 import 'package:rockimals/core/chrome/obar.dart';
+import 'package:rockimals/core/storage/store.dart';
 import 'package:rockimals/core/theme/palette.dart';
+import 'package:rockimals/features/data/providers.dart';
+import 'package:rockimals/features/games/tutorial/game_tutorial.dart';
 import 'package:rockimals/features/settings/about_block.dart';
 import 'package:rockimals/features/settings/calm_motion.dart';
 import 'package:rockimals/features/settings/little_kids_mode.dart';
@@ -126,6 +132,12 @@ class SettingsScreen extends ConsumerWidget {
                     onChanged: (bool next) =>
                         ref.read(littleKidsModeProvider.notifier).choose(next),
                   ),
+                  const SizedBox(height: 16),
+                  ActionButton(
+                    label: 'Play the game guide again',
+                    ghost: true,
+                    onTap: () => _openGameGuide(context, ref),
+                  ),
                   // A wider gap than the 10px between stacked rows: this is a
                   // change of subject, from switches a grown-up flips to
                   // statements they read.
@@ -138,6 +150,24 @@ class SettingsScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  void _openGameGuide(BuildContext context, WidgetRef ref) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (BuildContext guideContext) => GameTutorialScreen(
+          onFinished: () => unawaited(_finishGameGuide(guideContext, ref)),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _finishGameGuide(BuildContext context, WidgetRef ref) async {
+    final Store store = ref.read(storeProvider);
+    final Set<String> progress = store.gameTutorialProgress.toSet()
+      ..add(kGameGuideProgressToken);
+    await store.setGameTutorialProgress(progress);
+    if (context.mounted) Navigator.of(context).pop();
   }
 }
 

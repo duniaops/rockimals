@@ -51,6 +51,7 @@ void main() {
     test('the collections start empty', () {
       expect(store.badges, isEmpty);
       expect(store.follows, isEmpty);
+      expect(store.gameTutorialProgress, isEmpty);
     });
 
     test('sound starts on — a game that boots silent reads as broken', () {
@@ -139,6 +140,16 @@ void main() {
       expect(reopened.soundOn, isFalse);
       expect(reopened.reducedMotion, isTrue);
       expect(reopened.littleKidsMode, isTrue);
+    });
+
+    test('the game guide and practice completions read back', () async {
+      await store.setGameTutorialProgress(<String>['guide', 'daily', 'duel']);
+
+      expect((await restart()).gameTutorialProgress, <String>[
+        'guide',
+        'daily',
+        'duel',
+      ]);
     });
   });
 

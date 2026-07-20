@@ -203,6 +203,7 @@ void main() {
         await store.setReducedMotion(true);
         await store.setLittleKidsMode(true);
         await store.setCachedFeed('{}');
+        await store.setGameTutorialProgress(<String>['guide', 'duel']);
 
         expect(Hive.box<Object>(Store.boxName).keys.toSet(), <String>{
           // Scores and counters — a number the child earned, about nobody.
@@ -224,6 +225,9 @@ void main() {
           // NASA published to the whole world. Public facts, not private ones.
           'aw_follows',
           'aw_feedcache',
+          // A compact completion ledger for the optional game guide and its
+          // one unscored first round per game. It is teaching progress only.
+          'aw_gameintro',
           // The coarsest date the app can hold: a calendar day, so a streak can
           // be counted. Nothing finer, and nothing that says where or on what.
           'aw_lastplayed',

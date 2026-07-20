@@ -87,6 +87,7 @@ class Store {
   static const String _reducedMotionKey = 'aw_motion';
   static const String _littleKidsModeKey = 'aw_littlekids';
   static const String _cachedFeedKey = 'aw_feedcache';
+  static const String _gameTutorialProgressKey = 'aw_gameintro';
 
   // --- Rewards ---------------------------------------------------------------
 
@@ -279,6 +280,20 @@ class Store {
   String? get cachedFeed => _read<String>(_cachedFeedKey);
 
   Future<void> setCachedFeed(String value) => _box.put(_cachedFeedKey, value);
+
+  // --- Game introduction -----------------------------------------------------
+
+  /// Completed game-guide steps (`aw_gameintro`).
+  ///
+  /// One compact list holds the shared guide token plus the four game practice
+  /// tokens. It records only which parts of Rockimals have been shown, never a
+  /// child's answers, time, or identity. Keeping the related booleans together
+  /// avoids turning a first-run teaching aid into several persistent records.
+  List<String> get gameTutorialProgress =>
+      _readStringList(_gameTutorialProgressKey);
+
+  Future<void> setGameTutorialProgress(Iterable<String> value) =>
+      _box.put(_gameTutorialProgressKey, value.toList(growable: false));
 
   // --- Lifecycle -------------------------------------------------------------
 
