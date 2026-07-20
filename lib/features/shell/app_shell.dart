@@ -104,18 +104,13 @@ class _AppShellState extends ConsumerState<AppShell> {
   }
 }
 
-/// The four tabs, in the prototype's order (`index.html:303-306`).
-///
-/// "Watchlist" is kept verbatim even though `CLAUDE.md:64` rewrites "track" →
-/// "follow": the guardrail is about not sounding like an observatory tracking a
-/// threat, and `specs/08-settings-about.md:41` names this tab Watchlist in the
-/// one place any spec names the nav at all. The *verb* stays "follow"
-/// (`specs/03-meet-animal.md:23`) and the list itself is titled "My Animals"
-/// (`specs/05-rewards-collection.md:36`) — this is only the nav label.
+/// The four tabs, in the prototype's order (`index.html:303-306`). Games v2
+/// Item 1 supersedes the prototype's "Watchlist" label with the friendlier
+/// "My Animals", matching the screen title and the app's follow language.
 const List<_NavTab> _tabs = <_NavTab>[
   _NavTab(emoji: '🛰️', label: 'Radar', body: RadarView()),
   _NavTab(emoji: '🌌', label: 'Sky', body: SkyScreen()),
-  _NavTab(emoji: '⭐', label: 'Watchlist', body: WatchlistScreen()),
+  _NavTab(emoji: '⭐', label: 'My Animals', body: WatchlistScreen()),
   _NavTab(emoji: '👤', label: 'Profile', body: MySpaceZooScreen()),
 ];
 

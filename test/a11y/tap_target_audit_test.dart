@@ -71,7 +71,7 @@ void main() {
         // tap. The other three are reached the way a child reaches them.
         expectEveryTapTargetIsBigEnough(tester, reason: 'Radar tab$at');
 
-        for (final String tab in <String>['Sky', 'Watchlist', 'Profile']) {
+        for (final String tab in <String>['Sky', 'My Animals', 'Profile']) {
           await tester.tap(find.text(tab));
           await tester.pump(const Duration(milliseconds: 100));
           expectEveryTapTargetIsBigEnough(tester, reason: '$tab tab$at');
@@ -174,12 +174,12 @@ void main() {
         scale: worst,
         controlScale: kLittleKidsControlScale,
       );
-      // The Sky and Watchlist tabs are the reason this case is not redundant
+      // The Sky and My Animals tabs are the reason this case is not redundant
       // with the ones above: `AnimalCard` is the shared row the affordance
       // grows, and those two tabs are the only places it renders.
       expectEveryTapTargetIsBigEnough(tester, reason: 'Radar tab, little kids');
 
-      for (final String tab in <String>['Sky', 'Watchlist', 'Profile']) {
+      for (final String tab in <String>['Sky', 'My Animals', 'Profile']) {
         await tester.tap(find.text(tab));
         await tester.pump(const Duration(milliseconds: 100));
         expectEveryTapTargetIsBigEnough(

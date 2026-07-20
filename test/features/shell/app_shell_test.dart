@@ -7,6 +7,7 @@ import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/radar/radar_painter.dart';
 import 'package:rockimals/features/radar/radar_view.dart';
 import 'package:rockimals/features/shell/app_shell.dart';
+import 'package:rockimals/features/watchlist/watchlist_screen.dart';
 
 import '../../support/memory_store.dart';
 
@@ -49,17 +50,15 @@ void main() {
       await tester.pumpWidget(_app());
 
       // Every tab, not a sample: this is the whole of the item's behaviour, and
-      // there are only four. The nav labels are unique strings in the tree — no
-      // body renders a bare "Sky"/"Watchlist"/"Profile" (the tab titles are
-      // "The Sky", "My Animals", and "My Space Zoo") — so these finders hit the
-      // buttons and not the bodies.
+      // there are only four. [_navLabel] scopes the finder to the bottom button
+      // because the My Animals nav label deliberately matches its screen title.
       for (final String label in <String>[
         'Sky',
-        'Watchlist',
+        'My Animals',
         'Profile',
         'Radar',
       ]) {
-        await tester.tap(find.text(label));
+        await tester.tap(_navLabel(label));
         await tester.pump();
 
         expect(_bodyOf(label), findsOneWidget, reason: 'tapped $label');
@@ -75,10 +74,10 @@ void main() {
       // satisfied by a body simply being on screen.
       await tester.pumpWidget(_app());
 
-      await tester.tap(find.text('Watchlist'));
+      await tester.tap(_navLabel('My Animals'));
       await tester.pump();
 
-      expect(_bodyOf('Watchlist'), findsOneWidget);
+      expect(_bodyOf('My Animals'), findsOneWidget);
       for (final String other in <String>['Radar', 'Sky', 'Profile']) {
         expect(_bodyOf(other), findsNothing, reason: other);
       }
@@ -95,7 +94,7 @@ void main() {
       await tester.pump();
 
       expect(_labelColour(tester, 'Profile'), _selected);
-      for (final String other in <String>['Radar', 'Sky', 'Watchlist']) {
+      for (final String other in <String>['Radar', 'Sky', 'My Animals']) {
         expect(_labelColour(tester, other), _idle, reason: other);
       }
     });
@@ -133,24 +132,22 @@ void main() {
       expect(find.byType(RadarView, skipOffstage: false), findsOneWidget);
     });
 
-    testWidgets('labels the four tabs the way the prototype does', (
+    testWidgets('labels the four tabs with the kid-friendly follow language', (
       tester,
     ) async {
-      // `index.html:303-306`, verbatim and in order. "Watchlist" is deliberate
-      // and is the one label worth a test of its own: `CLAUDE.md:64` rewrites
-      // "track" → "follow", so the tempting "fix" here is to rename the tab —
-      // but `specs/08-settings-about.md:41` names it Watchlist in the only
-      // place a spec names the nav at all.
+      // Games v2 Item 1 supersedes the prototype's "Watchlist" label so the
+      // tab and its screen use the same child-facing name.
       await tester.pumpWidget(_app());
 
       for (final String label in <String>[
         'Radar',
         'Sky',
-        'Watchlist',
+        'My Animals',
         'Profile',
       ]) {
-        expect(find.text(label), findsOneWidget, reason: label);
+        expect(_navLabel(label), findsOneWidget, reason: label);
       }
+      expect(find.text('Watchlist'), findsNothing);
       for (final String emoji in <String>['🛰️', '🌌', '⭐', '👤']) {
         expect(find.text(emoji), findsOneWidget, reason: emoji);
       }
@@ -259,21 +256,24 @@ const Color _idle = Color(0xFF93A8CA);
 /// A probe for each tab's *body*, keyed by its nav label — something only that
 /// tab puts on screen. **Every row now points at a real screen**: the Radar row
 /// was repointed when the radar displaced the debug list, the Sky row when the
-/// Sky tab landed, the Watchlist row when My Animals did, and this last one when
+/// Sky tab landed, the My Animals row when that screen did, and this last one when
 /// My Space Zoo replaced the final "… is coming soon" stub. Note each probe is a
-/// tab's `.h-title` — "The Sky", "My Animals", "My Space Zoo" — which
-/// `find.text` matches exactly and so never collides with the bare "Sky" /
-/// "Watchlist" / "Profile" nav labels beside them.
+/// tab's distinctive body widget or title.
 Finder _bodyOf(String label) => switch (label) {
   'Radar' => find.byType(RadarView),
   'Sky' => find.text('The Sky'),
-  'Watchlist' => find.text('My Animals'),
+  'My Animals' => find.byType(WatchlistScreen),
   'Profile' => find.text('My Space Zoo'),
   _ => throw ArgumentError.value(label, 'label', 'not a tab'),
 };
 
+Finder _navLabel(String label) => find.descendant(
+  of: find.ancestor(of: find.text(label), matching: find.byType(InkWell)),
+  matching: find.text(label),
+);
+
 Color? _labelColour(WidgetTester tester, String label) =>
-    tester.widget<Text>(find.text(label)).style?.color;
+    tester.widget<Text>(_navLabel(label)).style?.color;
 
 /// The radii of every circle the radar's canvas draws this frame — Earth, its
 /// breathing glow, the animals, and the planet backdrop's spheres.

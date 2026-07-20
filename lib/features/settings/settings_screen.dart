@@ -13,7 +13,7 @@ import 'package:rockimals/features/settings/sound.dart';
 ///
 /// **It is a pushed route, not a fifth nav tab**, and that is the one rule spec
 /// 08 pins for the whole app (`specs/08-settings-about.md:40-42`): the nav is
-/// fixed at four — Radar / Sky / Watchlist / Profile — and anything that wants a
+/// fixed at four — Radar / Sky / My Animals / Profile — and anything that wants a
 /// home in it later has to displace something. `app_shell.dart` repeats the rule
 /// at the list that would otherwise grow; the entry point is a row at the bottom
 /// of the Profile tab, next door in `my_space_zoo_screen.dart`.

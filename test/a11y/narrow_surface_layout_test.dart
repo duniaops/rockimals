@@ -163,7 +163,7 @@ void main() {
   });
 }
 
-const List<String> _tabs = <String>['Radar', 'Sky', 'Watchlist', 'Profile'];
+const List<String> _tabs = <String>['Radar', 'Sky', 'My Animals', 'Profile'];
 
 /// Exactly four rocks that all render the **same stat line**, so a challenge
 /// card is the same height whichever way the deal falls.

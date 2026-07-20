@@ -107,7 +107,7 @@ void main() {
             follows: const <String>['2004 BL86', '2012 DA14', '99942 Apophis'],
           ),
         );
-        await _openTab(tester, 'Watchlist');
+        await _openTab(tester, 'My Animals');
 
         expect(
           find.textContaining('not following'),
