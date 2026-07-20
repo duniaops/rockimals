@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rockimals/data/models/asteroid.dart';
 import 'package:rockimals/data/models/asteroid_feed.dart';
 import 'package:rockimals/features/data/providers.dart';
+import 'package:rockimals/features/games/games_hub.dart';
 import 'package:rockimals/features/games/games_providers.dart';
 import 'package:rockimals/features/radar/radar_capacity.dart';
 import 'package:rockimals/features/radar/radar_geometry.dart';
@@ -736,9 +737,9 @@ void main() {
       // destination is a stub and this test asserts only the route, not its
       // contents.
       await _mount(tester, _sky(<double>[3]));
-      expect(find.text('🎮 Play · 4 games'), findsOneWidget);
+      expect(find.text('🎮 Play · $gamesHubGameCount games'), findsOneWidget);
 
-      await tester.tap(find.text('🎮 Play · 4 games'));
+      await tester.tap(find.text('🎮 Play · $gamesHubGameCount games'));
       // No `pumpAndSettle`: the radar's ticker never stops scheduling frames, so
       // it would time out. Pump the push transition by hand instead.
       await tester.pump();
@@ -764,7 +765,7 @@ void main() {
 
       // Back on the radar: the hub is gone and the CTA is the only thing left.
       expect(find.text(_hubMarker), findsNothing);
-      expect(find.text('🎮 Play · 4 games'), findsOneWidget);
+      expect(find.text('🎮 Play · $gamesHubGameCount games'), findsOneWidget);
     });
 
     testWidgets('stays put beneath a selected animal, not only the hint', (
@@ -779,9 +780,9 @@ void main() {
       await tester.pump();
       expect(_view(tester).selected, isNotNull, reason: 'the premise');
 
-      expect(find.text('🎮 Play · 4 games'), findsOneWidget);
+      expect(find.text('🎮 Play · $gamesHubGameCount games'), findsOneWidget);
 
-      await tester.tap(find.text('🎮 Play · 4 games'));
+      await tester.tap(find.text('🎮 Play · $gamesHubGameCount games'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 350));
       expect(find.text(_hubMarker), findsOneWidget);

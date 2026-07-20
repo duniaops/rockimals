@@ -173,6 +173,7 @@ class _ChallengeGameState extends ConsumerState<ChallengeGame> {
       // The overlay's own title (`index.html:318`) — not the hub card's
       // "Today's Challenge", which is the card's copy.
       title: 'Daily Challenge',
+      practice: widget.practice,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[

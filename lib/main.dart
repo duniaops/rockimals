@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // `Override` is not exported from the package root — Riverpod 3 parks the types
@@ -142,6 +143,17 @@ class RockimalsApp extends ConsumerWidget {
       },
       child: MaterialApp(
         title: 'Rockimals',
+        // **Every pointer a child (or a parent at a desk) might hold.** The
+        // default [MaterialScrollBehavior] only lets touch and stylus *drag* a
+        // scrollable, which is right on a phone and wrong everywhere the web
+        // build runs: on the demo site a mouse user could see the Play hub's
+        // "scroll down to explore" cue and still not reach the Build section,
+        // because neither dragging nor (through some embedders) the wheel moved
+        // the list. One behaviour at the root rather than per-screen
+        // `ScrollConfiguration`s, for the reason the control scale is injected
+        // once above: a scrollable added next month must not be able to forget
+        // it.
+        scrollBehavior: const AppScrollBehavior(),
         theme: ThemeData(
           // `flutter create` seeded this with `#5B7CFA`, a blue that appears
           // nowhere in the prototype. The seed is now `--accent`, and the reason
@@ -204,4 +216,23 @@ class RockimalsApp extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// [MaterialScrollBehavior] with every drag-capable pointer enabled, so the
+/// same build scrolls by finger on a phone and by mouse or trackpad on the web
+/// demo. See the `scrollBehavior:` line in [RockimalsApp] for why this exists;
+/// public (rather than `_AppScrollBehavior`) so `app_test.dart` can pin the
+/// mouse into [dragDevices] and keep the web demo scrollable from a test.
+class AppScrollBehavior extends MaterialScrollBehavior {
+  const AppScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => <PointerDeviceKind>{
+    PointerDeviceKind.touch,
+    PointerDeviceKind.stylus,
+    PointerDeviceKind.invertedStylus,
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.trackpad,
+    PointerDeviceKind.unknown,
+  };
 }

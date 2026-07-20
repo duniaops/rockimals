@@ -1015,7 +1015,7 @@ class _PlayCta extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: 'Play, 4 games',
+      label: 'Play, $gamesHubGameCount games',
       child: DecoratedBox(
         decoration: BoxDecoration(
           // `linear-gradient(180deg, var(--accent2), var(--accent))`
@@ -1046,19 +1046,22 @@ class _PlayCta extends StatelessWidget {
             // reason: this button's fill is the whole shape a child aims at, so
             // there is nothing to keep small — growing it to 48 is growing the
             // button, and the extra 5dp is invisible against a 366dp bar.
-            child: const TapTarget(
+            child: TapTarget(
               child: Padding(
                 // `padding:14px` (`index.html:52`). The enclosing [Positioned]
                 // gives the button its full width, so the padded [Text] receives
                 // a tight width and `textAlign` centres it — no [Center]
                 // wrapper, which an unbounded-height [Positioned] child would
                 // over-run.
-                padding: EdgeInsets.all(14),
+                padding: const EdgeInsets.all(14),
                 child: ExcludeSemantics(
                   child: Text(
-                    '🎮 Play · 4 games',
+                    // The count comes from the hub's game list, not a literal —
+                    // this string once said "4 games" for a day after Games v2
+                    // made it ten. See [gamesHubGameCount].
+                    '🎮 Play · $gamesHubGameCount games',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       // `.btn` — `color:#1a0d05`, `font-weight:800`,
                       // `letter-spacing:.3px`, `font-size:15px`
                       // (`index.html:51-52`).

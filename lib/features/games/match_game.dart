@@ -165,6 +165,7 @@ class _MatchGameState extends ConsumerState<MatchGame> {
     return GameShell(
       // The overlay title `startSize` sets (`index.html:1088`).
       title: '🐾 Animal Match',
+      practice: widget.practice,
       feedback: _over || _picked == null
           ? null
           : GameFeedback(

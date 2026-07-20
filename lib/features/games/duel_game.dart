@@ -167,6 +167,7 @@ class _DuelGameState extends ConsumerState<DuelGame> {
     return GameShell(
       // The overlay title `startDuel` sets (`index.html:1035`).
       title: '⚔️ Power Duel',
+      practice: widget.practice,
       lives: _over ? null : _lives,
       feedback: _over || _pickedA == null
           ? null

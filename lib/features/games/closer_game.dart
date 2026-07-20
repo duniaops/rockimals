@@ -172,6 +172,7 @@ class _CloserGameState extends ConsumerState<CloserGame> {
     return GameShell(
       // The overlay title `startCloser` sets (`index.html:1061`).
       title: '📏 Closer or Farther',
+      practice: widget.practice,
       lives: _over ? null : _lives,
       feedback: _over || _guessedCloser == null
           ? null

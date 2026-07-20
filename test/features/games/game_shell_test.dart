@@ -645,6 +645,38 @@ void main() {
       expect(find.bySemanticsLabel('2 of 3 lives remaining'), findsOneWidget);
     });
 
+    testWidgets('the practice banner marks an unscored round, and only one', (
+      WidgetTester tester,
+    ) async {
+      // The scoring side of practice always knew (a practice run skips
+      // `markPlayed`, points, and bests); this pins the *screen* side, which
+      // used to look identical to real play — lives ticking, score bar up —
+      // with nothing telling a child that this round is not being counted.
+      Widget shellWith({required bool practice}) => ProviderScope(
+        child: MaterialApp(
+          home: GameShell(
+            title: '🎮 Test Game',
+            practice: practice,
+            body: const Text('Round'),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(shellWith(practice: true));
+      expect(
+        find.text('🎓 Practice round — just for learning, no points yet!'),
+        findsOneWidget,
+      );
+
+      // And only the practice round: the same shell without the flag — i.e.
+      // every real run — must not wear it.
+      await tester.pumpWidget(shellWith(practice: false));
+      expect(
+        find.text('🎓 Practice round — just for learning, no points yet!'),
+        findsNothing,
+      );
+    });
+
     testWidgets('feedback Next advances once and cancels its fallback', (
       WidgetTester tester,
     ) async {

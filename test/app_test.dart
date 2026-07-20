@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
@@ -121,6 +122,48 @@ void main() {
       // this colour is on screen today — it is not housekeeping for later.
       final ThemeData theme = await themeOf(tester);
       expect(theme.scaffoldBackgroundColor, Palette.pageBackground);
+    });
+  });
+
+  // The scroll behaviour is a decision for the same reason the theme is. The
+  // default [MaterialScrollBehavior] only drags with touch and stylus — right
+  // on a phone, wrong on the hosted web demo, where a mouse user could read
+  // the Play hub's "scroll down to explore" cue and still not reach the Build
+  // section below the fold.
+  group('the scroll behaviour admits desk pointers', () {
+    test('mouse and trackpad can drag a scrollable', () {
+      expect(
+        const AppScrollBehavior().dragDevices,
+        containsAll(<PointerDeviceKind>[
+          PointerDeviceKind.touch,
+          PointerDeviceKind.mouse,
+          PointerDeviceKind.trackpad,
+        ]),
+      );
+    });
+
+    testWidgets('and it is the behaviour the app actually mounts', (
+      tester,
+    ) async {
+      // Pinning the class on the [MaterialApp] is what keeps the fix wired:
+      // the set above could be perfect and still help nobody if the app never
+      // handed it to its scrollables.
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            storeProvider.overrideWithValue(MemoryStore()),
+            asteroidFeedProvider.overrideWith(
+              (Ref ref) => Completer<AsteroidFeed>().future,
+            ),
+          ],
+          child: const RockimalsApp(),
+        ),
+      );
+
+      expect(
+        tester.widget<MaterialApp>(find.byType(MaterialApp)).scrollBehavior,
+        isA<AppScrollBehavior>(),
+      );
     });
   });
 

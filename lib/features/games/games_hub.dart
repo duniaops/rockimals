@@ -20,6 +20,15 @@ import 'package:rockimals/features/games/zoo_memory_screen.dart';
 import 'package:rockimals/features/settings/little_kids_mode.dart';
 import 'package:rockimals/features/settings/sound.dart';
 
+/// How many games the Play hub offers.
+///
+/// Derived from [_GameId] rather than written as a number so every surface
+/// that quotes the count — the radar's Play CTA and the hub's own scroll cue —
+/// moves the moment a game lands or leaves: adding an id *is* updating the
+/// copy. The radar shipped saying "4 games" for a day after Games v2 made it
+/// ten, which is exactly the drift a hand-maintained literal invites.
+int get gamesHubGameCount => _GameId.values.length;
+
 /// The Play hub — a port of the prototype's `openGames` (`index.html:1002-1021`),
 /// the screen the radar's "🎮 Play" CTA opens.
 ///
@@ -221,11 +230,11 @@ class GamesHub extends ConsumerWidget {
                   // easy-to-hit layout. On a short phone the lower cards sit
                   // below the fold, so say both how many there are and how to
                   // reach them before the first card begins.
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 12),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
                     child: Text(
-                      '10 games · Scroll down to explore ↓',
-                      style: TextStyle(
+                      '$gamesHubGameCount games · Scroll down to explore ↓',
+                      style: const TextStyle(
                         color: Palette.muted,
                         fontSize: 13,
                         fontWeight: FontWeight.w700,

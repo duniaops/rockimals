@@ -461,6 +461,7 @@ class GameShell extends ConsumerStatefulWidget {
     this.lives,
     this.feedback,
     this.onNext,
+    this.practice = false,
     super.key,
   }) : assert(feedback == null || onNext != null);
 
@@ -469,6 +470,17 @@ class GameShell extends ConsumerStatefulWidget {
 
   /// The game's current screen — a round or the end panel.
   final Widget body;
+
+  /// Whether this run is the tutorial gate's one unscored practice round.
+  ///
+  /// The scoring already knew (`DuelGame.practice` and friends skip
+  /// `markPlayed`, points, and bests) but the *screen* did not: a practice
+  /// round looked identical to real play — lives ticking, score bar up — so a
+  /// child had no way to tell nothing was being counted yet. When true the
+  /// shell pins [GamePracticeBanner] above the round. Here rather than in each
+  /// game, per design rule 8 (`docs/GAMES_V2_SPEC.md`): shared presentation
+  /// lives in the shell once.
+  final bool practice;
 
   /// Remaining chances for the current run. Null means this game does not use
   /// lives (or is already showing its end panel).
@@ -600,6 +612,7 @@ class _GameShellState extends ConsumerState<GameShell> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
+                  if (widget.practice) const GamePracticeBanner(),
                   if (widget.lives case final int lives)
                     GameLivesIndicator(lives: lives),
                   widget.body,
@@ -613,6 +626,43 @@ class _GameShellState extends ConsumerState<GameShell> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The visible marker of an unscored round ([GameShell.practice]): a soft
+/// accent-tinted strip above the round saying, in words a six-year-old and a
+/// screen reader both get, that this one is just for learning. The emoji is
+/// decoration and the sentence carries the meaning, the same rule the radar's
+/// CTA and the nav follow ("no essential control may rely on an emoji glyph
+/// alone", `docs/GAMES_V2_SPEC.md` item 1).
+class GamePracticeBanner extends StatelessWidget {
+  const GamePracticeBanner({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Palette.accent.withValues(alpha: 0.12),
+          borderRadius: const BorderRadius.all(Radius.circular(12)),
+          border: Border.all(color: Palette.accent.withValues(alpha: 0.45)),
+        ),
+        child: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Text(
+            '🎓 Practice round — just for learning, no points yet!',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Palette.ink,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              height: 1.3,
+            ),
+          ),
+        ),
       ),
     );
   }
