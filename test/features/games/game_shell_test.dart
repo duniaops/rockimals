@@ -780,6 +780,71 @@ void main() {
 
       expect(container.read(gameRoundTimerPausedProvider), isFalse);
     });
+
+    testWidgets('disposing active feedback clears the round-timer pause', (
+      WidgetTester tester,
+    ) async {
+      final ProviderContainer container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: GameShell(
+              title: '🎮 Test Game',
+              body: const Text('Round'),
+              feedback: const GameFeedback(
+                correct: true,
+                headline: 'Great flying!',
+                explanation: 'Nova wins — she passed closer.',
+              ),
+              onNext: () {},
+            ),
+          ),
+        ),
+      );
+
+      expect(container.read(gameRoundTimerPausedProvider), isTrue);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: SizedBox.shrink()),
+        ),
+      );
+
+      expect(container.read(gameRoundTimerPausedProvider), isFalse);
+      expect(
+        container.read(gameRoundTimerPauseReasonsProvider),
+        isNot(contains(GameRoundTimerPauseReason.feedback)),
+      );
+    });
+
+    testWidgets('disposing feedback with its provider scope is safe', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: GameShell(
+              title: '🎮 Test Game',
+              body: const Text('Round'),
+              feedback: const GameFeedback(
+                correct: true,
+                headline: 'Great flying!',
+                explanation: 'Nova wins — she passed closer.',
+              ),
+              onNext: () {},
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+
+      expect(tester.takeException(), isNull);
+    });
   });
 }
 

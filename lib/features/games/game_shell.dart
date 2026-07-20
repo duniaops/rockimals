@@ -489,12 +489,14 @@ class GameShell extends ConsumerStatefulWidget {
 class _GameShellState extends ConsumerState<GameShell> {
   Timer? _feedbackTimer;
   late final GameRoundTimerPauseNotifier _roundTimerPause;
+  late final ProviderContainer _providerContainer;
   int _pausePublishGeneration = 0;
   bool _advanced = false;
 
   @override
   void initState() {
     super.initState();
+    _providerContainer = ProviderScope.containerOf(context, listen: false);
     _roundTimerPause = ref.read(gameRoundTimerPauseReasonsProvider.notifier);
     _scheduleFeedbackAdvance();
     _syncFeedbackTimerPause();
@@ -515,10 +517,23 @@ class _GameShellState extends ConsumerState<GameShell> {
   @override
   void dispose() {
     _feedbackTimer?.cancel();
-    // Invalidate any queued publication. A provider scope can disappear in the
-    // same frame as this shell, in which case publishing after the frame would
-    // be a write into a disposed container.
+    // Invalidate any queued publication before releasing this shell's pause.
     _pausePublishGeneration++;
+    // Riverpod rejects provider writes while Flutter is disposing the widget
+    // tree, so clear after the frame. The scope may be leaving with the shell;
+    // in that case there is no shared state left to clean up.
+    WidgetsBinding.instance.addPostFrameCallback((Duration _) {
+      GameRoundTimerPauseNotifier pause;
+      try {
+        pause = _providerContainer.read(
+          gameRoundTimerPauseReasonsProvider.notifier,
+        );
+      } on StateError {
+        // ProviderScope may already have disposed its container with the shell.
+        return;
+      }
+      pause.setPaused(GameRoundTimerPauseReason.feedback, false);
+    });
     super.dispose();
   }
 
@@ -526,10 +541,10 @@ class _GameShellState extends ConsumerState<GameShell> {
       _setRoundTimerPaused(widget.feedback != null);
 
   void _setRoundTimerPaused(bool paused) {
-    // `initState`, `didUpdateWidget`, and `dispose` all run while Flutter is
-    // updating its element tree. Riverpod deliberately rejects provider writes
-    // there, so publish after that frame instead. If feedback changes more than
-    // once in a frame, callbacks keep their order and the final value wins.
+    // `initState` and `didUpdateWidget` run while Flutter is updating its
+    // element tree. Riverpod deliberately rejects provider writes there, so
+    // publish after that frame instead. If feedback changes more than once in a
+    // frame, callbacks keep their order and the final value wins.
     final int generation = ++_pausePublishGeneration;
     WidgetsBinding.instance.addPostFrameCallback((Duration _) {
       if (!mounted || generation != _pausePublishGeneration) return;
