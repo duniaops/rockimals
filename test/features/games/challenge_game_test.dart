@@ -191,7 +191,11 @@ void main() {
       await tester.tap(find.text('Reveal the truth'));
       await tester.pumpAndSettle();
 
-      expect(find.text('🎯 Amazing! — 100% right · +100 ⭐'), findsOneWidget);
+      expect(find.text('🎯 Amazing! · +100 ⭐'), findsOneWidget);
+      expect(
+        find.text('Order accuracy: 100% · Exact positions: 4/4'),
+        findsOneWidget,
+      );
       // 4 exact placements (60) plus the flawless-order bonus (40).
       expect(actions.awarded, <int>[100]);
       expect(reactions, <bool>[true]);
@@ -224,8 +228,9 @@ void main() {
       await tester.pumpAndSettle();
 
       // Never harsh, even at 0% (`CLAUDE.md:70`).
+      expect(find.text('Good try — keep going! · +0 ⭐'), findsOneWidget);
       expect(
-        find.text('Good try — keep going! — 0% right · +0 ⭐'),
+        find.text('Order accuracy: 0% · Exact positions: 0/4'),
         findsOneWidget,
       );
       expect(reactions, <bool>[false]);
@@ -245,7 +250,7 @@ void main() {
       await _tapCard(tester, perfectOrder[0]);
 
       // The banner is still the result, not a ranking count.
-      expect(find.text('🎯 Amazing! — 100% right · +100 ⭐'), findsOneWidget);
+      expect(find.text('🎯 Amazing! · +100 ⭐'), findsOneWidget);
     });
   });
 

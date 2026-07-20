@@ -65,17 +65,25 @@ class ChallengeGrade {
   /// (`CLAUDE.md:70`, wrong answers are never harsh).
   bool get isWin => accuracy >= 60;
 
-  /// The banner shown under the grid (`index.html:944-945`), e.g.
-  /// `🎯 Amazing! — 83% right · +30 ⭐`. Three tiers of praise, none of which is
-  /// a telling-off: the bottom one is "Good try — keep going!".
+  /// The praise and points line shown under the grid. Three tiers of praise,
+  /// none of which is a telling-off: the bottom one is
+  /// "Good try — keep going!".
   String get banner {
     final String praise = accuracy >= 80
         ? '🎯 Amazing!'
         : accuracy >= 60
         ? '✓ Nice job!'
         : 'Good try — keep going!';
-    return '$praise — $accuracy% right · +$gain ⭐';
+    return '$praise · +$gain ⭐';
   }
+
+  /// The two different measures behind a Daily Challenge result. Pairwise
+  /// order accuracy rewards a nearly-right ranking; exact positions count only
+  /// cards in their true slots. Keeping their labels together makes it clear
+  /// why a child can earn points without a perfect order.
+  String get measures =>
+      'Order accuracy: $accuracy% · '
+      'Exact positions: $exactlyCorrect/${truthRank.length}';
 }
 
 /// The card indices ordered strongest [power] first — the answer the child is

@@ -154,7 +154,9 @@ class _ChallengeGameState extends ConsumerState<ChallengeGame> {
             ),
           ),
           _ChallengeBanner(
-            text: grade?.banner ?? '${_picks.length}/${_cards.length} ranked',
+            headline:
+                grade?.banner ?? '${_picks.length}/${_cards.length} ranked',
+            measures: grade?.measures,
             // `.banner.correct` / `.banner.wrong` (`index.html:161`); plain ink
             // while the round is still being ranked.
             color: grade == null
@@ -536,24 +538,31 @@ class _ChallengeAvatar extends StatelessWidget {
   }
 }
 
-/// The line under the grid (`.banner`, `index.html:160-161`): the ranking
-/// progress while playing, the result once revealed.
+/// The result beneath the grid: ranking progress while playing, then praise,
+/// points, and both grading measures once revealed.
 class _ChallengeBanner extends StatelessWidget {
-  const _ChallengeBanner({required this.text, required this.color});
+  const _ChallengeBanner({
+    required this.headline,
+    required this.measures,
+    required this.color,
+  });
 
-  final String text;
+  final String headline;
+  final String? measures;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      // `.banner{margin:12px 0;min-height:22px}`.
+      // `.banner{margin:12px 0;min-height:22px}`. Results get an additional
+      // explanatory line so pairwise order accuracy cannot be mistaken for
+      // exact slots.
       padding: const EdgeInsets.symmetric(vertical: 12),
-      child: SizedBox(
-        height: 22,
-        child: Center(
-          child: Text(
-            text,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Text(
+            headline,
             textAlign: TextAlign.center,
             style: TextStyle(
               color: color,
@@ -562,7 +571,20 @@ class _ChallengeBanner extends StatelessWidget {
               height: 1,
             ),
           ),
-        ),
+          if (measures != null) ...<Widget>[
+            const SizedBox(height: 5),
+            Text(
+              measures!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Palette.muted,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                height: 1.25,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

@@ -128,7 +128,8 @@ void main() {
         // flawless order (`index.html:941`).
         expect(grade.gain, 100);
         expect(grade.isWin, isTrue);
-        expect(grade.banner, '🎯 Amazing! — 100% right · +100 ⭐');
+        expect(grade.banner, '🎯 Amazing! · +100 ⭐');
+        expect(grade.measures, 'Order accuracy: 100% · Exact positions: 4/4');
         // Truth rank is per *card*, not per pick: card 0 (strong) is really #2.
         expect(grade.truthRank, <int>[1, 3, 0, 2]);
       },
@@ -147,7 +148,8 @@ void main() {
       expect(grade.gain, 0);
       expect(grade.isWin, isFalse);
       // Even a total miss is encouragement, never a telling-off (`CLAUDE.md:70`).
-      expect(grade.banner, 'Good try — keep going! — 0% right · +0 ⭐');
+      expect(grade.banner, 'Good try — keep going! · +0 ⭐');
+      expect(grade.measures, 'Order accuracy: 0% · Exact positions: 0/4');
     });
 
     test('one adjacent swap: 5 of 6 pairs right (83%) but only 2 cards in '
@@ -166,7 +168,8 @@ void main() {
       // 83% is "Amazing!" — and still no 40-point bonus, because that needs a
       // flawless 100.
       expect(grade.isWin, isTrue);
-      expect(grade.banner, '🎯 Amazing! — 83% right · +30 ⭐');
+      expect(grade.banner, '🎯 Amazing! · +30 ⭐');
+      expect(grade.measures, 'Order accuracy: 83% · Exact positions: 2/4');
     });
 
     test('demoting the strongest two places: 67% is a "Nice job!" win worth '
@@ -182,7 +185,8 @@ void main() {
       expect(grade.accuracy, 67);
       expect(grade.exactlyCorrect, 1);
       expect(grade.gain, 15);
-      expect(grade.banner, '✓ Nice job! — 67% right · +15 ⭐');
+      expect(grade.banner, '✓ Nice job! · +15 ⭐');
+      expect(grade.measures, 'Order accuracy: 67% · Exact positions: 1/4');
     });
 
     test('50% falls just under the win line and stays encouraging', () {
