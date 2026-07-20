@@ -13,6 +13,7 @@ import 'package:rockimals/features/games/games_providers.dart';
 import 'package:rockimals/features/games/match_game.dart';
 import 'package:rockimals/features/games/moon_lanes_screen.dart';
 import 'package:rockimals/features/games/safari_game.dart';
+import 'package:rockimals/features/games/size_stack_screen.dart';
 import 'package:rockimals/features/games/tutorial/game_tutorial.dart';
 import 'package:rockimals/features/settings/little_kids_mode.dart';
 import 'package:rockimals/features/settings/sound.dart';
@@ -100,6 +101,14 @@ class GamesHub extends ConsumerWidget {
             'Tap the camera window as an animal flies by at real-speed-inspired pace.',
         badge: 'Speed',
       ),
+      const _GameCard(
+        id: _GameId.sizeStack,
+        icon: '🧱',
+        title: 'Size Stack',
+        description:
+            'Build a steady tower with the biggest real space animals at the bottom.',
+        badge: 'Build',
+      ),
     ];
 
     // 🧸 Little Kids mode offers the two simplest games only
@@ -186,7 +195,7 @@ class GamesHub extends ConsumerWidget {
                   const Padding(
                     padding: EdgeInsets.only(bottom: 12),
                     child: Text(
-                      '7 games · Scroll down to explore ↓',
+                      '8 games · Scroll down to explore ↓',
                       style: TextStyle(
                         color: Palette.muted,
                         fontSize: 13,
@@ -279,12 +288,23 @@ class GamesHub extends ConsumerWidget {
         return const MoonLanesScreen();
       case _GameId.flybySnap:
         return const FlybySnapScreen();
+      case _GameId.sizeStack:
+        return const SizeStackScreen();
     }
   }
 }
 
 /// The games, used to key [GamesHub._destinationFor].
-enum _GameId { daily, duel, closer, size, safari, moonLanes, flybySnap }
+enum _GameId {
+  daily,
+  duel,
+  closer,
+  size,
+  safari,
+  moonLanes,
+  flybySnap,
+  sizeStack,
+}
 
 /// One game card's static content plus its live badge string.
 class _GameCard {

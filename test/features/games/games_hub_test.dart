@@ -145,20 +145,20 @@ void main() {
     }
 
     group('the game cards', () {
-      testWidgets(
-        'lists the four original games, Radar Safari, Moon Lanes, and Flyby Snap',
-        (tester) async {
-          await pumpHub(tester);
+      testWidgets('lists the four original games and all four v2 games', (
+        tester,
+      ) async {
+        await pumpHub(tester);
 
-          expect(find.text("Today's Challenge"), findsOneWidget);
-          expect(find.text('Power Duel'), findsOneWidget);
-          expect(find.text('Closer or Farther'), findsOneWidget);
-          expect(find.text('Animal Match'), findsOneWidget);
-          expect(find.text('Radar Safari'), findsOneWidget);
-          expect(find.text('Moon Lanes'), findsOneWidget);
-          expect(find.text('Flyby Snap'), findsOneWidget);
-        },
-      );
+        expect(find.text("Today's Challenge"), findsOneWidget);
+        expect(find.text('Power Duel'), findsOneWidget);
+        expect(find.text('Closer or Farther'), findsOneWidget);
+        expect(find.text('Animal Match'), findsOneWidget);
+        expect(find.text('Radar Safari'), findsOneWidget);
+        expect(find.text('Moon Lanes'), findsOneWidget);
+        expect(find.text('Flyby Snap'), findsOneWidget);
+        expect(find.text('Size Stack'), findsOneWidget);
+      });
 
       testWidgets('shows the points total and each best from storage', (
         tester,
@@ -202,7 +202,7 @@ void main() {
 
         await pumpHub(tester);
 
-        final Finder cue = find.text('7 games · Scroll down to explore ↓');
+        final Finder cue = find.text('8 games · Scroll down to explore ↓');
         final Rect cueRect = tester.getRect(cue);
         expect(cueRect.top, greaterThanOrEqualTo(0));
         expect(cueRect.bottom, lessThanOrEqualTo(568));

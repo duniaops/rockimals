@@ -15,6 +15,7 @@ import 'package:rockimals/features/games/games_hub.dart';
 import 'package:rockimals/features/games/match_game.dart';
 import 'package:rockimals/features/games/moon_lanes_screen.dart';
 import 'package:rockimals/features/games/safari_game.dart';
+import 'package:rockimals/features/games/size_stack_screen.dart';
 import 'package:rockimals/features/radar/radar_geometry.dart';
 import 'package:rockimals/features/radar/radar_painter.dart';
 import 'package:rockimals/features/settings/little_kids_mode.dart';
@@ -134,7 +135,7 @@ void main() {
         expectEveryTapTargetIsBigEnough(tester, reason: 'Settings$at');
       });
 
-      testWidgets('in all seven games$at', (tester) async {
+      testWidgets('in all eight games$at', (tester) async {
         // Every game, not a sample: an answer card is the control a child taps
         // most in the whole app, and the games build theirs separately.
         final Map<String, Widget> games = <String, Widget>{
@@ -145,6 +146,7 @@ void main() {
           'Safari': const SafariGame(),
           'Moon Lanes': const MoonLanesScreen(),
           'Flyby Snap': const FlybySnapScreen(),
+          'Size Stack': const SizeStackScreen(),
         };
 
         for (final MapEntry<String, Widget> game in games.entries) {
