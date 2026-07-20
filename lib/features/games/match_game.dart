@@ -173,7 +173,7 @@ class _MatchGameState extends ConsumerState<MatchGame> {
   Widget _endPanel() {
     final GameActions actions = ref.read(gameActionsProvider);
     return GameOverPanel(
-      // Not "GAME OVER": nobody loses this one, they finish it
+      // Nobody loses this one; they simply finish it
       // (`index.html:1093`).
       title: 'ALL DONE!',
       score: '$_score/$kMatchRounds',

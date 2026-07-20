@@ -235,7 +235,7 @@ void main() {
       expect(_scoreValue(tester, 'STREAK'), '0');
 
       await _tap(tester, 'Next');
-      expect(find.text('GAME OVER'), findsNothing);
+      expect(find.text('What a flight!'), findsNothing);
       expect(find.text(strongName), findsOneWidget);
     });
 
@@ -250,15 +250,15 @@ void main() {
         expect(find.text('So close — 1 life left'), findsOneWidget);
         expect(find.text('1/3'), findsOneWidget);
         await _tap(tester, 'Next');
-        expect(find.text('GAME OVER'), findsNothing);
+        expect(find.text('What a flight!'), findsNothing);
 
         await _tap(tester, weakName);
         expect(find.text('So close — 0 lives left'), findsOneWidget);
         expect(find.text('0/3'), findsOneWidget);
-        expect(find.text('GAME OVER'), findsNothing);
+        expect(find.text('What a flight!'), findsNothing);
 
         await _tap(tester, 'Next');
-        expect(find.text('GAME OVER'), findsOneWidget);
+        expect(find.text('What a flight!'), findsOneWidget);
         expect(find.text('Play again'), findsOneWidget);
         expect(find.text('Back to games'), findsOneWidget);
       },
@@ -279,9 +279,8 @@ void main() {
       }
 
       expect(find.text('0'), findsOneWidget);
-      // `"best streak "+bestDuel+" · ⭐ "+points+" points"`
-      // (`index.html:1055`).
-      expect(find.text('best streak 1 · ⭐ 10 points'), findsOneWidget);
+      expect(find.text('What a flight!'), findsOneWidget);
+      expect(find.text('⭐ 10 points · best streak 1'), findsOneWidget);
     });
 
     testWidgets('publishes a sad reaction on the shared channel', (
@@ -313,7 +312,7 @@ void main() {
 
       // `startDuel` again (`index.html:1030`): the streak is back to zero, the
       // board is back, and the play is counted a second time.
-      expect(find.text('GAME OVER'), findsNothing);
+      expect(find.text('What a flight!'), findsNothing);
       expect(_scoreValue(tester, 'STREAK'), '0');
       // The best it reached survives the reset.
       expect(_scoreValue(tester, 'BEST'), '1');

@@ -691,7 +691,7 @@ class _ScoreCell extends StatelessWidget {
   }
 }
 
-/// The one end screen every game finishes through (`gameOver`,
+/// The one celebratory end screen every game finishes through (`gameOver`,
 /// `index.html:1023-1031`): a spaced [title], the big accent [score], a muted
 /// [subtitle], then **Play again** (which re-runs the game via [onPlayAgain])
 /// and **Back to games** (which pops back to the Play hub).
@@ -707,14 +707,14 @@ class GameOverPanel extends StatelessWidget {
     super.key,
   });
 
-  /// The spaced caption above the score (`GAME OVER`, `ALL DONE!`).
+  /// The spaced celebratory caption above the score.
   final String title;
 
   /// The result, shown huge (`.big2`) — a streak count, an `n/8`, a total.
   /// A string so both a bare number and `6/8` render the same way.
   final String score;
 
-  /// The muted line under it (`best streak 4 · ⭐ 120 points`).
+  /// The muted personal-best and points line under it.
   final String subtitle;
 
   /// Re-run the game (`$("gAgain").onclick=again`, `index.html:1029`) — the

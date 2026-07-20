@@ -172,11 +172,11 @@ class _DuelGameState extends ConsumerState<DuelGame> {
   Widget _endPanel() {
     final GameActions actions = ref.read(gameActionsProvider);
     return GameOverPanel(
-      title: 'GAME OVER',
+      title: 'What a flight!',
       score: '$_streak',
-      // `"best streak "+bestDuel+" · ⭐ "+points+" points"`
-      // (`index.html:1055`) — the run is over, so the totals are read once here.
-      subtitle: 'best streak $_best · ⭐ ${actions.points} points',
+      // The lifetime total and personal best make a gentle, celebratory wrap-up
+      // once a run ends.
+      subtitle: '⭐ ${actions.points} points · best streak $_best',
       onPlayAgain: _restart,
     );
   }

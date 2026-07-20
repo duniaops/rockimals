@@ -236,7 +236,7 @@ void main() {
       expect(reactions, <bool>[true], reason: 'one cheer, no sad follow-up');
 
       await tester.pump(kGameFeedbackAutoAdvanceDelay);
-      expect(find.text('GAME OVER'), findsNothing);
+      expect(find.text('What a flight!'), findsNothing);
 
       await _drain(tester);
     });
@@ -269,7 +269,7 @@ void main() {
         findsOneWidget,
       );
       expect(actions.awarded, isEmpty);
-      expect(find.text('GAME OVER'), findsNothing);
+      expect(find.text('What a flight!'), findsNothing);
       expect(find.text('2/3'), findsOneWidget);
       await _tap(tester, 'Next');
       expect(find.text('Next'), findsNothing);
@@ -291,9 +291,8 @@ void main() {
       }
 
       expect(find.text('0'), findsOneWidget);
-      // `"best streak "+bestCloser+" · ⭐ "+points+" points"`
-      // (`index.html:1080`).
-      expect(find.text('best streak 1 · ⭐ 10 points'), findsOneWidget);
+      expect(find.text('What a flight!'), findsOneWidget);
+      expect(find.text('⭐ 10 points · best streak 1'), findsOneWidget);
     });
 
     testWidgets('publishes a sad reaction on the shared channel', (
@@ -325,7 +324,7 @@ void main() {
 
       // `startCloser` again (`index.html:1080`): the score is back to zero, the
       // board is back, and the play is counted a second time.
-      expect(find.text('GAME OVER'), findsNothing);
+      expect(find.text('What a flight!'), findsNothing);
       expect(_scoreValue(tester, 'STREAK'), '0');
       // The best it reached survives the reset.
       expect(_scoreValue(tester, 'BEST'), '1');
