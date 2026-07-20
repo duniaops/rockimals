@@ -183,6 +183,30 @@ void main() {
         expect(find.text('Best 0'), findsNWidgets(2)); // Duel + Closer
         expect(find.text('Best 0/8'), findsOneWidget); // Animal Match
       });
+
+      testWidgets('cues all four games on a 320 by 568 phone', (tester) async {
+        // The cards are deliberately generous tap targets, so a short phone
+        // cannot show all four without shrinking a child's targets. The cue
+        // must therefore be above the fold and say both the total and how to
+        // reach the rest before the first card starts.
+        tester.view
+          ..physicalSize = const Size(320, 568)
+          ..devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+
+        await pumpHub(tester);
+
+        final Finder cue = find.text('4 games · Scroll down to explore ↓');
+        final Rect cueRect = tester.getRect(cue);
+        expect(cueRect.top, greaterThanOrEqualTo(0));
+        expect(cueRect.bottom, lessThanOrEqualTo(568));
+
+        // It is a real scroll affordance, not copy pointing at a clipped list.
+        final ScrollPosition position = tester
+            .state<ScrollableState>(find.byType(Scrollable))
+            .position;
+        expect(position.maxScrollExtent, greaterThan(0));
+      });
     });
 
     /// `.gcard`'s two branches (`index.html:204-210`).

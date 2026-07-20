@@ -131,6 +131,21 @@ class GamesHub extends ConsumerWidget {
                       ),
                     ),
                   ),
+                  // Four generous game cards deliberately keep their roomy,
+                  // easy-to-hit layout. On a short phone the lower cards sit
+                  // below the fold, so say both how many there are and how to
+                  // reach them before the first card begins.
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      '4 games · Scroll down to explore ↓',
+                      style: TextStyle(
+                        color: Palette.muted,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
                   for (final _GameCard card in cards)
                     if (!simplestOnly || card.simplest)
                       _GameCardTile(
