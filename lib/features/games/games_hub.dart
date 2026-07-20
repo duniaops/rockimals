@@ -8,6 +8,7 @@ import 'package:rockimals/core/theme/palette.dart';
 import 'package:rockimals/features/games/challenge_game.dart';
 import 'package:rockimals/features/games/closer_game.dart';
 import 'package:rockimals/features/games/duel_game.dart';
+import 'package:rockimals/features/games/flyby_snap_screen.dart';
 import 'package:rockimals/features/games/games_providers.dart';
 import 'package:rockimals/features/games/match_game.dart';
 import 'package:rockimals/features/games/moon_lanes_screen.dart';
@@ -90,6 +91,14 @@ class GamesHub extends ConsumerWidget {
         description:
             'Drag space animals into lanes by their real Moon-distance flyby.',
         badge: 'Sort',
+      ),
+      const _GameCard(
+        id: _GameId.flybySnap,
+        icon: '📸',
+        title: 'Flyby Snap',
+        description:
+            'Tap the camera window as an animal flies by at real-speed-inspired pace.',
+        badge: 'Speed',
       ),
     ];
 
@@ -177,7 +186,7 @@ class GamesHub extends ConsumerWidget {
                   const Padding(
                     padding: EdgeInsets.only(bottom: 12),
                     child: Text(
-                      '6 games · Scroll down to explore ↓',
+                      '7 games · Scroll down to explore ↓',
                       style: TextStyle(
                         color: Palette.muted,
                         fontSize: 13,
@@ -268,12 +277,14 @@ class GamesHub extends ConsumerWidget {
         return const SafariGame();
       case _GameId.moonLanes:
         return const MoonLanesScreen();
+      case _GameId.flybySnap:
+        return const FlybySnapScreen();
     }
   }
 }
 
 /// The games, used to key [GamesHub._destinationFor].
-enum _GameId { daily, duel, closer, size, safari, moonLanes }
+enum _GameId { daily, duel, closer, size, safari, moonLanes, flybySnap }
 
 /// One game card's static content plus its live badge string.
 class _GameCard {
