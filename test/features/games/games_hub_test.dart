@@ -145,17 +145,19 @@ void main() {
     }
 
     group('the game cards', () {
-      testWidgets('lists the four original games and Radar Safari', (
-        tester,
-      ) async {
-        await pumpHub(tester);
+      testWidgets(
+        'lists the four original games, Radar Safari, and Moon Lanes',
+        (tester) async {
+          await pumpHub(tester);
 
-        expect(find.text("Today's Challenge"), findsOneWidget);
-        expect(find.text('Power Duel'), findsOneWidget);
-        expect(find.text('Closer or Farther'), findsOneWidget);
-        expect(find.text('Animal Match'), findsOneWidget);
-        expect(find.text('Radar Safari'), findsOneWidget);
-      });
+          expect(find.text("Today's Challenge"), findsOneWidget);
+          expect(find.text('Power Duel'), findsOneWidget);
+          expect(find.text('Closer or Farther'), findsOneWidget);
+          expect(find.text('Animal Match'), findsOneWidget);
+          expect(find.text('Radar Safari'), findsOneWidget);
+          expect(find.text('Moon Lanes'), findsOneWidget);
+        },
+      );
 
       testWidgets('shows the points total and each best from storage', (
         tester,
@@ -187,7 +189,7 @@ void main() {
         expect(find.text('Best 0/8'), findsOneWidget); // Animal Match
       });
 
-      testWidgets('cues all five games on a 320 by 568 phone', (tester) async {
+      testWidgets('cues all six games on a 320 by 568 phone', (tester) async {
         // The cards are deliberately generous tap targets, so a short phone
         // cannot show all five without shrinking a child's targets. The cue
         // must therefore be above the fold and say both the total and how to
@@ -199,7 +201,7 @@ void main() {
 
         await pumpHub(tester);
 
-        final Finder cue = find.text('5 games · Scroll down to explore ↓');
+        final Finder cue = find.text('6 games · Scroll down to explore ↓');
         final Rect cueRect = tester.getRect(cue);
         expect(cueRect.top, greaterThanOrEqualTo(0));
         expect(cueRect.bottom, lessThanOrEqualTo(568));

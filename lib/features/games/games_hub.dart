@@ -10,6 +10,7 @@ import 'package:rockimals/features/games/closer_game.dart';
 import 'package:rockimals/features/games/duel_game.dart';
 import 'package:rockimals/features/games/games_providers.dart';
 import 'package:rockimals/features/games/match_game.dart';
+import 'package:rockimals/features/games/moon_lanes_screen.dart';
 import 'package:rockimals/features/games/safari_game.dart';
 import 'package:rockimals/features/games/tutorial/game_tutorial.dart';
 import 'package:rockimals/features/settings/little_kids_mode.dart';
@@ -81,6 +82,14 @@ class GamesHub extends ConsumerWidget {
         description:
             'Follow real space clues and find the right animal on the live radar.',
         badge: 'Explore',
+      ),
+      const _GameCard(
+        id: _GameId.moonLanes,
+        icon: '🌙',
+        title: 'Moon Lanes',
+        description:
+            'Drag space animals into lanes by their real Moon-distance flyby.',
+        badge: 'Sort',
       ),
     ];
 
@@ -168,7 +177,7 @@ class GamesHub extends ConsumerWidget {
                   const Padding(
                     padding: EdgeInsets.only(bottom: 12),
                     child: Text(
-                      '5 games · Scroll down to explore ↓',
+                      '6 games · Scroll down to explore ↓',
                       style: TextStyle(
                         color: Palette.muted,
                         fontSize: 13,
@@ -257,12 +266,14 @@ class GamesHub extends ConsumerWidget {
         );
       case _GameId.safari:
         return const SafariGame();
+      case _GameId.moonLanes:
+        return const MoonLanesScreen();
     }
   }
 }
 
 /// The games, used to key [GamesHub._destinationFor].
-enum _GameId { daily, duel, closer, size, safari }
+enum _GameId { daily, duel, closer, size, safari, moonLanes }
 
 /// One game card's static content plus its live badge string.
 class _GameCard {
