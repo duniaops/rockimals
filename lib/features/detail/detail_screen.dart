@@ -185,19 +185,14 @@ class _StatTiles extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // `How wide` is the range, not a scalar (decision 11, `index.html:575`): the
-    // model's only `diaMin` read. `How fast` keeps one decimal (`toFixed(1)`,
-    // `index.html:576`) — the detail screen's precision, distinct from the card
-    // meta's whole-number speed. `How close` and `Power ⭐` read straight through
-    // the AnimalSystem.
+    // model's only `diaMin` read. `How fast`, `How close`, and `Power ⭐` read
+    // through the AnimalSystem so every kid-facing surface uses the same words.
     final List<_Tile> tiles = <_Tile>[
       _Tile(
         label: 'How wide',
         value: '${asteroid.diaMin.round()}–${asteroid.diaMax.round()} m',
       ),
-      _Tile(
-        label: 'How fast',
-        value: '${asteroid.velKps.toStringAsFixed(1)} km/s',
-      ),
+      _Tile(label: 'How fast', value: speedLabel(asteroid.velKps)),
       _Tile(label: 'How close', value: distLabel(asteroid.missLunar)),
       _Tile(
         label: 'Power ⭐',

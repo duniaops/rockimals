@@ -43,7 +43,7 @@ void main() {
     // the card's *formatting* (order, glue, which function) and not the maths
     // that animal_system_test owns. For 2026 AB (100 m, 2.0 Moons, 12 km/s)
     // that line reads: "plane-sized · 100 m wide · comes 2.0× Moon · zooms
-    // 12.0 km/s · power ⭐ 83".
+    // 12 km/s · power ⭐ 83".
     expect(find.text(_name), findsOneWidget);
     expect(find.text(flybyTag(_rock).label), findsOneWidget); // "just passing"
     expect(find.text(_statLine), findsOneWidget);
@@ -245,7 +245,7 @@ String get _name => '${critter(_rock).animal.emoji} ${critter(_rock).name}';
 String get _statLine =>
     '${sizeLabel(_rock.diaMax)} · ${_rock.diaMax.round()} m wide'
     ' · comes ${distLabel(_rock.missLunar)}'
-    ' · zooms ${_rock.velKps.toStringAsFixed(1)} km/s'
+    ' · zooms ${speedLabel(_rock.velKps)}'
     ' · power ⭐ ${powerStars(_rock)}';
 
 /// A follow set held in memory, [followed] to start with. Overrides [toggle] so

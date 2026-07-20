@@ -326,7 +326,7 @@ class _DuelCard extends StatelessWidget {
     // differently from the card that opened the animal.
     final String size = sizeLabel(asteroid.diaMax);
     final String journey =
-        '${distLabel(asteroid.missLunar)} · ${asteroid.velKps.round()} km/s';
+        '${distLabel(asteroid.missLunar)} · ${speedLabel(asteroid.velKps)}';
     final String powerLine = 'power ⭐ ${powerStars(asteroid)}';
 
     final Widget card = Material(

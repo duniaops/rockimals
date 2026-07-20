@@ -40,7 +40,7 @@ void main() {
     '2020 AAA',
     diaMax: 3000,
     missLunar: 0.3,
-    velKps: 30,
+    velKps: 15.9,
   );
   final Asteroid weak = _rock('2020 DDD', diaMax: 5, missLunar: 40, velKps: 6);
   final List<Asteroid> sky = <Asteroid>[strong, weak];
@@ -68,6 +68,7 @@ void main() {
       expect(find.text(strongName), findsOneWidget);
       expect(find.text(weakName), findsOneWidget);
       expect(_scoreValue(tester, 'STREAK'), '0');
+      expect(find.textContaining('30% to Moon · 16 km/s'), findsOneWidget);
       // `markPlayed()` before the first round (`index.html:1035`).
       expect(actions.played, 1);
       // The power is the answer, so it stays hidden until the child commits.

@@ -329,7 +329,7 @@ class _ChallengeCard extends StatelessWidget {
     // from the card that opened it.
     final String size = sizeLabel(asteroid.diaMax);
     final String journey =
-        '${distLabel(asteroid.missLunar)} · ${asteroid.velKps.round()} km/s';
+        '${distLabel(asteroid.missLunar)} · ${speedLabel(asteroid.velKps)}';
 
     return Semantics(
       button: true,

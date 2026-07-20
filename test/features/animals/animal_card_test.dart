@@ -21,8 +21,7 @@ import 'package:rockimals/features/animals/widgets/flyby_badge.dart';
 void main() {
   // 2011 EW — 302 m (Elephant), 12.4 Moons, 11.2 km/s, hazardous. A close flyby
   // (the `hazardous` flag), and its speed rounds to a whole number that differs
-  // from the raw value, so it catches a card that formats speed like the HUD's
-  // one-decimal line instead of the list's whole number.
+  // from the raw value, so it exercises the shared kid-facing speed formatter.
   final Asteroid closeRock = kFallbackAsteroids.firstWhere(
     (Asteroid a) => a.name == '2011 EW',
   );
@@ -83,7 +82,7 @@ void main() {
     final String expectedMeta =
         '${sizeLabel(closeRock.diaMax)}'
         ' · ${distLabel(closeRock.missLunar)}'
-        ' · ${closeRock.velKps.round()} km/s';
+        ' · ${speedLabel(closeRock.velKps)}';
     expect(expectedMeta, 'stadium-sized · 12× Moon · 11 km/s');
     expect(find.text(expectedMeta), findsOneWidget);
   });

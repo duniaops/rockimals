@@ -211,6 +211,14 @@ void main() {
     });
   });
 
+  group('speedLabel', () {
+    test('rounds kid-facing speeds to whole km/s consistently', () {
+      expect(speedLabel(15.9), '16 km/s');
+      expect(speedLabel(15.1), '15 km/s');
+      expect(speedLabel(14.5), '15 km/s');
+    });
+  });
+
   group('hashStr', () {
     /// Bit-exact expectations, captured by running `index.html`'s own
     /// `hashStr` (lines 430-444, sliced out and evaluated) over its own

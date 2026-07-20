@@ -87,7 +87,7 @@ void main() {
     expect(find.text('HOW CLOSE'), findsOneWidget);
     expect(find.text('POWER ⭐'), findsOneWidget);
     expect(find.text('4–9 m'), findsOneWidget); // diaMin–diaMax, decision 11
-    expect(find.text('8.1 km/s'), findsOneWidget); // toFixed(1)
+    expect(find.text('8 km/s'), findsOneWidget); // speedLabel(8.1)
     expect(find.text('7% to Moon'), findsOneWidget); // distLabel(0.07)
     expect(find.text('${powerStars(rabbit)}'), findsOneWidget);
   });
@@ -111,7 +111,7 @@ void main() {
     expect(find.text('👋 close flyby'), findsNothing);
 
     expect(find.text('95–213 m'), findsOneWidget);
-    expect(find.text('14.0 km/s'), findsOneWidget);
+    expect(find.text('14 km/s'), findsOneWidget);
     expect(find.text('40× Moon'), findsOneWidget); // distLabel(40)
   });
 
@@ -131,7 +131,7 @@ void main() {
     // How wide is a range, not a scalar — the one place `diaMin` is read
     // (decision 11). 8600–16800, not "16800 m".
     expect(find.text('8600–16800 m'), findsOneWidget);
-    expect(find.text('5.6 km/s'), findsOneWidget);
+    expect(find.text('6 km/s'), findsOneWidget);
     expect(find.text('52× Moon'), findsOneWidget);
   });
 

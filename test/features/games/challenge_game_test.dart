@@ -46,7 +46,7 @@ void main() {
     '2020 BBB',
     diaMax: 500,
     missLunar: 2,
-    velKps: 20,
+    velKps: 15.9,
   );
   final Asteroid weak = _rock(
     '2020 CCC',
@@ -92,6 +92,7 @@ void main() {
       }
       expect(find.text('Daily Challenge'), findsOneWidget);
       expect(find.text('0/4 ranked'), findsOneWidget);
+      expect(find.textContaining('2.0× Moon · 16 km/s'), findsOneWidget);
       // `markPlayed()` before the first render (`index.html:884`).
       expect(actions.played, 1);
       // Nothing to do yet but rank: no Reveal, no Start over.

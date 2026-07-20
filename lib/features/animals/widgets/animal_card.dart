@@ -69,14 +69,11 @@ class AnimalCard extends StatelessWidget {
     // `${sizeLabel(a.diaMax)} · ${distLabel(a.missLunar)} · ${a.velKps.toFixed(0)}
     // km/s` (`index.html:465`). Every field reads through the AnimalSystem's
     // single-source formatters, so a list row cannot phrase a size, distance, or
-    // speed differently from the HUD card, the detail screen, or the games. Note
-    // the speed is a whole number here (`toFixed(0)`) — the HUD's is one decimal
-    // (`index.html:722`); the two surfaces round differently on purpose, so this
-    // is `.round()`, not `toStringAsFixed(1)`.
+    // speed differently from the radar HUD, detail screen, or games.
     final String meta =
         '${sizeLabel(asteroid.diaMax)}'
         ' · ${distLabel(asteroid.missLunar)}'
-        ' · ${asteroid.velKps.round()} km/s';
+        ' · ${speedLabel(asteroid.velKps)}';
 
     return Semantics(
       button: true,

@@ -226,6 +226,12 @@ Animal animalFor(Asteroid a) => _rungFor(a.diaMax);
 /// "mountain-sized" (`index.html:416-419`).
 String sizeLabel(double m) => _rungFor(m).sizeLabel;
 
+/// How fast a child hears an asteroid travelling: a whole-number km/s value.
+///
+/// The compact, rounded form keeps the card, radar, detail screen, and games
+/// consistent while avoiding precision that is not useful in the main flow.
+String speedLabel(double kps) => '${kps.round()} km/s';
+
 /// First-fit down the ladder, exactly as `index.html:441` scans `ANIMALS`.
 ///
 /// The trailing return is the Whale rung again — unreachable for any real

@@ -1184,7 +1184,7 @@ class _SelectedAnimalCard extends ConsumerWidget {
             Text(
               '${sizeLabel(asteroid.diaMax)} · ${asteroid.diaMax.round()} m wide'
               ' · comes ${distLabel(asteroid.missLunar)}'
-              ' · zooms ${asteroid.velKps.toStringAsFixed(1)} km/s'
+              ' · zooms ${speedLabel(asteroid.velKps)}'
               ' · power ⭐ ${powerStars(asteroid)}',
               style: const TextStyle(
                 color: Palette.muted,
