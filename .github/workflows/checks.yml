@@ -1,0 +1,24 @@
+# Format, analyze, and test on every push and PR — the checks that otherwise
+# have to be run by hand on a Mac. Green here means lib/test are healthy;
+# the iOS build itself still happens locally in Xcode/Transporter.
+name: checks
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+  pull_request:
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.6
+          cache: true
+      - run: flutter pub get
+      - run: dart format --output=none --set-exit-if-changed lib test
+      - run: flutter analyze
+      - run: flutter test
