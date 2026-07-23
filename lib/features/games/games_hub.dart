@@ -29,6 +29,23 @@ import 'package:rockimals/features/settings/sound.dart';
 /// ten, which is exactly the drift a hand-maintained literal invites.
 int get gamesHubGameCount => _GameId.values.length;
 
+/// How many games the hub will actually *show*: [gamesHubGameCount], unless
+/// 🧸 Little Kids mode is narrowing the hub to its two simplest games
+/// ([_GameCard.simplest], `specs/06-title-polish-safety.md:26`).
+///
+/// Exists because a count is quoted from *outside* the hub — the radar's Play
+/// CTA — and quoting the unfiltered total there is a lie a tester actually
+/// told us about: during the 1.1.0 TestFlight round the button promised
+/// "10 games" while Little Kids mode showed two, which read as "most of the
+/// games are missing" and cost a reinstall to "fix". Any surface that quotes
+/// a count must route through here with the current Little Kids answer.
+///
+/// The `2` is not derivable in a const context from the card list, so
+/// `games_hub_test.dart` pins it to the number of cards the filtered hub
+/// really draws — it cannot silently drift from [_GameCard.simplest].
+int gamesHubVisibleGameCount({required bool simplestGamesOnly}) =>
+    simplestGamesOnly ? 2 : gamesHubGameCount;
+
 /// The Play hub — a port of the prototype's `openGames` (`index.html:1002-1021`),
 /// the screen the radar's "🎮 Play" CTA opens.
 ///
@@ -233,7 +250,7 @@ class GamesHub extends ConsumerWidget {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Text(
-                      '$gamesHubGameCount games · Scroll down to explore ↓',
+                      '${gamesHubVisibleGameCount(simplestGamesOnly: simplestOnly)} games · Scroll down to explore ↓',
                       style: const TextStyle(
                         color: Palette.muted,
                         fontSize: 13,

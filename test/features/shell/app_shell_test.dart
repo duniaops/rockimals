@@ -6,10 +6,12 @@ import 'package:rockimals/data/models/asteroid_feed.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/radar/radar_painter.dart';
 import 'package:rockimals/features/radar/radar_view.dart';
+import 'package:rockimals/features/settings/little_kids_mode.dart';
 import 'package:rockimals/features/shell/app_shell.dart';
 import 'package:rockimals/features/watchlist/watchlist_screen.dart';
 
 import '../../support/memory_store.dart';
+import '../../support/stub_settings.dart';
 
 /// The frame the whole app is seen through, so what these pin is the three
 /// things a child would notice immediately if they broke: the app opens on the
@@ -324,6 +326,9 @@ Widget _app() {
     // The override list is left to inference: Riverpod 3 does not export the
     // `Override` type, so there is no name to annotate it with.
     overrides: [
+      // 🧸 Little Kids mode, which the radar's Play CTA resolves for its
+      // game count — stubbed off like every store-backed read beside it.
+      littleKidsModeProvider.overrideWith(StubLittleKids.new),
       asteroidFeedProvider.overrideWith((Ref ref) => _sky),
       // The radar tab's home overlay reads the day streak; a value in front of
       // it keeps the shell suite off a Hive box, as the feed override keeps it

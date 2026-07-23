@@ -787,6 +787,21 @@ void main() {
       await tester.pump(const Duration(milliseconds: 350));
       expect(find.text(_hubMarker), findsOneWidget);
     });
+
+    testWidgets('counts only the games 🧸 Little Kids mode will show', (
+      tester,
+    ) async {
+      // The 1.1.0 TestFlight report: the CTA promised the unfiltered total
+      // while Little Kids mode narrowed the hub to its two simplest games, and
+      // "10 games" over a two-card hub read as a broken update. The button
+      // must promise what the hub it opens will actually draw.
+      await _mount(tester, _sky(<double>[3]), littleKidsMode: true);
+
+      final int narrowed = gamesHubVisibleGameCount(simplestGamesOnly: true);
+      expect(narrowed, 2, reason: 'the two _GameCard.simplest games');
+      expect(find.text('🎮 Play · $narrowed games'), findsOneWidget);
+      expect(find.text('🎮 Play · $gamesHubGameCount games'), findsNothing);
+    });
   });
 }
 
@@ -875,6 +890,10 @@ Future<void> _mount(
   /// The child's 🐢 Calm motion choice, or null for "never chose" — the
   /// fresh-install state every test but the Calm motion group runs on.
   bool? calmMotion,
+
+  /// 🧸 Little Kids mode, which the Play CTA's count must respect —
+  /// false is the fresh-install experience every other test runs on.
+  bool littleKidsMode = false,
 }) async {
   tester.view
     ..physicalSize = const Size(390, 700)
@@ -918,7 +937,9 @@ Future<void> _mount(
         // mode to pick its card list, so the two tests that follow that button
         // drag the setting in the same way they drag the two above. Held off,
         // so the hub shows all four cards.
-        littleKidsModeProvider.overrideWith(StubLittleKids.new),
+        littleKidsModeProvider.overrideWith(
+          () => StubLittleKids(littleKidsMode),
+        ),
       ],
       child: const MaterialApp(home: RadarView()),
     ),

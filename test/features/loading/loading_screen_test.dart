@@ -12,6 +12,7 @@ import 'package:rockimals/data/models/asteroid_feed.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/loading/loading_screen.dart';
 import 'package:rockimals/features/settings/calm_motion.dart';
+import 'package:rockimals/features/settings/little_kids_mode.dart';
 import 'package:rockimals/features/shell/app_shell.dart';
 
 import '../../support/memory_store.dart';
@@ -369,6 +370,9 @@ Widget _app(
     // The override list is left to inference: Riverpod 3 does not export the
     // `Override` type, so there is no name to annotate it with.
     overrides: [
+      // 🧸 Little Kids mode, which the radar's Play CTA resolves for its
+      // game count — stubbed off like every store-backed read beside it.
+      littleKidsModeProvider.overrideWith(StubLittleKids.new),
       asteroidFeedProvider.overrideWith((Ref ref) => feed),
       reducedMotionProvider.overrideWith(() => StubCalmMotion(calmMotion)),
       // Once the gate lands on the shell, the radar's home overlay reads the day

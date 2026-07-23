@@ -10,10 +10,12 @@ import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/games/challenge_game.dart';
 import 'package:rockimals/features/radar/radar_geometry.dart';
 import 'package:rockimals/features/radar/radar_painter.dart';
+import 'package:rockimals/features/settings/little_kids_mode.dart';
 import 'package:rockimals/features/shell/app_shell.dart';
 
 import '../support/memory_store.dart';
 import '../support/recording_sound_engine.dart';
+import '../support/stub_settings.dart';
 
 /// **Three layouts that only fit because nobody had measured them on a phone.**
 ///
@@ -295,6 +297,9 @@ Future<void> _pump(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        // 🧸 Little Kids mode, which the radar's Play CTA resolves for its
+        // game count — stubbed off like every store-backed read beside it.
+        littleKidsModeProvider.overrideWith(StubLittleKids.new),
         // Resolved, not pending: `AppShell` reads `requireValue`, so a feed
         // still loading would throw on the first build.
         asteroidFeedProvider.overrideWith(

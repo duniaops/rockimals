@@ -10,9 +10,11 @@ import 'package:rockimals/features/radar/radar_focus.dart';
 import 'package:rockimals/features/radar/radar_geometry.dart';
 import 'package:rockimals/features/radar/radar_painter.dart';
 import 'package:rockimals/features/radar/radar_view.dart';
+import 'package:rockimals/features/settings/little_kids_mode.dart';
 import 'package:rockimals/features/shell/app_shell.dart';
 
 import '../../support/memory_store.dart';
+import '../../support/stub_settings.dart';
 
 /// Show on radar (`openRadarFocus`, `index.html:657`; `specs/03-meet-animal.md:
 /// 23`) — the one action that reaches across three widgets that do not know
@@ -169,6 +171,9 @@ final AsteroidFeed _sky = AsteroidFeed(
 ProviderContainer _container() {
   final ProviderContainer container = ProviderContainer(
     overrides: [
+      // 🧸 Little Kids mode, which the radar's Play CTA resolves for its
+      // game count — stubbed off like every store-backed read beside it.
+      littleKidsModeProvider.overrideWith(StubLittleKids.new),
       asteroidFeedProvider.overrideWith((Ref ref) => _sky),
       dayStreakProvider.overrideWithValue(0),
       followsProvider.overrideWith(_NoFollows.new),

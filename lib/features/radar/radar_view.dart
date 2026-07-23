@@ -20,6 +20,7 @@ import 'package:rockimals/features/radar/radar_layers.dart';
 import 'package:rockimals/features/radar/radar_orbits.dart';
 import 'package:rockimals/features/radar/radar_painter.dart';
 import 'package:rockimals/features/settings/calm_motion.dart';
+import 'package:rockimals/features/settings/little_kids_mode.dart';
 
 /// The live approach radar — Earth, the rings around it, the Moon, and the
 /// animals orbiting on them.
@@ -706,7 +707,19 @@ class _HomeOverlay extends ConsumerWidget {
             left: _homeSideGap,
             right: _homeSideGap,
             bottom: _ctaBottomGap,
-            child: _PlayCta(onTap: onPlay),
+            // The count is the number of games the hub will *actually show*,
+            // not the unfiltered total: with 🧸 Little Kids mode narrowing the
+            // hub to its two simplest games, "Play · 10 games" over a two-card
+            // hub reads as most of the games having vanished (a real 1.1.0
+            // TestFlight report). See [gamesHubVisibleGameCount].
+            child: _PlayCta(
+              onTap: onPlay,
+              gameCount: gamesHubVisibleGameCount(
+                simplestGamesOnly: ref
+                    .watch(littleKidsExperienceProvider)
+                    .simplestGamesOnly,
+              ),
+            ),
           ),
         ],
       ),
@@ -1007,15 +1020,20 @@ class _RadarHint extends StatelessWidget {
 /// button's meaning is spoken in words — the same pattern the nav, the chips,
 /// and the zoom buttons all follow.
 class _PlayCta extends StatelessWidget {
-  const _PlayCta({required this.onTap});
+  const _PlayCta({required this.onTap, required this.gameCount});
 
   final VoidCallback onTap;
+
+  /// How many games the hub this button opens will actually show — already
+  /// filtered for 🧸 Little Kids mode by the caller (see the construction
+  /// site in [_HomeOverlay]).
+  final int gameCount;
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: 'Play, $gamesHubGameCount games',
+      label: 'Play, $gameCount games',
       child: DecoratedBox(
         decoration: BoxDecoration(
           // `linear-gradient(180deg, var(--accent2), var(--accent))`
@@ -1056,10 +1074,11 @@ class _PlayCta extends StatelessWidget {
                 padding: const EdgeInsets.all(14),
                 child: ExcludeSemantics(
                   child: Text(
-                    // The count comes from the hub's game list, not a literal —
-                    // this string once said "4 games" for a day after Games v2
-                    // made it ten. See [gamesHubGameCount].
-                    '🎮 Play · $gamesHubGameCount games',
+                    // The count comes from the hub via [gameCount], not a
+                    // literal — this string once said "4 games" for a day
+                    // after Games v2 made it ten, and then quoted the
+                    // unfiltered total over a Little-Kids-narrowed hub.
+                    '🎮 Play · $gameCount games',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       // `.btn` — `color:#1a0d05`, `font-weight:800`,

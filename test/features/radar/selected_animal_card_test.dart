@@ -10,6 +10,7 @@ import 'package:rockimals/features/radar/radar_geometry.dart';
 import 'package:rockimals/features/radar/radar_painter.dart';
 import 'package:rockimals/features/radar/radar_view.dart';
 import 'package:rockimals/features/settings/calm_motion.dart';
+import 'package:rockimals/features/settings/little_kids_mode.dart';
 
 import '../../support/stub_settings.dart';
 
@@ -294,6 +295,9 @@ Future<void> _mount(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        // 🧸 Little Kids mode, which the radar's Play CTA resolves for its
+        // game count — stubbed off like every store-backed read beside it.
+        littleKidsModeProvider.overrideWith(StubLittleKids.new),
         asteroidFeedProvider.overrideWith((Ref ref) => feed),
         dayStreakProvider.overrideWithValue(0),
         followsProvider.overrideWith(() => _MemFollows(followed)),

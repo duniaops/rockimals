@@ -48,10 +48,12 @@ import 'package:rockimals/features/games/zoo_memory_screen.dart';
 import 'package:rockimals/features/radar/radar_focus.dart';
 import 'package:rockimals/features/rewards/badge_controller.dart';
 import 'package:rockimals/features/rewards/badge_popup.dart';
+import 'package:rockimals/features/settings/little_kids_mode.dart';
 import 'package:rockimals/features/shell/app_shell.dart';
 
 import '../support/memory_store.dart';
 import '../support/recording_sound_engine.dart';
+import '../support/stub_settings.dart';
 import '../support/tap_target_audit.dart';
 
 void main() {
@@ -593,6 +595,9 @@ Future<void> _mount(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        // 🧸 Little Kids mode, which the radar's Play CTA resolves for its
+        // game count — stubbed off like every store-backed read beside it.
+        littleKidsModeProvider.overrideWith(StubLittleKids.new),
         // Resolved, not pending: `AppShell` reads `requireValue`, so a feed
         // still loading would throw on the first build.
         asteroidFeedProvider.overrideWith((Ref ref) => sky),

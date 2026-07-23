@@ -9,9 +9,11 @@ import 'package:rockimals/features/animals/widgets/animal_card.dart';
 import 'package:rockimals/features/animals/widgets/flyby_badge.dart';
 import 'package:rockimals/features/data/providers.dart';
 import 'package:rockimals/features/detail/detail_screen.dart';
+import 'package:rockimals/features/settings/little_kids_mode.dart';
 import 'package:rockimals/features/shell/app_shell.dart';
 
 import '../support/memory_store.dart';
+import '../support/stub_settings.dart';
 
 /// **Close-flyby state is never carried by colour alone** —
 /// `specs/06-title-polish-safety.md:23` ("Never rely on colour alone — pair the
@@ -137,6 +139,9 @@ Widget _wrap(Widget child) => MaterialApp(
 
 Widget _app(Widget home) => ProviderScope(
   overrides: [
+    // 🧸 Little Kids mode, which the radar's Play CTA resolves for its
+    // game count — stubbed off like every store-backed read beside it.
+    littleKidsModeProvider.overrideWith(StubLittleKids.new),
     asteroidFeedProvider.overrideWith((Ref ref) => AsteroidFeed.fallback()),
     dayStreakProvider.overrideWithValue(0),
     storeProvider.overrideWithValue(MemoryStore()),

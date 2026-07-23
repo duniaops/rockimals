@@ -26,6 +26,7 @@ import 'package:rockimals/features/title/title_screen.dart';
 
 import '../support/memory_store.dart';
 import '../support/recording_sound_engine.dart';
+import '../support/stub_settings.dart';
 import '../support/tap_target_audit.dart';
 
 /// **The app-wide tap-target audit** — `specs/06-title-polish-safety.md:21`
@@ -356,6 +357,9 @@ Future<void> _pump(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        // 🧸 Little Kids mode, which the radar's Play CTA resolves for its
+        // game count — stubbed off like every store-backed read beside it.
+        littleKidsModeProvider.overrideWith(StubLittleKids.new),
         asteroidFeedProvider.overrideWith((Ref ref) => AsteroidFeed.fallback()),
         dayStreakProvider.overrideWithValue(0),
         storeProvider.overrideWithValue(MemoryStore()),

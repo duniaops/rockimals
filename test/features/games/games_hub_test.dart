@@ -381,6 +381,29 @@ void main() {
         expect(find.text('Animal Match'), findsNothing);
       });
 
+      testWidgets('and every quoted count matches what it shows', (
+        tester,
+      ) async {
+        // [gamesHubVisibleGameCount] hard-codes the narrowed count (a const
+        // context cannot derive it from the card list), so pin it to the two
+        // cards the filtered hub really draws and to the cue a child reads
+        // above them. The radar's Play CTA quotes the same helper — this is
+        // the 1.1.0 TestFlight report where "10 games" over a two-card hub
+        // read as a broken update.
+        await pumpHub(tester, littleKidsMode: true);
+
+        expect(
+          gamesHubVisibleGameCount(simplestGamesOnly: true),
+          2,
+          reason: 'must equal the number of _GameCard.simplest games',
+        );
+        expect(find.text('2 games · Scroll down to explore ↓'), findsOneWidget);
+        expect(
+          find.text('$gamesHubGameCount games · Scroll down to explore ↓'),
+          findsNothing,
+        );
+      });
+
       testWidgets('drops the featured card without breaking the screen', (
         tester,
       ) async {

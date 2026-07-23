@@ -14,6 +14,7 @@ import 'package:rockimals/features/shell/app_shell.dart';
 
 import '../support/memory_store.dart';
 import '../support/recording_sound_engine.dart';
+import '../support/stub_settings.dart';
 
 /// **The five screen-local controls that do not go through [TapTarget], and the
 /// decision about whether 🧸 Little Kids mode should grow them.**
@@ -183,6 +184,9 @@ Future<Size> _measure(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        // 🧸 Little Kids mode, which the radar's Play CTA resolves for its
+        // game count — stubbed off like every store-backed read beside it.
+        littleKidsModeProvider.overrideWith(StubLittleKids.new),
         asteroidFeedProvider.overrideWith((Ref ref) => AsteroidFeed.fallback()),
         dayStreakProvider.overrideWithValue(0),
         storeProvider.overrideWithValue(MemoryStore()),
